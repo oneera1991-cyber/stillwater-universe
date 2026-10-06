@@ -68,6 +68,12 @@ button {
   z-index: 0;
 }
 
+.sky *,
+.sky::before,
+.sky::after {
+  pointer-events: none !important;
+}
+
 .sky::before {
   content: "";
   position: absolute;
@@ -659,7 +665,8 @@ textarea::placeholder {
   }
 
   .screen {
-  position: relative;
+  position: fixed;
+  inset: 0;
   min-height: 100vh;
 
   display: flex;
@@ -668,6 +675,7 @@ textarea::placeholder {
   opacity: 0;
 
   pointer-events: none;
+  z-index: 5;
 }
 
 .screen.on {
@@ -732,7 +740,17 @@ textarea::placeholder {
   opacity: 1;
   pointer-events: auto;
   display: flex;
-  z-index: 10;
+  z-index: 30;
+}
+
+#enter,
+.send,
+.deeper {
+  position: relative;
+  z-index: 40;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 #open:not(.on) {
@@ -1348,25 +1366,30 @@ function show(id) {
 
 document
   .getElementById("enter")
-  .onclick = async () => {
+  .onclick = () => {
 
-    ensureAudio();
-
-    if (
-      audio &&
-      audio.state === "suspended"
-    ) {
-      await audio.resume();
-    }
-
-    soundOn = true;
-
-    document
-      .getElementById("sound")
-      .textContent =
-        "SOUND ON";
-
+    // เข้าหน้าถัดไปทันที อย่าให้เสียงบล็อกการกด
     show("arrive");
+
+    try {
+
+      ensureAudio();
+
+      if (
+        audio &&
+        audio.state === "suspended"
+      ) {
+        audio.resume().catch(() => {});
+      }
+
+      soundOn = true;
+
+      document
+        .getElementById("sound")
+        .textContent =
+          "SOUND ON";
+
+    } catch (e) {}
 
   };
 
