@@ -253,7 +253,7 @@ button {
 
   pointer-events: auto;
 
-  animation: fade 1.2s ease;
+  animation: screenFade 1.2s ease forwards;
 }
 
 @keyframes screenFade {
@@ -731,6 +731,27 @@ textarea::placeholder {
 }
 
   /* SAFETY: หน้าแรกต้องมองเห็นเสมอ */
+
+#open.screen.on,
+#open.screen.on .center,
+#open.screen.on .brand,
+#open.screen.on h1,
+#open.screen.on .enter {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+}
+#open .center {
+  position: relative;
+  z-index: 51;
+  width: min(680px, 100%);
+  text-align: center;
+  pointer-events: none;
+}
+#open .center .enter {
+  pointer-events: auto;
+}
+
 #open {
   position: fixed;
   inset: 0;
@@ -774,14 +795,8 @@ textarea::placeholder {
   display: none;
   pointer-events: none;
 }
-#open .center {
-  position: relative;
-  z-index: 51;
-  pointer-events: none;
-}
-#open .center .enter {
-  pointer-events: auto;
-}
+
+
 
 </style>
 
