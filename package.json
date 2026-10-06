@@ -1,1 +1,8 @@
-{"name":"stillwater-ai-prototype","version":"1.0.0","private":true,"type":"module","dependencies":{"openai":"^6.16.0"}}
+{
+"name": "stillwater-universe-ai",
+"version": "2.1.0",
+"private": true,
+"dependencies": {
+"openai": "^7.17.0"
+}
+}
