@@ -759,6 +759,22 @@ textarea::placeholder {
   pointer-events: none;
 }
   
+
+.enter-hit {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+#open:not(.on) .enter-hit {
+  display: none;
+  pointer-events: none;
+}
+
 </style>
 
 </head><body><div
@@ -796,7 +812,9 @@ SOUND OFF
   ENTER
 </button>
 
-  </div></section><!-- =========================
+  </div>
+  <button class="enter-hit" id="enter-hit" type="button" aria-label="Enter Stillwater"></button>
+</section><!-- =========================
      02 — VERA
 ========================= --><section
   class="screen"
@@ -1364,11 +1382,8 @@ function show(id) {
    ENTER
 ========================= */
 
-document
-  .getElementById("enter")
-  .onclick = () => {
+function goEnter() {
 
-    // เข้าหน้าถัดไปทันที อย่าให้เสียงบล็อกการกด
     show("arrive");
 
     try {
@@ -1391,7 +1406,23 @@ document
 
     } catch (e) {}
 
-  };
+  }
+
+document
+  .getElementById("enter")
+  .onclick = goEnter;
+
+document
+  .getElementById("enter-hit")
+  .onclick = goEnter;
+
+document
+  .getElementById("open")
+  .addEventListener("click", (e) => {
+    if (document.getElementById("open").classList.contains("on")) {
+      goEnter();
+    }
+  });
 
 
 /* =========================
