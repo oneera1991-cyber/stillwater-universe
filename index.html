@@ -417,6 +417,31 @@ body { position: relative; }
 }
 .reading-text.visible { opacity: 1; }
 
+.intention-text {
+  margin-top: 1.5rem;
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  line-height: 1.9;
+}
+
+.intention-text p {
+  margin-bottom: 0.35rem;
+}
+
+.intention-text p:first-child {
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.ritual-subtext {
+  display: inline-block;
+  margin-top: 0.8rem;
+  font-size: 0.78rem;
+  line-height: 1.9;
+  color: var(--text-soft);
+}
+  
 /* ——— Reduced motion ——— */
 @media (prefers-reduced-motion: reduce) {
   .screen { transition-duration: 0.35s; }
@@ -485,21 +510,45 @@ body { position: relative; }
     <div class="question-light" id="questionLight"></div>
   </div>
   <div class="dialogue-area">
-    <p class="vera-line" id="line1">มาถึงแล้วนะคะ</p>
-    <p class="vera-line" id="line2">ถ้าคุณมีคำถามหนึ่งข้อ ลองส่งมันมาให้พี่เวรา</p>
+    <p class="vera-line" id="line1">
+  หากคุณกำลังมีคำถามที่อยากให้จักรวาลช่วยตอบ
+    </p>
+
+<p class="vera-line" id="line2">
+  พี่เวราจะช่วยรับคำถามของคุณไว้<br>
+  แล้วขอให้พลังงานของจักรวาลนำคำตอบที่เหมาะกับคุณในเวลานี้กลับมา
+</p>
   </div>
   <form class="question-form" id="questionForm" autocomplete="off">
-    <label class="question-label" for="questionInput">คุณอยากถามอะไร?</label>
-    <textarea class="question-input" id="questionInput" name="question" rows="3"
-      placeholder="เขียนคำถามของคุณที่นี่…" maxlength="500" required></textarea>
-    <button type="submit" class="btn submit-btn">ส่งคำถาม</button>
+    <label class="question-label" for="questionInput">
+  คุณอยากถามอะไร?
+</label>
+
+<textarea class="question-input" id="questionInput" name="question" rows="3"
+  placeholder="เขียนคำถามของคุณที่นี่…" maxlength="500" required></textarea>
+
+<div class="intention-text">
+  <p>ก่อนส่งคำถาม</p>
+  <p>หลับตาสักครู่<br>
+  หายใจเข้าช้า ๆ แล้วนึกถึงสิ่งที่คุณอยากรู้</p>
+  <p>เมื่อพร้อมแล้ว<br>
+  ตั้งจิตให้ชัด แล้วฝากคำถามนี้ไว้กับ Stillwater</p>
+</div>
+
+<button type="submit" class="btn submit-btn">พร้อมรับคำตอบแล้ว</button>
   </form>
 </section>
 
 <!-- SCREEN 03: Reading -->
 <section class="screen" id="screen-reading" aria-label="การอ่านไพ่">
   <div class="reading-wrap">
-    <p class="vera-line" id="readingIntro">พี่เวราจะลองขอคำตอบจากจักรวาลให้คุณนะคะ…</p>
+    <p class="vera-line" id="readingIntro">
+  พี่เวราจะลองขอคำตอบจากจักรวาลให้คุณนะคะ…<br>
+  <span class="ritual-subtext">
+    คำถามของคุณถูกฝากไว้แล้ว<br>
+    ตอนนี้ลองปล่อยให้คำตอบเดินทางมาหาคุณ
+  </span>
+</p>
     <div class="card-shell" id="cardShell" aria-live="polite">
       <div class="card-face">
         <img class="card-image" id="cardImage" alt="" width="780" height="1170" decoding="async">
