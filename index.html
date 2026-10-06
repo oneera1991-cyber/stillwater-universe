@@ -1,11 +1,7 @@
 <!DOCTYPE html><html lang="th">
 <head>
-<meta charset="UTF-8"><meta
-name="viewport"
-content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-
-«»
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Stillwater</title><link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link
   href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500&family=Cormorant+Garamond:wght@400;500&display=swap"
@@ -736,10 +732,14 @@ textarea::placeholder {
 
   /* SAFETY: หน้าแรกต้องมองเห็นเสมอ */
 #open {
+  position: fixed;
+  inset: 0;
   visibility: visible;
   opacity: 1;
   pointer-events: auto;
   display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 30;
 }
 
@@ -761,7 +761,7 @@ textarea::placeholder {
   
 
 .enter-hit {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 50;
   background: transparent;
@@ -774,21 +774,21 @@ textarea::placeholder {
   display: none;
   pointer-events: none;
 }
+#open .center {
+  position: relative;
+  z-index: 51;
+  pointer-events: none;
+}
+#open .center .enter {
+  pointer-events: auto;
+}
 
 </style>
 
 </head><body><div
   class="sky"
   id="sky"
-></div><div class="waterline"></div><button
-class="sound"
-id="sound"
-type="button"
-
-«»
-
-SOUND OFF
-</button>
+></div><div class="waterline"></div><button class="sound" id="sound" type="button">SOUND OFF</button>
 
 <!-- =========================
      01 — ENTER
