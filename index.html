@@ -64,7 +64,17 @@ button {
     );
 
   overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
 }
+
+/* Interactive layers above decorative sky */
+.screen,
+.sound {
+  position: relative;
+  z-index: 2;
+}
+
 
 .sky::before {
   content: "";
