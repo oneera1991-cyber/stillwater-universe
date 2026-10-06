@@ -223,30 +223,33 @@ button {
 ========================= */
 
 .screen {
-
   position: fixed;
-
   inset: 0;
 
-  display: none;
+  display: flex;
 
   align-items: center;
   justify-content: center;
 
-  padding:
-    8vh 7vw;
+  padding: 8vh 7vw;
+
+  visibility: hidden;
+  opacity: 0;
+
+  pointer-events: none;
 
   z-index: 5;
-
 }
 
 .screen.on {
-
   display: flex;
 
-  animation:
-    screenFade 1.2s ease;
+  visibility: visible;
+  opacity: 1;
 
+  pointer-events: auto;
+
+  animation: fade 1.2s ease;
 }
 
 @keyframes screenFade {
@@ -654,19 +657,25 @@ textarea::placeholder {
   }
 
   .screen {
+  position: relative;
+  min-height: 100vh;
 
-    position: relative;
+  display: flex;
 
-    min-height: 100vh;
+  visibility: hidden;
+  opacity: 0;
 
-    padding:
-      80px 22px;
+  pointer-events: none;
+}
 
-  }
+.screen.on {
+  display: flex;
 
-  .screen.on {
-    display: flex;
-  }
+  visibility: visible;
+  opacity: 1;
+
+  pointer-events: auto;
+}
 
   .world,
   .reading {
@@ -715,7 +724,24 @@ textarea::placeholder {
 
 }
 
-</style></head><body><div
+  /* SAFETY: หน้าแรกต้องมองเห็นเสมอ */
+#open {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  display: flex;
+  z-index: 10;
+}
+
+#open:not(.on) {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+  
+</style>
+
+</head><body><div
   class="sky"
   id="sky"
 ></div><div class="waterline"></div><button
