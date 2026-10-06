@@ -1434,57 +1434,84 @@ document
    REVEAL
 ========================= */
 
-function reveal(question) {
+async function reveal(question) {
 
   /*
-    ตอนนี้ยังเป็น Ceremony test
-    จึงสุ่มจาก Major Arcana 22 ใบ
-
-    AI จะถูกเชื่อมเข้าตรงนี้ภายหลัง
-    โดยไม่เปลี่ยน Ceremony
+    Ceremony flow เดิม
+    ผูก AI ผ่าน /api/read โดยไม่เปลี่ยนหน้าจอ
   */
-
-  const card =
-    CARDS[
-      Math.floor(
-        Math.random() *
-        CARDS.length
-      )
-    ];
 
   const image =
     document.getElementById("card");
 
+  const nameEl =
+    document.getElementById("card-name");
+
+  const readingEl =
+    document.getElementById("reading");
+
+  const riteLine =
+    document.getElementById("rite-line");
+
   image.classList.remove("show");
 
-  image.src =
-    CARD_BASE + card.file;
+  try {
 
-  image.alt =
-    card.name;
+    const response =
+      await fetch("/api/read", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          question
+        })
+      });
 
-  document
-    .getElementById("card-name")
-    .textContent =
-      card.name;
+    const data =
+      await response.json();
 
-  document
-    .getElementById("reading")
-    .textContent =
-      card.text;
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+        "เกิดข้อผิดพลาดในการอ่านไพ่"
+      );
+    }
 
-  show("reveal");
+    image.src =
+      data.card.image;
 
-  setTimeout(
-    () => {
+    image.alt =
+      data.card.name;
 
-      image.classList.add("show");
+    nameEl.textContent =
+      data.card.name;
 
-      bell();
+    readingEl.textContent =
+      data.reading;
 
-    },
-    250
-  );
+    show("reveal");
+
+    setTimeout(
+      () => {
+
+        image.classList.add("show");
+
+        bell();
+
+      },
+      250
+    );
+
+  } catch (error) {
+
+    if (riteLine) {
+      riteLine.innerHTML =
+        "ขออภัยนะคะ ตอนนี้ยังขอคำตอบจากจักรวาลไม่ได้<br>" +
+        (error.message || "");
+    }
+
+  }
 
 }
 
