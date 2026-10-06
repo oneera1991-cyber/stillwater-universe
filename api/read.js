@@ -381,12 +381,16 @@ ${card.meaning}
   
   */
   
+  // Flatten usage fields for existing index.html display
   return res.status(200).json({
   success: true,
   
   question: question.trim(),
 
-analysis,
+analysis: {
+  ...analysis,
+  emotional_intensity: analysis.emotional_intensity || analysis.emotional_state || ""
+},
 
 card: {
   id: card.id,
@@ -409,7 +413,12 @@ usage: {
   },
   total_input_tokens: totalInput,
   total_output_tokens: totalOutput,
-  total_tokens: totalInput + totalOutput
+  total_tokens: totalInput + totalOutput,
+  analysis_input_tokens: analysisInput,
+  analysis_output_tokens: analysisOutput,
+  reading_input_tokens: readingInput,
+  reading_output_tokens: readingOutput,
+  estimated_usd: Number(estimatedCost.toFixed(6))
 },
 
 estimated_cost_usd: Number(
