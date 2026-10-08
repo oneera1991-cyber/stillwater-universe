@@ -2792,8 +2792,9 @@ async function createPayment(){
 
       clearInterval(timer);
 
-      status.textContent =
-        'จ่าย 59 บาทแล้ว ไพ่เพิ่มพร้อมเปิด';
+      clearInterval(timer);
+      status.textContent = 'จ่ายแล้ว กำลังกลับเข้าพิธี';
+      await revealDeeper(data.chargeId);
 
     }, 3000);
 
@@ -2813,6 +2814,42 @@ async function createPayment(){
 
 }
 
+
+
+async function revealDeeper(chargeId){
+  showScreen('reading');
+  $('invitation').classList.remove('visible');
+  $('readingIntro').textContent = 'พี่เวรากำลังเปิดอีกสามใบให้คุณนะคะ';
+  $('readingText').textContent = '';
+  const response = await fetch('/api/deeper', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({
+      chargeId,
+      question: currentQuestion,
+      firstCardId: firstCard && firstCard.id
+    })
+  });
+  const data = await response.json().catch(()=>({}));
+  if(!response.ok){
+    $('readingText').textContent = data.error || 'ยังเปิดสามใบไม่ได้';
+    $('readingText').classList.add('visible');
+    return;
+  }
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'width:100%;display:grid;gap:18px;margin-top:12px';
+  for (const card of data.cards){
+    revealSound();
+    const article = document.createElement('article');
+    article.style.textAlign = 'center';
+    article.innerHTML = `<div>${card.position}</div><img src="${card.image}" alt="${card.name}" style="width:min(180px,46vw);border-radius:10px"><h2>${card.name}</h2>`;
+    wrap.appendChild(article);
+    await wait(900);
+  }
+  $('readingText').before(wrap);
+  $('readingText').textContent = data.reading + '\n\nขอบคุณจักรวาลที่ช่วยให้คำตอบ...';
+  $('readingText').classList.add('visible');
+}
 
 /* =========================
    EVENTS
