@@ -381,6 +381,49 @@ for (const r of [stub3, stub3en]) for (const c of r.cards) {
 assert.ok(/ไม่ใช่สิ่งที่ตายตัว/.test(stub3.cards[2].text) && /not something fixed/.test(stub3en.cards[2].text), "future = tendency");
 ok("scene 6 story: spoken headings th/en, next-card button copy, no position labels, stiff label lines dropped");
 
+/* vera.js d91dfe1: story-style fallback (no position label) + internal position_label_flags never reach the page */
+{
+  const realClient = { responses: { create: async () => ({ status: "completed", output_text: "not json", usage: { input_tokens: 1, output_tokens: 1 } }) } };
+  vera.setClientForTesting(realClient);
+  const warn0 = console.warn; console.warn = () => {};
+  globalThis.__fallbackFirst = {};
+  for (const lang of ["th", "en"]) {
+    const fb = await vera.generateThree({ question: "q job", card1: { id: 0, text: "t" }, openThread: "o", cards3: [1, 2, 3], lang });
+    assert.equal(fb.fallback, true);
+    const first = fb.cards[0].text.split("\n")[0];
+    globalThis.__fallbackFirst[lang] = first;
+    for (const c of fb.cards) {
+      assert.ok(!/^\s*(อดีต|ปัจจุบัน|แนวโน้มข้างหน้า|อนาคต|Past|Present|Future|Ahead)\s*[:—–-]/i.test(c.text), "fallback opens without a position label: " + c.text.slice(0, 40));
+      assert.deepEqual((await import("../lib/story.js")).storyLines(c), c.text.split("\n").map((x) => x.trim()).filter(Boolean), "page shows fallback text unchanged");
+    }
+    assert.match(fb.cards[0].text, lang === "en" ? /^It began with / : /^จุดเริ่มต้นอยู่ที่ไพ่ /);
+  }
+  // model text that opens with a label → flagged internally, stripped on the page, never in the API response or the Sheet row
+  vera.setClientForTesting({ responses: { create: async ({ input }) => {
+    const files = [...input.matchAll(/"file":"([a-z]+\.jpg)"/g)].map((m) => m[1]);
+    return { status: "completed", usage: { input_tokens: 1, output_tokens: 1 }, output_text: JSON.stringify({ safety: false, cards: files.map((f, i) => ({ file: f, text: ["Past: it began quietly.", "Right now it is moving.", "It may lean toward rest."][i] })), final: "f", closing: "c" }) };
+  } } });
+  const flagged = await vera.generateThree({ question: "q job", card1: { id: 0, text: "t" }, openThread: "o", cards3: [1, 2, 3], lang: "en" });
+  assert.deepEqual(flagged.position_label_flags, [{ index: 0, label: "Past:" }]);
+  assert.deepEqual((await import("../lib/story.js")).storyLines(flagged.cards[0], 0), ["it began quietly."], "page strips the label");
+  console.warn = warn0;
+  process.env.VERA_READER = "real";
+  const rr0 = fakeRes(); await (await import("../api/read.js")).default(req({ question: "Will my new job go well?", lang: "en" }), rr0);
+  // (read uses the same fake client for Call A → falls back; fine for this check)
+  const o0 = verifyOrder(rr0.body.order);
+  const pd0 = signPaid({ orderId: o0.orderId, method: "promptpay-slip", ref: "PLF", amount: 5900, currency: "THB" });
+  const evs = []; log.setSink({ name: "mem", write: (row) => { evs.push(row); } });
+  const dr0 = fakeRes(); await (await import("../api/deeper.js")).default(req({ order: rr0.body.order, paid: pd0 }), dr0);
+  await new Promise((r) => setTimeout(r, 20));
+  log.setSink(null);
+  assert.equal(dr0.statusCode, 200);
+  assert.ok(!JSON.stringify(dr0.body).includes("position_label_flags") && !JSON.stringify(dr0.body).includes("guarantee_flags"), "internal flags never sent to the page");
+  const rf0 = evs.find((e) => e.event === "read_full");
+  assert.ok(rf0 && !("position_label_flags" in rf0) && !log.COLUMNS.includes("position_label_flags"), "no sheet column / row field");
+  process.env.VERA_READER = "stub";
+  vera.setClientForTesting(null);
+  ok("vera.js d91dfe1: fallback opens story-style (th+en), position_label_flags internal only (not in API response or Sheet row)");
+}
 /* ---------------- legal pages content ---------------- */
 const legalBuild = await import("../scripts/build-legal.mjs");
 const { readFileSync: rfs } = await import("node:fs");

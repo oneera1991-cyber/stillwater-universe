@@ -2,7 +2,7 @@
 READER SELECTION — the ONLY place the routes get Vera from.
 
   real  = api/_lib/vera.js       (Stillwater, copied verbatim from
-          /workspace/stillwater/ai-publish branch vera-3card @ ce4add1,
+          /workspace/stillwater/ai-publish branch vera-3card @ d91dfe1,
           with card-meanings.json + card-meanings.en.json)
   stub  = api/_lib/vera.stub.js  (same interface, no AI)
 

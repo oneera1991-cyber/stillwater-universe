@@ -12,7 +12,8 @@ module never auto-detects language from the question; the page decides.
 
 This module owns: prompts (th + en), card loading, secure drawing, OpenAI
 calls, JSON extraction + validation (retry once, then safe fallback),
-self-harm pre-check, and token/cost accounting.
+self-harm pre-check, guarantee-word post-check (log only), and token/cost
+accounting.
 
 Two layers:
   - PURE GENERATORS (no drawing): generateFree(), generateThree().
@@ -250,6 +251,72 @@ export function safetyMessage(lang) {
 
 /*
 ----------------------------------------
+GUARANTEE-WORD POST-CHECK (log only, never rewrites)
+----------------------------------------
+Palm 2026-10-09: readings must not guarantee outcomes or claim a real line to
+the universe. The prompts forbid it; this flags model output that slips
+through so it can be reviewed in logs. Thai and English patterns are both
+checked whatever `lang` is. Negated forms ("ไม่แน่นอน", "not guaranteed",
+"no guarantees") are not flagged.
+*/
+const GUARANTEE_PATTERNS = [
+  /(?<!ไม่)แน่นอน/,
+  /จะเกิดขึ้นแน่/,
+  /(?<!ไม่)รับรองว่า/,
+  /(?<!ไม่)การันตี/,
+  /ฟันธงว่า/,
+  /100\s*%/,
+  /(?<!not |no |without |never )\bguarantee(?:d|s)?\b/i,
+  /\bwill definitely\b/i,
+  /\bdefinitely will\b/i,
+  /\bfor sure\b/i,
+  /\b(?:is|are|am|were|was) destined to\b/i,
+  /\bwithout a doubt\b/i,
+  /\bthe universe (?:is telling|tells|has told) you\b/i
+];
+
+/** Returns the guarantee phrases found in the given texts ([] if none). */
+export function findGuaranteeWords(...texts) {
+  const joined = texts.flat().filter(Boolean).join("\n");
+  const hits = [];
+  for (const re of GUARANTEE_PATTERNS) {
+    const m = joined.match(re);
+    if (m) hits.push(m[0]);
+  }
+  return hits;
+}
+
+function logGuarantee(where, lang, hits) {
+  if (hits.length) console.warn(`vera guarantee-word flag (${where}, ${lang}):`, JSON.stringify(hits));
+}
+
+/*
+----------------------------------------
+LEADING POSITION-LABEL POST-CHECK (log only, never rewrites)
+----------------------------------------
+The page shows each paid card alone under a spoken heading and no position
+labels, so card text must not open with one ("อดีต:", "ในอดีต", "Past:",
+"In the past", "Ahead -" ...). Flags model output for log review only.
+*/
+const LEADING_POSITION_LABEL =
+  /^\s*(?:(?:อดีต|ปัจจุบัน|อนาคต|แนวโน้มข้างหน้า|แนวโน้ม|past|present|future|ahead)\s*[:：\-–—]|ในอดีต|ในปัจจุบัน|ในอนาคต|in the (?:past|present|future)\b)/i;
+
+/** Returns [{ index, label }] for card texts that open with a position label ([] if none). */
+export function findLeadingPositionLabels(texts) {
+  const hits = [];
+  (texts || []).forEach((t, index) => {
+    const m = String(t || "").match(LEADING_POSITION_LABEL);
+    if (m) hits.push({ index, label: m[0].trim() });
+  });
+  return hits;
+}
+
+function logPositionLabels(where, lang, hits) {
+  if (hits.length) console.warn(`vera position-label flag (${where}, ${lang}):`, JSON.stringify(hits));
+}
+
+/*
+----------------------------------------
 OPEN READING DETECTION (kept from the old 1-card api/read.js)
 ----------------------------------------
 Open questions ("อะไรก็ได้ที่ไพ่อยากบอก" / "anything the cards want to tell me")
@@ -297,6 +364,8 @@ export const SHARED_SYSTEM_PROMPT = `คุณคือ "พี่เวรา" 
 - ไพ่คือตัวเอก: ทุกย่อหน้าบอกว่าไพ่ใบนี้พูดอะไรกับ "คำถามนี้" ใช้รายละเอียดจริงจากคำถามและบริบทอย่างน้อยหนึ่งจุด
 - พูดภาษาไทยแบบคนจริง สงบ อบอุ่น ตรงไปตรงมา ลงท้าย "ค่ะ/นะคะ" พอดี ๆ ไม่ทุกประโยค ประโยคสั้น-ยาวสลับกัน ไม่เปิดด้วย "พี่เวรารู้สึก" ทุกครั้ง
 - ไม่การันตีอนาคต ไม่ฟันธงเจตนาหรือความรู้สึกของคนอื่นเป็นความจริง ("เขาจะกลับมาแน่นอน", "เขายังรักคุณ" ห้าม) ใช้ "ไพ่ชี้ว่า / พลังตอนนี้เอียงไปทาง"
+- พูดในแง่แนวโน้ม พลังงาน และความเป็นไปได้ ห้ามบอกว่าสิ่งใดจะเกิดขึ้นอย่างแน่ชัด (ห้ามใช้ "แน่นอน", "จะเกิดขึ้นแน่", "รับรองว่า", "100%" หรือคำทำนองนี้) ห้ามอ้างว่าได้รับสารจากจักรวาลหรือวิญญาณจริง ๆ ห้ามอ้างว่ารู้อนาคตหรือใจคนอื่นได้แน่ชัด ห้ามระบุวันหรือช่วงเวลา การตัดสินใจยังเป็นของลูกค้าเสมอ
+- น้ำเสียงยังอบอุ่นและตรงไปตรงมาเหมือนเดิม ไม่ต้องออกตัวหรือพูดเลี่ยงทุกประโยค ไม่ใช้ภาษาแบบกฎหมาย คำแสดงความเป็นไปได้เบา ๆ หนึ่งจุดก็พอ ห้ามใส่คำเตือนหรือข้อความปฏิเสธความรับผิดชอบซ้อน ๆ ในคำอ่าน และห้ามใส่ข้อความ disclaimer ลงในคำอ่าน (หน้าเว็บดูแลส่วนนั้นเอง)
 - ไม่ให้คำแนะนำแพทย์ กฎหมาย การเงินแบบเจาะจง Death ห้ามตีความว่าตายจริง
 - ถ้าคำถามหรือบริบทเกี่ยวกับการทำร้ายตัวเองหรืออันตราย: ไม่อ่านไพ่ ตอบอ่อนโยนสั้น ๆ แนะนำให้คุยกับคนที่ไว้ใจ หรือโทรสายด่วนสุขภาพจิต 1323 และตั้ง safety=true
 - ห้ามสไตล์บอท: ไม่มีหัวข้อ ไม่มี bullet ไม่มีอีโมจิ ห้ามใช้ "อย่างไรก็ตาม", "สิ่งสำคัญคือ", "ท้ายที่สุดแล้ว", "จำไว้ว่า", "การเดินทางของคุณ", "ทุกอย่างเกิดขึ้นด้วยเหตุผล", "เชื่อมั่นในตัวเอง" ไม่สรุปซ้ำ ไม่ให้คำแนะนำยาวแบบโค้ช
@@ -313,14 +382,21 @@ export const CALL_A_INSTRUCTIONS = `[CALL_A] งานนี้: เปิดไ
 Output JSON (ตอบเฉพาะ JSON นี้ ไม่มีข้อความอื่น):
 { "needs_rewrite": false, "safety": false, "card": { "file": "<drawn file>", "text": "..." }, "open_thread": "<one short internal line: the unanswered layer, passed to Call B; not shown to the customer>" }`;
 
-export const CALL_B_INSTRUCTIONS = `[CALL_B] งานนี้: เปิดไพ่เพิ่ม 3 ใบ (อดีต / ปัจจุบัน / แนวโน้มข้างหน้า) ต่อจากใบฟรี
-- เล่าเป็นเรื่องเดียวที่ต่อจากคำอ่านใบฟรี ตอบ open_thread ให้ได้จริง ห้ามพูดซ้ำสิ่งที่ใบฟรีพูดไปแล้ว
-- อดีต (~60–90 คำ): รากของสถานการณ์ที่ทำให้คำถามนี้เกิดขึ้น
-- ปัจจุบัน (~60–90 คำ): สิ่งที่เกิดขึ้นจริงตอนนี้ รวมมุมที่ลูกค้าอาจมองข้าม
-- แนวโน้มข้างหน้า (~60–90 คำ): ทิศที่พลังกำลังพาไปถ้ายังเป็นแบบนี้ ไม่ฟันธง และไม่ใช่วันเวลา
+export const CALL_B_INSTRUCTIONS = `[CALL_B] งานนี้: เปิดไพ่เพิ่ม 3 ใบต่อจากใบฟรี (ลำดับในระบบ: อดีต / ปัจจุบัน / แนวโน้มข้างหน้า)
+- หน้าเว็บเผยไพ่ทีละใบ แต่ละใบโผล่มาเดี่ยว ๆ ใต้ประโยคนำที่พี่เวราพูด มีปุ่ม "ใบต่อไป" คั่นระหว่างใบ และหน้าเว็บไม่แสดงคำว่าอดีต/ปัจจุบัน/อนาคต ประโยคนำคือ
+  ใบ 1: "เรื่องนี้เริ่มต้นจากอะไร"
+  ใบ 2: "แล้วตอนนี้ อะไรกำลังเกิดขึ้น"
+  ใบ 3: "ถ้าเรื่องนี้เดินต่อไป..."
+- text ของแต่ละใบคือสิ่งที่พี่เวราพูดต่อจากประโยคนำนั้นทันที ห้ามบอกหรือพูดซ้ำตำแหน่ง (ห้าม "อดีต:", "ในอดีต", "ปัจจุบัน:", "ในปัจจุบัน", "อนาคต:", "แนวโน้มข้างหน้า:" หรือคำทำนองนี้) ให้เปิดด้วยชื่อไพ่ที่ร้อยอยู่ในประโยคซึ่งรับต่อจากประโยคนำได้ลื่น ๆ
+- เล่าเหมือนนั่งเล่าเรื่องให้คนตรงหน้าฟัง ไม่ใช่รายงาน ใบ 2 รับต่อจากใบ 1 และใบ 3 รับต่อจากใบ 2 เป็นเรื่องเดียวที่เดินไปข้างหน้า
+- เรื่องนี้ต่อจากคำอ่านใบฟรี ตอบ open_thread ให้ได้จริง ห้ามพูดซ้ำสิ่งที่ใบฟรีพูดไปแล้ว
+- ใบ 1 (~60–90 คำ): รากของสถานการณ์ที่ทำให้คำถามนี้เกิดขึ้น
+- ใบ 2 (~60–90 คำ): สิ่งที่เกิดขึ้นจริงตอนนี้ รวมมุมที่ลูกค้าอาจมองข้าม
+- ใบ 3 (~60–90 คำ): พูดเป็นแนวโน้มเท่านั้น ว่าพลังมีแนวโน้มจะเอียงไปทางไหนถ้ายังเป็นแบบนี้ เป็นความเป็นไปได้ ไม่ใช่สิ่งที่แน่ชัด ไม่ฟันธง และไม่ระบุวันหรือช่วงเวลา
 - final (2–3 ประโยค): ผูก 3 ใบเป็นคำตอบเดียวต่อคำถาม พร้อมหนึ่งสิ่งที่ทำได้จริง
 - closing (1 ประโยค): ปิดเบา ๆ จากพี่เวรา ไม่ขายอะไรต่อ
 - cards ต้องเรียงตามลำดับที่ให้มา และ file ต้องตรงกับที่ระบบสุ่มให้ทุกใบ
+- ฟิลด์ position ใน JSON ใส่ตามเดิม (ใช้ภายในระบบ ไม่แสดงบนหน้าเว็บ) แต่ห้ามใส่คำบอกตำแหน่งลงใน text
 Output JSON (ตอบเฉพาะ JSON นี้ ไม่มีข้อความอื่น):
 { "safety": false, "cards": [ {"position":"อดีต","file":"...","text":"..."}, {"position":"ปัจจุบัน","file":"...","text":"..."}, {"position":"แนวโน้มข้างหน้า","file":"...","text":"..."} ], "final": "...", "closing": "..." }`;
 
@@ -337,6 +413,8 @@ export const SHARED_SYSTEM_PROMPT_EN = `You are "Vera", the tarot reader of Stil
 - Write the way a real person talks: calm, warm and direct, like a thoughtful older sister who reads cards. Mix short and longer sentences. Plain words, no mystical filler. Don't open with "I sense" or "I feel" every time.
 - Write in English, even if the question contains words in another language.
 - Never guarantee the future. Never state another person's intentions or feelings as fact ("he will definitely come back", "she still loves you" are not allowed). Use "the card points to", "the energy right now leans toward".
+- Speak in terms of tendency, energy and possibility. Never say something will definitely happen (no "guaranteed", "will definitely", "for sure", "100%", "is destined to", or anything like them). Never claim to truly receive messages from the universe or from spirits, and never claim certainty about the future or about what is in someone else's mind. No dates or timeframes. The customer's choices stay theirs.
+- Keep the voice warm and direct. Don't hedge every sentence and don't sound legalistic: one light phrase of possibility is enough. Don't stack disclaimers inside the reading, and never put disclaimer text in the reading (the page handles that).
 - No specific medical, legal or financial advice. Death never means literal death.
 - If the question or context involves self-harm or danger: do not read the cards; reply briefly and gently, suggest talking to someone they trust or calling the Thailand mental health hotline 1323, and set safety=true.
 - No bot style: no headings, no bullets, no emoji. Never use "However,", "It's important to", "Ultimately", "Remember that", "your journey", "everything happens for a reason", "trust yourself", "trust the process", "the universe has a plan", "In conclusion", "embrace". Don't recap what you already said. No long coach-style advice.
@@ -353,14 +431,21 @@ export const CALL_A_INSTRUCTIONS_EN = `[CALL_A] Task: free reading, 1 card
 Output JSON (reply with only this JSON, nothing else):
 { "needs_rewrite": false, "safety": false, "card": { "file": "<drawn file>", "text": "..." }, "open_thread": "<one short internal line: the unanswered layer, passed to Call B; not shown to the customer>" }`;
 
-export const CALL_B_INSTRUCTIONS_EN = `[CALL_B] Task: open 3 more cards (Past / Present / Future), continuing from the free card
-- Tell one continuous story that follows on from the free reading. Actually answer the open_thread. Don't repeat what the free card already said.
-- Past (~50–80 words): the root of the situation that led to this question.
-- Present (~50–80 words): what is really happening now, including an angle the customer may be overlooking.
-- Future (~50–80 words): where the energy is heading if things stay as they are. Not a certainty, and no dates or timeframes.
+export const CALL_B_INSTRUCTIONS_EN = `[CALL_B] Task: open 3 more cards, continuing from the free card (system order: Past / Present / Future)
+- The page reveals the cards one at a time. Each card appears alone under a heading that Vera speaks, with a "next card" button in between, and the page shows no Past/Present/Future labels. The headings are:
+  Card 1: "Where did this begin?"
+  Card 2: "And now, what is happening?"
+  Card 3: "If this keeps unfolding..."
+- Each card's text is what Vera says right after its heading. Never state or restate the position (no "Past:", "In the past", "Present:", "In the present", "Future:", "Ahead:", or anything like them). Open with the card's name woven into a sentence that flows on from the heading.
+- Tell it like a storyteller sitting with someone, not a report. Card 2 picks up where card 1 left off, and card 3 picks up from card 2, as one story moving forward.
+- The story follows on from the free reading. Actually answer the open_thread. Don't repeat what the free card already said.
+- Card 1 (~50–80 words): the root of the situation that led to this question.
+- Card 2 (~50–80 words): what is really happening now, including an angle the customer may be overlooking.
+- Card 3 (~50–80 words): speak only of a tendency: where the energy tends to lean if things stay as they are. A possibility, never a certainty, and no dates or timeframes.
 - final (2–3 sentences): tie the 3 cards into one answer to the question, plus one thing they can actually do.
 - closing (1 sentence): a light close from Vera. Don't sell anything.
 - cards must stay in the order given, and every file must match the card the system drew.
+- Keep the position field in the JSON as shown (used internally, not shown on the page), but never put a position label in the text.
 Output JSON (reply with only this JSON, nothing else):
 { "safety": false, "cards": [ {"position":"Past","file":"...","text":"..."}, {"position":"Present","file":"...","text":"..."}, {"position":"Future","file":"...","text":"..."} ], "final": "...", "closing": "..." }`;
 
@@ -409,9 +494,14 @@ const STR = {
       `สิ่งที่ใบนี้ฝากไว้คือ ${forCustomer(c.advice)}`,
       "ส่วนรากของเรื่องและทิศที่กำลังไป ไพ่ใบเดียวยังเปิดไม่หมดนะคะ"
     ].join("\n"),
-    fallbackIntro: ["สิ่งที่พามาถึงจุดนี้", "สิ่งที่อยู่ตรงหน้าตอนนี้", "ทิศที่พลังกำลังพาไป"],
-    fallbackCard: (pos, c, intro) =>
-      `${pos}คือ ${c.name} ${intro}ค่ะ แก่นของใบนี้คือ${forCustomer(c.core)} สิ่งที่ควรระวังคือ${forCustomer(c.caution)}`,
+    // Story-style openings, no position label: each flows on from the heading
+    // the page shows above the card ("เรื่องนี้เริ่มต้นจากอะไร" / "แล้วตอนนี้
+    // อะไรกำลังเกิดขึ้น" / "ถ้าเรื่องนี้เดินต่อไป..."). Card 3 is a tendency only.
+    fallbackCard: (i, c) => [
+      `จุดเริ่มต้นอยู่ที่ไพ่ ${c.name} ค่ะ ใบนี้พูดถึง${forCustomer(c.core)} นั่นคือพื้นที่ที่คำถามของคุณงอกขึ้นมา และสิ่งที่ต้องระวังมาตั้งแต่ตอนนั้นคือ${forCustomer(c.caution)}`,
+      `จากตรงนั้น เรื่องก็เดินมาถึงไพ่ ${c.name} ค่ะ สิ่งที่กำลังเกิดขึ้นตอนนี้คือ${forCustomer(c.core)} สิ่งที่ควรระวังคือ${forCustomer(c.caution)}`,
+      `เรื่องมีแนวโน้มจะเอียงเข้าหาไพ่ ${c.name} ค่ะ ใบนี้พูดถึง${forCustomer(c.core)} เป็นทิศที่พลังกำลังเอียงไป ไม่ใช่ตอนจบที่ตายตัว สิ่งที่ควรระวังคือ${forCustomer(c.caution)}`
+    ][i],
     fallbackFinal: (c3) => `สามใบนี้เล่าเรื่องเดียวกันกับคำถามของคุณ สิ่งที่ทำได้จริงตอนนี้คือ ${forCustomer(c3.advice)}`,
     fallbackClosing: "พี่เวราอยู่ตรงนี้เสมอนะคะ"
   },
@@ -454,9 +544,14 @@ const STR = {
       `What it asks of you: ${forCustomer(c.advice)}.`,
       "What this grew out of, and where it's heading, one card can't fully open yet."
     ].join("\n"),
-    fallbackIntro: ["what brought you here", "what is in front of you now", "where the energy is heading"],
-    fallbackCard: (pos, c, intro) =>
-      `${pos}: ${c.name}, ${intro}. At its heart this card is about ${forCustomer(c.core)}. What to watch for: ${forCustomer(c.caution)}.`,
+    // Story-style openings, no position label: each flows on from the heading
+    // the page shows above the card ("Where did this begin?" / "And now, what is
+    // happening?" / "If this keeps unfolding..."). Card 3 is a tendency only.
+    fallbackCard: (i, c) => [
+      `It began with ${c.name}. This card speaks of ${forCustomer(c.core)}. That is the ground your question grew out of, and the trap it carried from the start was this: ${forCustomer(c.caution)}.`,
+      `From there, the story has come to ${c.name}. Right now, this card speaks of ${forCustomer(c.core)}. What to watch for: ${forCustomer(c.caution)}.`,
+      `The story tends to lean toward ${c.name}. This card speaks of ${forCustomer(c.core)}. It is a direction the energy is leaning toward, not a fixed ending. What to watch for: ${forCustomer(c.caution)}.`
+    ][i],
     fallbackFinal: (c3) => `These three cards tell one story about your question. One thing you can actually do now: ${forCustomer(c3.advice)}.`,
     fallbackClosing: "I'm always right here."
   }
@@ -614,7 +709,8 @@ Returns:
   card: { id, name, file, image, text } | null,
   message,            // customer-facing text when card is null (safety / rewrite)
   open_thread,        // INTERNAL ONLY — store server-side for Call B, never send to client
-  fallback, attempts, retry_log, usage }
+  fallback, attempts, retry_log, usage,
+  guarantee_flags }   // INTERNAL, model readings only: guarantee phrases found (log only, text unchanged)
 */
 export async function generateFree({ question, context, card, lang } = {}) {
   const L = normalizeLang(lang);
@@ -687,8 +783,10 @@ export async function generateFree({ question, context, card, lang } = {}) {
   }
 
   if (data) {
+    const guarantee_flags = findGuaranteeWords(data.card.text);
+    logGuarantee("free", L, guarantee_flags);
     return {
-      ...base, needs_rewrite: false, safety: false,
+      ...base, needs_rewrite: false, safety: false, guarantee_flags,
       card: { ...publicCard(entry), text: data.card.text.trim() },
       message: null,
       open_thread: nonEmpty(data.open_thread) ? data.open_thread.trim() : t.defaultOpenThread,
@@ -724,7 +822,9 @@ generateThree({ question, context, card1: { id, name, text }, openThread, cards3
 Returns:
 { ok, lang, safety, safety_source?,
   cards: [{ position, position_key, id, name, file, image, text } x3],
-  final, closing, message, fallback, attempts, retry_log, usage }
+  final, closing, message, fallback, attempts, retry_log, usage,
+  guarantee_flags,      // INTERNAL, model readings only: guarantee phrases found (log only, text unchanged)
+  position_label_flags } // INTERNAL, model readings only: cards whose text opens with a position label (log only)
 */
 export function validateCards3(cards3, card1Id) {
   if (!Array.isArray(cards3) || cards3.length !== 3) {
@@ -821,8 +921,12 @@ export async function generateThree({ question, context, card1, openThread, card
   }
 
   if (data) {
+    const guarantee_flags = findGuaranteeWords(data.cards.map((c) => c.text), data.final, data.closing);
+    logGuarantee("paid", L, guarantee_flags);
+    const position_label_flags = findLeadingPositionLabels(data.cards.map((c) => c.text));
+    logPositionLabels("paid", L, position_label_flags);
     return {
-      ...base, safety: false,
+      ...base, safety: false, guarantee_flags, position_label_flags,
       cards: drawn.map((c, i) => ({ ...pos(i), ...publicCard(c), text: data.cards[i].text.trim() })),
       final: data.final.trim(),
       closing: data.closing.trim(),
@@ -835,7 +939,7 @@ export async function generateThree({ question, context, card1, openThread, card
     ...base, safety: false,
     cards: drawn.map((c, i) => ({
       ...pos(i), ...publicCard(c),
-      text: t.fallbackCard(POS[i], c, t.fallbackIntro[i])
+      text: t.fallbackCard(i, c)
     })),
     final: t.fallbackFinal(drawn[2]),
     closing: t.fallbackClosing,

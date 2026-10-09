@@ -1,6 +1,6 @@
 /*
 ====================================================
-STUB READER — same interface as Stillwater's api/_lib/vera.js (vera-3card, ce4add1)
+STUB READER — same interface as Stillwater's api/_lib/vera.js (vera-3card, d91dfe1)
 ====================================================
 Used when there is no OpenAI key (local dev, unit + e2e tests) so nothing
 ever calls OpenAI in tests. Selected by api/_lib/reader.js; the routes never
@@ -17,7 +17,8 @@ Matches /workspace/stillwater/prompts/vera-reader-interface.md exactly:
   generateThree({ question, context, card1:{id,name?,text}, openThread, cards3:[id,id,id], lang }) -> {
     ok, lang, safety, safety_source?,
     cards: [{ position, position_key, id, name, file, image, text } x3],  // in cards3 order
-    final, closing, message, fallback, attempts, retry_log, usage }
+    final, closing, message, fallback, attempts, retry_log, usage,
+    guarantee_flags, position_label_flags }  // INTERNAL log-only checks (vera.js d91dfe1); [] here
     - cards3 validated with vera.js validateCards3 (distinct, valid, not card1) → 400 "invalid_cards"
     - empty question → 400 "missing_question"
 
@@ -85,6 +86,7 @@ export async function generateFree({ question, context, card, lang } = {}) {
     card: { ...publicCard(entry), text },
     message: null,
     open_thread: L === "en" ? "the root of this, and where it is heading" : "รากของเรื่องนี้ และแนวโน้มข้างหน้า",
+    guarantee_flags: [], // INTERNAL (vera.js d91dfe1): log-only post-check; filler text has none
     ...meta()
   };
 }
@@ -121,6 +123,7 @@ export async function generateThree({ question, context, card1, openThread, card
   const firstName = free ? free.name : (c1.name || (L === "en" ? "the first card" : "ใบแรก"));
   return {
     ok: true, lang: L, safety: false, cards,
+    guarantee_flags: [], position_label_flags: [], // INTERNAL (vera.js d91dfe1): log-only post-checks; never sent to the page
     final: L === "en"
       ? `Laid after ${firstName}, these three cards begin to tell one story. One real step you can take now: choose one small move that feels true, and see where it leads.`
       : `เมื่อวางสามใบนี้ต่อจาก ${firstName} เรื่องของคุณเริ่มเล่าเป็นเส้นเดียวกันแล้วค่ะ สิ่งที่ทำได้จริงตอนนี้คือเลือกหนึ่งก้าวเล็ก ๆ ที่ตรงกับใจ แล้วลองดูว่ามันพาไปทางไหน`,

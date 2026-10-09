@@ -19,7 +19,8 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 - `api/_lib/payment.js`: the ONLY payment-provider boundary. Active provider: `api/_lib/payment/promptpay-easyslip.js`. Inactive option: `api/_lib/payment/omise.js` (`PAYMENT_PROVIDER=omise`).
 - `api/payment/verify-slip.js`: slip upload (multipart `order` + `slip`, JPG/PNG ≤ 4 MB) → EasySlip v2 → paid token.
 - `api/_lib/rate-limit.js`: best-effort in-memory per-IP limits (`/api/read`, `/api/payment/verify-slip`).
-- `api/_lib/vera.js` + `card-meanings.json` + `card-meanings.en.json`: Stillwater's reader, copied verbatim from `stillwater/ai-publish` branch `vera-3card` @ `ce4add1`. Re-copy these three files when Stillwater updates them.
+- `api/_lib/vera.js` + `card-meanings.json` + `card-meanings.en.json`: Stillwater's reader, copied verbatim from `stillwater/ai-publish` branch `vera-3card` @ `d91dfe1`. The card-meaning files are unchanged since `ce4add1`. Re-copy these three files when Stillwater updates them.
+  - Internal fields `guarantee_flags` and `position_label_flags` are log-only checks (vera.js writes them to the server log with console.warn). `/api/deeper` and `/api/read` build their responses field by field, so these flags never reach the page. `buildRow` keeps only the Sheet columns, so they are not in the Sheet and there is no column for them.
 - `api/_lib/reader.js`: the only place routes get Vera from. Real `vera.js` when `OPENAI_API_KEY` is set, else `api/_lib/vera.stub.js` (same interface, no AI). On Vercel production it always uses the real reader, so a missing key fails with an error instead of serving filler. `VERA_READER=stub|real` forces a choice.
 - Draws: exactly one server-side draw per step, made by the route (`drawOne` in `/api/read`, `drawThree(card1)` in `/api/deeper`, crypto.randomInt), then passed to `generateFree({card})` / `generateThree({cards3})`.
 
