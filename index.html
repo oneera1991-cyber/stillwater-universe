@@ -578,6 +578,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 import { t as tr, normLang, errorKey, LANGS } from '/i18n/strings.js';
 import { touchFromLanding, isSignal, TRACKING_PARAMS, SHARE_PATH } from '/lib/source.js';
 import { POSITION_ORDER, cardHeading, storyLines } from '/lib/story.js';
+import { createSound, LEVEL as AMBIENT_LEVEL } from '/lib/ambient.js';
 
 (function(){
 'use strict';
@@ -776,16 +777,15 @@ function currentSource(){
   return first || last ? { first: first || last, last: last || first } : undefined;
 }
 
-/* ================= audio (kept from the live page, trimmed) ================= */
+/* ================= audio: "music + cosmos" (lib/ambient.js; synthesized, no files) ================= */
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
-let audioCtx = null, master = null, soundEnabled = false, ambient = [];
+let audioCtx = null, snd = null, master = null, soundEnabled = false, suspendTimer = 0;
 
 function initAudio(){
   if(audioCtx || !AudioCtx) return;
   audioCtx = new AudioCtx();
-  master = audioCtx.createGain();
-  master.gain.value = 0;
-  master.connect(audioCtx.destination);
+  snd = createSound(audioCtx);
+  master = snd.master;
 }
 async function unlockAudio(){
   initAudio();
@@ -796,62 +796,37 @@ function setSound(on){
   setText($('soundToggle'), on ? 'ui.soundOn' : 'ui.soundOff');
   $('soundToggle').setAttribute('aria-pressed', on ? 'true' : 'false');
   if(!master) return;
+  clearTimeout(suspendTimer);
   const now = audioCtx.currentTime;
   master.gain.cancelScheduledValues(now);
-  master.gain.linearRampToValueAtTime(on ? .2 : 0, now + .7);
-}
-function noiseBuffer(seconds){
-  const len = Math.floor(audioCtx.sampleRate * seconds);
-  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
-  const d = buf.getChannelData(0);
-  for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * .45;
-  return buf;
+  master.gain.setValueAtTime(master.gain.value, now);
+  master.gain.linearRampToValueAtTime(on ? AMBIENT_LEVEL : 0, now + (on ? 1.2 : .9));
+  if(!on) suspendTimer = setTimeout(() => { if(!soundEnabled && audioCtx && audioCtx.state === 'running') audioCtx.suspend().catch(() => {}); }, 1600);
 }
 function startAmbient(){
-  stopAmbient(true);
-  if(!audioCtx || !soundEnabled) return;
-  const now = audioCtx.currentTime;
-  const nodes = [];
-  [[48,.22],[72,.08],[96,.045]].forEach(([f,v]) => {
-    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.type = 'sine'; o.frequency.value = f; g.gain.value = 0;
-    o.connect(g); g.connect(master); o.start(now);
-    g.gain.linearRampToValueAtTime(v, now + 3);
-    nodes.push({ stop(t){ try{ g.gain.linearRampToValueAtTime(0, t); o.stop(t + .08); }catch(e){} } });
-  });
-  const w = audioCtx.createBufferSource(), wf = audioCtx.createBiquadFilter(), wg = audioCtx.createGain();
-  w.buffer = noiseBuffer(4); w.loop = true; wf.type = 'lowpass'; wf.frequency.value = 260; wg.gain.value = 0;
-  w.connect(wf); wf.connect(wg); wg.connect(master); w.start(now);
-  wg.gain.linearRampToValueAtTime(.022, now + 3);
-  nodes.push({ stop(t){ try{ wg.gain.linearRampToValueAtTime(0, t); w.stop(t + .08); }catch(e){} } });
-  ambient = nodes;
+  if(!snd || !soundEnabled || snd.playing) return;
+  snd.start();
 }
 function stopAmbient(immediate){
-  const t = audioCtx ? audioCtx.currentTime + (immediate ? .25 : 1.2) : 0;
-  ambient.forEach((n) => n.stop(t));
-  ambient = [];
+  if(snd) snd.stop(immediate ? .25 : 1.2);
 }
-function tone(freq, dur, type = 'sine', vol = .08, delay = 0){
-  if(!audioCtx || !soundEnabled) return;
-  const now = audioCtx.currentTime + delay;
-  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-  o.type = type; o.frequency.value = freq; g.gain.value = 0;
-  o.connect(g); g.connect(master); o.start(now);
-  g.gain.linearRampToValueAtTime(vol, now + .06);
-  g.gain.exponentialRampToValueAtTime(.001, now + dur);
-  o.stop(now + dur + .06);
-}
+/* page hidden → stop everything (CPU / battery); visible again → resume if SOUND is on */
+document.addEventListener('visibilitychange', async () => {
+  if(!audioCtx) return;
+  if(document.hidden){ stopAmbient(true); setTimeout(() => { if(document.hidden) audioCtx.suspend().catch(() => {}); }, 300); }
+  else if(soundEnabled){ try{ await audioCtx.resume(); }catch(e){} startAmbient(); }
+});
+/* button sounds: soft chimes from the same pentatonic as the ambient (indices into D-major pentatonic) */
+function chime(steps, opts){ if(snd && soundEnabled) snd.chime(steps, opts); }
 function buttonSound(type){
-  if(type === 'enter'){ tone(72,1.4,'sine',.16); tone(144,1.2,'sine',.07,.12); tone(576,1.1,'triangle',.045,.38); return; }
-  if(type === 'submit'){ tone(180,.55,'sine',.07); tone(360,.7,'sine',.045,.12); tone(720,.9,'triangle',.025,.28); return; }
-  if(type === 'deeper'){ tone(96,1.1,'sine',.12); tone(192,.9,'sine',.07,.12); tone(480,1.3,'triangle',.055,.5); return; }
-  if(type === 'pay'){ tone(220,.35,'sine',.06); tone(440,.6,'sine',.04,.12); return; }
-  tone(320,.3,'sine',.035);
+  if(type === 'enter'){ chime([0, 2, 4, 6], { vol: .14, gap: .16, dur: 3.2 }); return; }
+  if(type === 'submit'){ chime([2, 4], { vol: .13, gap: .12 }); return; }
+  if(type === 'deeper'){ chime([1, 3, 5], { vol: .14, gap: .14, dur: 3 }); return; }
+  if(type === 'pay'){ chime([3, 4], { vol: .12, gap: .1 }); return; }
+  chime([3], { vol: .11, dur: 2 });
 }
-function revealSound(){
-  tone(62,1.2,'sine',.15); tone(93,1,'sine',.08,.1);
-  tone(523.25,1.5,'sine',.08,.6); tone(659.25,1.4,'sine',.06,.75); tone(783.99,1.7,'triangle',.045,.9);
-}
+function revealSound(){ chime([0, 2, 4, 5, 6], { vol: .14, gap: .18, dur: 3.6 }); }
+window.__stillwaterAudio = () => ({ state: audioCtx ? audioCtx.state : 'none', enabled: soundEnabled, playing: !!(snd && snd.playing), voices: snd ? snd.voices : 0, gain: master ? master.gain.value : 0 });
 
 /* ================= world: stars over still water (from the live page) ================= */
 const cosmos = $('cosmos'), ctx = cosmos.getContext('2d');

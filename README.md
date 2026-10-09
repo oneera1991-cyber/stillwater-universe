@@ -19,7 +19,7 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 - `api/_lib/payment.js`: the ONLY payment-provider boundary. Active provider: `api/_lib/payment/promptpay-easyslip.js`. Inactive option: `api/_lib/payment/omise.js` (`PAYMENT_PROVIDER=omise`).
 - `api/payment/verify-slip.js`: slip upload (multipart `order` + `slip`, JPG/PNG ≤ 4 MB) → EasySlip v2 → paid token.
 - `api/_lib/rate-limit.js`: best-effort in-memory per-IP limits (`/api/read`, `/api/payment/verify-slip`).
-- `api/_lib/vera.js` + `card-meanings.json` + `card-meanings.en.json`: Stillwater's reader, copied verbatim from `stillwater/ai-publish` @ `5c79b3e` (adds the internal, log-only `card_name_flags`: never sent to the page, no Sheet column). The card-meaning files are unchanged since `ce4add1`. Re-copy these three files when Stillwater updates them.
+- `api/_lib/vera.js` + `card-meanings.json` + `card-meanings.en.json`: Stillwater's reader, copied verbatim from `stillwater/ai-publish` @ `4b4fa88` (5c79b3e added the internal, log-only `card_name_flags`: never sent to the page, no Sheet column; 4b4fa88 only changes Call B card 4). The card-meaning files are unchanged since `ce4add1`. Re-copy these three files when Stillwater updates them.
   - Internal fields `guarantee_flags` and `position_label_flags` are log-only checks (vera.js writes them to the server log with console.warn). `/api/deeper` and `/api/read` build their responses field by field, so these flags never reach the page. `buildRow` keeps only the Sheet columns, so they are not in the Sheet and there is no column for them.
 - `api/_lib/reader.js`: the only place routes get Vera from. Real `vera.js` when `OPENAI_API_KEY` is set, else `api/_lib/vera.stub.js` (same interface, no AI). On Vercel production it always uses the real reader, so a missing key fails with an error instead of serving filler. `VERA_READER=stub|real` forces a choice.
 - Draws: exactly one server-side draw per step, made by the route (`drawOne` in `/api/read`, `drawThree(card1)` in `/api/deeper`, crypto.randomInt), then passed to `generateFree({card})` / `generateThree({cards3})`.
@@ -64,6 +64,11 @@ Stillwater's `2ed3ca4` covers the V2 asks:
 - The fallbacks match.
 
 `a179c20` adds a rule that Vera never says she keeps or holds the question, plus an internal, log-only `keep_question_flags` post-check. Like `guarantee_flags` / `position_label_flags`, it is never sent to the page (the API builds responses field by field) and never written to the Sheet (no column). The stub reader mirrors the fallback closing and returns `keep_question_flags: []`. Unit + e2e check that the thanks / come-back lines appear exactly once and that the ending never contains the old "น้ำนิ่ง" closing sentence (removed, Palm 2026-10-09).
+
+### Sound ("music + cosmos", Palm 2026-10-09)
+- `lib/ambient.js` (Web Audio, synthesized, no audio files): a warm pad of 4 slow chords (Dmaj9 → Bm9 → Gmaj7 → Asus2, 10 s each, 3.5 s crossfades; detuned saw + triangle through a lowpass with a slow LFO sweep), an octave-up shimmer with slow tremolo, sparse D-major-pentatonic bell chimes every ~2.5–7 s, faint band-passed "cosmic air" noise, a generated 5 s convolution reverb and a stereo ping-pong delay → highpass 120 Hz → master (0.6) → compressor → makeup.
+- Button sounds are soft chimes from the same scale. Sound still starts only on a user gesture (the entry button / SOUND toggle). SOUND OFF fades out, stops every source and suspends the AudioContext; hiding the page does the same, and coming back resumes if SOUND is on. 24 persistent sources (reused across chords) + 2 per chime.
+- Loudness (40 s offline render): about -14 LUFS integrated, peak -4.6 dBFS (the old ambient was -31 LUFS with almost nothing above 200 Hz). `node dev/render-ambient.mjs 40 /tmp` re-renders `ambient-new.wav` / `ambient-old.wav`.
 
 ### Fonts
 - **All Thai text uses Noto Sans Thai, the loopless face the live site uses.** Never use Noto Sans Thai Looped, Sarabun or other looped/head faces.

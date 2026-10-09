@@ -119,6 +119,16 @@ if (!ONLY) {
   await page.click("#btnEnter");
   await active(page, "question");
   await page.waitForTimeout(1500);
+  { // sound: "music + cosmos" ambient starts on the entry gesture; SOUND OFF stops every source; ON restarts
+    await page.waitForFunction(() => window.__stillwaterAudio().playing && window.__stillwaterAudio().state === "running", null, { timeout: 5000 });
+    const on = await page.evaluate(() => window.__stillwaterAudio());
+    assert.ok(on.enabled && on.voices > 10 && on.voices <= 24, "ambient voices bounded: " + on.voices);
+    await page.click("#soundToggle"); await page.waitForTimeout(1900);
+    const off = await page.evaluate(() => window.__stillwaterAudio());
+    assert.deepEqual([off.enabled, off.playing, off.state], [false, false, "suspended"], "SOUND OFF stops + suspends");
+    await page.click("#soundToggle"); await page.waitForFunction(() => window.__stillwaterAudio().playing && window.__stillwaterAudio().state === "running");
+    log("sound: ambient on entry (" + on.voices + " sources), OFF stops + suspends, ON restarts");
+  }
   await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม");
   await page.fill("#contextInput", "เพิ่งลาออกจากที่เดิม ยังกังวลอยู่");
   await shot(page, "02-question"); log("scene 2 question");
