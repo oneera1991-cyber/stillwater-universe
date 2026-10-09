@@ -154,6 +154,17 @@ function open(kind, token, { now, ttlMs, missing, bad, expired }) {
 
 /* ---------------- order token ---------------- */
 
+/**
+ * Short customer-facing Reading ID: first 8 chars of the order id after "ord_",
+ * uppercased (e.g. "ord_KB1lpqjhlyTa…" → "KB1LPQJH"). Shown on scene 6 + the saved
+ * PNG so a customer can ask for deletion. Not stored separately — derive it from
+ * order_id (Sheet: =UPPER(MID(D2,5,8)) when order_id is column D). Case-insensitive,
+ * so treat it as a lookup key, not a unique id.
+ */
+export function readingId(orderId) {
+  return String(orderId || "").replace(/^ord_/, "").slice(0, 8).toUpperCase();
+}
+
 export function newOrderId() {
   return "ord_" + crypto.randomBytes(12).toString("base64url");
 }

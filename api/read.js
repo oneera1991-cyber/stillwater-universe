@@ -23,7 +23,7 @@ trust the client for any of them.
 import { drawOne, generateFree, readerMode } from "./_lib/reader.js";
 import { deviceType, logEvent, sourceColumns } from "./_lib/log.js";
 import { sanitizeSource } from "../lib/source.js";
-import { OrderError, parseBody, signOrder } from "./_lib/order.js";
+import { OrderError, parseBody, readingId, signOrder } from "./_lib/order.js";
 import { clientIp, rateLimit } from "./_lib/rate-limit.js";
 import { errorText, normLang, t } from "../i18n/strings.js";
 
@@ -64,7 +64,8 @@ export default async function handler(req, res) {
     // Safety / needs_rewrite: show `message` as-is (fixed safety text or Vera's rewrite prompt), no card, no order.
     if (result.safety || result.needs_rewrite || !result.card) {
       const safety = !!result.safety;
-      logEvent("read_free", { ...logBase, safety, needs_rewrite: !safety, card1: "" }); // fire-and-forget
+      // Crisis questions are never stored: safety rows log question/context as "".
+      logEvent("read_free", { ...logBase, ...(safety ? { question: "", context: "" } : {}), safety, needs_rewrite: !safety, card1: "" }); // fire-and-forget
       const message = (typeof result.message === "string" && result.message.trim()) ||
         (safety ? t(lang, "safety.paragraphs").join("\n\n") : t(lang, "rewrite.fallback"));
       return res.status(200).json({
@@ -92,6 +93,7 @@ export default async function handler(req, res) {
       card: { id: card.id, name: card.name, file: card.file, image: card.image, text: String(card.text) },
       open_thread: null, // internal; lives only inside the sealed order token
       order,
+      reading_id: readingId(signed.order.orderId), // short id for deletion requests
       lang,
       message: null,
       reading: String(card.text), // legacy

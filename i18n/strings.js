@@ -54,6 +54,22 @@ export const STRINGS = {
       empty: "พิมพ์คำถามสักนิดก่อนนะคะ",
       privacy: "พี่เวราเก็บคำถามไว้แบบไม่ระบุตัวตน เพื่อพัฒนาคำอ่านให้ดีขึ้น\nอย่าใส่ชื่อหรือเบอร์โทรนะคะ"
     },
+    legal: {
+      terms: "ข้อกำหนดการใช้งาน",
+      privacy: "ประกาศความเป็นส่วนตัว",
+      readingId: "รหัสการอ่าน",
+      readingIdHint: "ใช้รหัสนี้เมื่อต้องการขอลบข้อมูลการอ่านของคุณ"
+    },
+    privacyPage: {
+      title: "ประกาศความเป็นส่วนตัว",
+      back: "กลับไปที่ Stillwater"
+    },
+    disclaimer: { // approved by Palm 2026-10-09
+      line: "เพื่อความบันเทิงและการสำรวจตัวเอง",
+      title: "A Moment for Reflection",
+      body: "การอ่านไพ่ครั้งนี้จัดทำขึ้นเพื่อความบันเทิงและการสำรวจตัวเอง ไพ่เป็นมุมมองให้คุณได้ลองทบทวน ไม่ใช่คำรับรองว่าสิ่งใดจะเกิดขึ้นในอนาคต การตัดสินใจยังคงเป็นของคุณ",
+      back: "กลับไปที่ Stillwater"
+    },
     rate: {
       title: "ให้ดาวพี่เวรา",
       free: "คำตอบแรกตรงใจแค่ไหนคะ",
@@ -94,6 +110,7 @@ export const STRINGS = {
       ppf: "Past · Present · Future",
       sub: "", // optional line under the positions; hidden when empty
       price: "฿59",
+      scope: "ไพ่ใหม่ 3 ใบ สำหรับคำถามเดิม — อดีต / ปัจจุบัน / แนวโน้มข้างหน้า",
       pay: "เข้าสู่การชำระเงิน",
       qrAlt: "QR พร้อมเพย์ 59 บาท",
       hint: "สแกน QR นี้ หรือบันทึกรูปไปเปิดในแอปธนาคาร\nโอน 59 บาท แล้วแนบสลิปด้านล่างนะคะ",
@@ -211,6 +228,22 @@ export const STRINGS = {
       empty: "Please write your question first.",
       privacy: "We keep questions anonymously to improve readings.\nPlease don't include names or phone numbers."
     },
+    legal: {
+      terms: "Terms",
+      privacy: "Privacy Notice",
+      readingId: "Reading ID",
+      readingIdHint: "Use this ID if you'd like your reading data deleted."
+    },
+    privacyPage: {
+      title: "Privacy Notice",
+      back: "Back to Stillwater"
+    },
+    disclaimer: { // approved by Palm 2026-10-09
+      line: "For Entertainment & Self-Reflection",
+      title: "A Moment for Reflection",
+      body: "This reading is intended for entertainment and self-reflection. The cards offer perspectives to explore, not promises of what the future holds. Your choices remain your own.",
+      back: "Back to Stillwater"
+    },
     rate: {
       title: "Rate Vera",
       free: "How did this first answer feel?",
@@ -249,6 +282,7 @@ export const STRINGS = {
       ppf: "Past · Present · Future", // [Palm]
       sub: "",
       price: "฿59", // [Palm]
+      scope: "3 new cards for the same question — past / present / future",
       pay: "Pay with PromptPay QR", // [Palm]
       qrAlt: "PromptPay QR, 59 baht",
       hint: "Scan this QR, or save the image and open it in your banking app.\nTransfer 59 baht, then attach your slip below.",

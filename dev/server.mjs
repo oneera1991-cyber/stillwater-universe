@@ -139,7 +139,7 @@ globalThis.fetch = async (input, init = {}) => {
 };
 
 /* ---------------- Vercel-ish handler shim ---------------- */
-const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml", ".json": "application/json", ".css": "text/css" };
+const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml", ".json": "application/json", ".css": "text/css", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8" };
 
 function shimRes(res) {
   res.status = (code) => { res.statusCode = code; return res; };
@@ -188,6 +188,8 @@ const server = http.createServer(async (req, res) => {
     }
     let p = decodeURIComponent(url.pathname);
     if (p === "/") p = "/index.html";
+    if (p === "/terms" || p === "/terms/") p = "/terms.html";       // mirrors the vercel.json rewrites
+    if (p === "/privacy" || p === "/privacy/") p = "/privacy.html";
     const file = path.join(ROOT, p);
     if (!file.startsWith(ROOT) || /\/(\.git|dev|api)\//.test(file.slice(ROOT.length) + "/")) return res.status(404).end("not found");
     const buf = await readFile(file);

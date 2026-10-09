@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04040d">
+<title>ข้อตกลงและข้อจำกัดความรับผิดชอบ · Stillwater</title>
+<!-- Terms page: Stillwater's final copy (legal/terms.{th,en}.md → legal/content.js). Same fonts as the main page: loopless Noto Sans Thai (self-hosted, preloaded) + Cormorant Garamond -->
+<link rel="preload" href="/fonts/noto-sans-thai-thai.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/noto-sans-thai-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap" rel="stylesheet">
+<script>
+/* Language before first paint: ?lang= → saved choice → browser language. */
+(function(){
+  var q = new URLSearchParams(location.search).get('lang'), l = null;
+  try{ l = localStorage.getItem('stillwater.lang'); }catch(e){}
+  if(q === 'th' || q === 'en') l = q;
+  if(l !== 'th' && l !== 'en') l = /^th/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'th' : 'en';
+  document.documentElement.lang = l;
+  document.documentElement.classList.add('lang-pending');
+})();
+</script>
+<style>
+@font-face{font-family:'Noto Sans Thai';font-style:normal;font-weight:100 900;font-display:block;
+  src:url(/fonts/noto-sans-thai-thai.woff2) format('woff2');
+  unicode-range:U+02D7,U+0303,U+0331,U+0E01-0E5B,U+200C-200D,U+25CC}
+@font-face{font-family:'Noto Sans Thai';font-style:normal;font-weight:100 900;font-display:block;
+  src:url(/fonts/noto-sans-thai-latin-ext.woff2) format('woff2');
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Noto Sans Thai';font-style:normal;font-weight:100 900;font-display:block;
+  src:url(/fonts/noto-sans-thai-latin.woff2) format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+button,input,textarea,select{font-family:inherit}
+:root{
+  --deep:#04040d;--cream:#f5f0e6;--text:rgba(232,236,255,.94);--soft:rgba(205,214,244,.72);--line:rgba(190,202,255,.22);
+  --thai-fallback:'Noto Sans Thai UI','Leelawadee UI','Sukhumvit Set','Thonburi';
+  --sans:'Noto Sans Thai',var(--thai-fallback),sans-serif;
+  --serif:'Cormorant Garamond',Georgia,'Times New Roman','Noto Serif','Noto Sans Thai',var(--thai-fallback),serif;
+}
+html,body{min-height:100%;background:var(--deep);color:var(--text);font-family:var(--sans);font-weight:300;-webkit-font-smoothing:antialiased}
+body{
+  background:
+    radial-gradient(ellipse at 50% 18%,rgba(95,105,190,.16),transparent 60%),
+    linear-gradient(180deg,#03030b 0%,#0d0c26 45%,#15123a 75%,#050817 100%);
+  background-attachment:fixed;
+}
+.lang-pending main{visibility:hidden}
+.top-controls{position:fixed;z-index:10;top:max(1rem,env(safe-area-inset-top));right:max(1rem,env(safe-area-inset-right))}
+.lang-toggle{
+  border:1px solid var(--line);border-radius:999px;background:rgba(10,12,30,.48);backdrop-filter:blur(10px);
+  color:rgba(205,214,244,.45);font:400 .68rem var(--sans);letter-spacing:.1em;padding:.5rem .75rem;cursor:pointer;
+}
+.lang-toggle .on{color:var(--text)}
+.lang-toggle .sep{margin:0 .3rem;opacity:.5}
+main{max-width:34rem;margin:0 auto;padding:max(4.6rem,env(safe-area-inset-top)) 1.4rem 4rem}
+.brand{font:300 1rem var(--serif);letter-spacing:.42em;text-indent:.42em;color:rgba(225,230,255,.7);margin-bottom:2.2rem;text-align:center}
+/* Rendered from legal/*.md (Stillwater's final copy) */
+.doc{font-size:.95rem;line-height:1.95;color:var(--text);overflow-wrap:anywhere}
+.doc h1{font:400 1.45rem/1.45 var(--sans);color:var(--cream);text-align:center;margin-bottom:.4rem}
+.doc h1 + p{text-align:center;font-size:.8rem;color:var(--soft);margin-bottom:2rem}
+.doc h2{font:400 1.04rem/1.6 var(--sans);color:var(--cream);margin:2rem 0 .6rem;padding-top:1.2rem;border-top:1px solid rgba(190,202,255,.12)}
+.doc p{margin:.5rem 0}
+.doc ul{margin:.5rem 0 .6rem 1.2rem}
+.doc li{margin:.3rem 0;padding-left:.2rem}
+.doc li::marker{color:rgba(205,214,244,.5)}
+.doc strong{font-weight:500;color:var(--cream)}
+.doc a{color:var(--cream);text-underline-offset:3px}
+.end{text-align:center;margin-top:2.6rem}
+.rule{width:3rem;height:1px;background:var(--line);margin:0 auto 2rem}
+.back{display:inline-block;font:400 .82rem var(--sans);letter-spacing:.08em;color:var(--text);text-decoration:none;
+  border:1px solid var(--line);border-radius:999px;padding:.8rem 1.6rem;background:rgba(15,18,45,.18)}
+.back:hover,.back:focus-visible{border-color:rgba(215,220,255,.55);outline:none}
+.cross{margin-top:1.4rem;font-size:.72rem}
+.cross a{color:rgba(190,200,225,.55);text-decoration:none}
+.cross a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="top-controls">
+  <button class="lang-toggle" id="langToggle" type="button" aria-label="เปลี่ยนภาษา / Change language"><span data-l="th">TH</span><span class="sep">/</span><span data-l="en">EN</span></button>
+</div>
+<main data-page="terms">
+  <p class="brand">STILLWATER</p>
+  <!-- Wording comes verbatim from legal/terms.th.md / .en.md (do not edit here; rebuild with scripts/build-legal.mjs) -->
+  <article class="doc" id="doc"></article>
+  <div class="end">
+    <div class="rule"></div>
+    <a class="back" id="back" href="/"></a>
+    <p class="cross"><a id="cross" data-legal="privacy" href="/privacy"></a></p>
+  </div>
+</main>
+<script type="module">
+import { t, normLang } from '/i18n/strings.js';
+import { LEGAL } from '/legal/content.js';
+const PAGE = document.querySelector('main').dataset.page;
+let lang = normLang(document.documentElement.lang);
+function render(){
+  document.documentElement.lang = lang;
+  const doc = document.getElementById('doc');
+  doc.innerHTML = LEGAL[PAGE][lang]; // generated from our own markdown, HTML-escaped at build time
+  const h1 = doc.querySelector('h1');
+  document.title = (h1 ? h1.textContent : 'Stillwater') + ' · Stillwater';
+  document.getElementById('back').textContent = t(lang, PAGE === 'privacy' ? 'privacyPage.back' : 'disclaimer.back');
+  const cross = document.getElementById('cross');
+  cross.textContent = t(lang, 'legal.' + cross.dataset.legal);
+  cross.href = '/' + cross.dataset.legal + '?lang=' + lang;
+  document.querySelectorAll('#langToggle [data-l]').forEach((el) => el.classList.toggle('on', el.dataset.l === lang));
+  document.documentElement.classList.remove('lang-pending');
+}
+document.getElementById('langToggle').addEventListener('click', () => {
+  lang = lang === 'th' ? 'en' : 'th';
+  try{ localStorage.setItem('stillwater.lang', lang); }catch(e){}
+  history.replaceState(null, '', '/' + PAGE + '?lang=' + lang);
+  render();
+  window.scrollTo(0, 0);
+});
+render();
+</script>
+</body>
+</html>

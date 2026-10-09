@@ -30,6 +30,21 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 - Positions: `position_key` (`past`/`present`/`ahead`) for ordering/logic, `position`/`label` for display (อดีต/ปัจจุบัน/แนวโน้มข้างหน้า, Past/Present/Future).
 - Safety: the fixed text from `vera.js` is shown as-is (Thai: 1323/1669; English: 1323 (Thai-language), 1669, embassy / local emergency services). No CTA.
 
+### Fonts
+- **All Thai text uses Noto Sans Thai, the loopless face the live site uses.** Never use Noto Sans Thai Looped, Sarabun or other looped/head faces.
+- It is self-hosted in `fonts/`: Google Fonts v29 variable woff2 in thai, latin and latin-ext subsets, under the OFL (`fonts/OFL.txt`).
+- The thai and latin files are preloaded, and `font-display: block` stops a looped system fallback from flashing.
+- Fallbacks are loopless only: Noto Sans Thai UI, Leelawadee UI, Sukhumvit Set, Thonburi, then sans-serif. There is no `system-ui`.
+- Form controls inherit the page font.
+- The saved-reading PNG loads Noto Sans Thai and Cormorant before drawing.
+- Latin display text stays in Cormorant Garamond (Google Fonts).
+
+### Disclaimer / Terms
+- A small line "เพื่อความบันเทิงและการสำรวจตัวเอง" / "For Entertainment & Self-Reflection" sits at the end of scene 4 and scene 6 only (not on the landing or draw scenes). It links to `/terms?lang=th|en` in a new tab.
+- `terms.html` (served at `/terms` via the `vercel.json` rewrite) shows Palm's approved "A Moment for Reflection" text in th + en.
+- The full Terms copy from Stillwater goes in the `data-slot="stillwater-terms"` placeholder section.
+- The page copy never mentions "AI".
+
 ### Data collection (source, ratings, event log)
 - **Source** (`lib/source.js`, shared by the page and the API):
   - On landing the page reads `?src=` (presets: `friends`, `tiktok`, `ig`, `fb`, `line`, `fb_ads`, `youtube`; any other value is lowercased, spaces become `_`, and only `[a-z0-9_-]` is kept, up to 32 chars).
@@ -44,6 +59,7 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 - **Privacy**: the question scene says questions are kept anonymously and asks people not to include names or phone numbers.
   - No IP or user agent is logged, only a coarse `device` (mobile/tablet/desktop/bot/unknown).
   - Phone numbers, emails and LINE ids in the question/context are redacted to `[phone]` / `[email]` / `[line id]` before logging.
+  - Safety (self-harm / crisis) `read_free` rows keep `question` and `context` empty; the safety flag, source, lang and device are still logged.
 - **Event log** (`api/_lib/log.js`):
   - `logEvent()` is fire-and-forget: never awaited by the routes, 1.5 s timeout, all errors swallowed. A broken sink never breaks a reading.
   - Sinks are chosen with `LOG_SINK`: `console` (default; one `STILLWATER_EVENT {json}` line in the Vercel logs), `sheets` (stub) or `none`.
@@ -51,7 +67,7 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 
 **Events**: `read_free` (every free attempt, including safety / needs_rewrite), `payment_verified` (slip OK), `read_full` (3 cards generated), `rating`.
 
-**Sheet columns** (row 1 of tab `events`, in this order; every event fills the common columns plus its own):
+**Sheet columns** (Google Sheet `1IlhWkJJBKTs3UTtbAPcQLreHouSCRF04QFqfsS93W58`, row 1 of tab `events`, already written, in this order; every event fills the common columns plus its own):
 
 | # | column | filled by | meaning |
 | --- | --- | --- | --- |
@@ -68,12 +84,68 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 | 13–16 | `first_src`, `first_src_type`, `first_utm_campaign`, `first_at` | all | first touch |
 | 17 | `device` | all | mobile / tablet / desktop / bot / unknown |
 | 18 | `reader` | read_free, read_full | `real` / `stub` |
-| 19–20 | `question`, `context` | read_free | PII-redacted |
+| 19–20 | `question`, `context` | read_free | PII-redacted; empty when `safety` = TRUE |
 | 21 | `card1` | read_free, read_full, rating | free card id |
 | 22–23 | `safety`, `needs_rewrite` | read_free | TRUE / FALSE |
 | 24–25 | `trans_ref`, `amount_thb` | payment_verified | EasySlip transRef, 59 |
 | 26 | `cards3` | read_full | ids past,present,future, e.g. `4,17,9` |
 | 27–29 | `stage`, `stars`, `rating_key` | rating | `free`/`full`, 1–5, `<order_id>:<stage>` |
+
+### Reading ID, deletion requests, retention
+- **Reading ID** = first 8 chars of `order_id` after `ord_`, uppercased. For example `ord_KB1lpqjhlyTa…` becomes `KB1LPQJH` (`readingId()` in `api/_lib/order.js`).
+  - It is shown small on scene 6 ("รหัสการอ่าน" / "Reading ID") and on the saved PNG.
+  - It is not a separate column, because it can be derived. In the Sheet, a helper column can use `=UPPER(MID(D2,5,8))` (`order_id` is column D).
+  - The match ignores case, so check the matching rows before deleting.
+- **Deleting a reading on request:**
+  1. Ask for the Reading ID from scene 6 or the saved image.
+  2. In the Sheet: Data → Create a filter, then filter the `order_id` column with "Text contains" `ord_<ID>` (match case off), or use the helper column.
+  3. Check the rows: `read_free`, `payment_verified`, `read_full` and `rating` all share that `order_id`. Delete them.
+  4. Alternatively, run `deleteByReadingId("<ID>")` from the Apps Script below, or plan it offline with `node scripts/purge-old-rows.mjs events.csv --reading-id <ID>`.
+  - Safety rows have no `order_id` and never contain question text.
+- **Retention: 90 days, via an Apps Script trigger that Palm installs on the Sheet.**
+  - Function `purgeOldRows` on tab `events`, daily, deletes rows whose `ts` is older than 90 days.
+  - Setup: Extensions → Apps Script, paste the code below, then Triggers → Add trigger → `purgeOldRows` → Time-driven → Day timer.
+  - It runs as the Sheet owner with no keys, and nothing in this repo calls Google.
+  - For an offline check, `node scripts/purge-old-rows.mjs events.csv [--days 90]` is a dry run on a CSV export: it prints the rows and the equivalent Sheets `batchUpdate` request and sends nothing.
+
+```js
+// Apps Script — paste into the Sheet (Extensions → Apps Script). Nothing runs until you run or schedule it.
+const TAB = 'events';
+function purgeOldRows(days) {
+  days = days || 90;
+  const sh = SpreadsheetApp.getActive().getSheetByName(TAB);
+  const values = sh.getDataRange().getValues();           // row 0 = header
+  const tsCol = values[0].indexOf('ts');
+  const cutoff = Date.now() - days * 24 * 3600 * 1000;
+  let deleted = 0;
+  for (let r = values.length - 1; r >= 1; r--) {            // bottom-up
+    const ts = new Date(values[r][tsCol]).getTime();
+    if (!isNaN(ts) && ts < cutoff) { sh.deleteRow(r + 1); deleted++; }
+  }
+  Logger.log('deleted ' + deleted + ' row(s) older than ' + days + ' days');
+}
+function deleteByReadingId(id) {
+  const want = String(id).trim().toUpperCase();
+  const sh = SpreadsheetApp.getActive().getSheetByName(TAB);
+  const values = sh.getDataRange().getValues();
+  const orderCol = values[0].indexOf('order_id');
+  let deleted = 0;
+  for (let r = values.length - 1; r >= 1; r--) {
+    const rid = String(values[r][orderCol] || '').replace(/^ord_/, '').slice(0, 8).toUpperCase();
+    if (rid && rid === want) { sh.deleteRow(r + 1); deleted++; }
+  }
+  Logger.log('deleted ' + deleted + ' row(s) for Reading ID ' + want);
+}
+// Daily trigger (Palm installs): Triggers → Add trigger → purgeOldRows → Time-driven → Day timer.
+```
+
+### Legal pages
+- `/terms` → `terms.html` and `/privacy` → `privacy.html` (`vercel.json` rewrites, mirrored in `dev/server.mjs`).
+- They render Stillwater's final copy word for word: `legal/{terms,privacy}.{th,en}.md`, copied from `stillwater/prompts/`, effective 1 Nov 2026, support email oneera1991@gmail.com.
+- `scripts/build-legal.mjs` turns the markdown into `legal/content.js`. It only maps headings, lists, bold and paragraphs, and links the email (mailto:) and 1323 / 1669 (tel:).
+- Rebuild after any copy change with `node scripts/build-legal.mjs`. `dev/unit.mjs` fails if the generated file is stale, and e2e compares the page text with the markdown.
+- Both pages follow the TH/EN toggle (`?lang=`, otherwise the saved choice, otherwise the browser language) and use the same loopless fonts.
+- Links: scene 5 (next to the QR / slip upload) and the footers of scenes 4, 5 and 6, opening in a new tab so the reading isn't lost.
 
 ### Payment: PromptPay to own account + EasySlip
 1. `/api/payment/create` → dynamic PromptPay QR for exactly ฿59.00 (`promptpay-qr` + `qrcode`), shown on the offering scene (with "บันทึกรูป QR" for phone users).
@@ -92,7 +164,9 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 | `PAYMENT_PROVIDER` | no | `promptpay` (default) or `omise` (inactive). |
 | `OPENAI_API_KEY` | yes (production) | Stillwater's reader (`api/_lib/vera.js`). If it is missing on production, readings return an error. |
 | `LOG_SINK` | no | `console` (default), `sheets` (stub, needs `GOOGLE_SHEETS_ID`), `none`. |
-| `GOOGLE_SHEETS_ID` / `GOOGLE_SHEETS_TAB` / `GOOGLE_SERVICE_ACCOUNT_JSON` | later | For the Sheets sink once auth is implemented (share the sheet with the service-account email). Not used yet. |
+| `GOOGLE_SHEETS_ID` | later | Intended value: `1IlhWkJJBKTs3UTtbAPcQLreHouSCRF04QFqfsS93W58` (spreadsheet id, not a secret). Header row already has the 29 columns below. Not used until Sheets auth is implemented. |
+| `GOOGLE_SHEETS_TAB` | later | `events` (default). |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | later | Service-account key for the Sheets sink (secret). Share the sheet with the service-account email as Editor. |
 | `VERA_READER` | no | `stub` or `real` to force a reader. Leave it unset in production. |
 | `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` | no | Only for `PAYMENT_PROVIDER=omise`. |
 

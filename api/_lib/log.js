@@ -14,6 +14,7 @@ Privacy
   - No IP address, no user agent. Only a coarse `device` (mobile/tablet/desktop/bot/unknown).
   - Questions/context are stored without identity; phone numbers, emails and
     LINE ids are redacted (redactPII) before they reach any sink.
+  - Safety rows (self-harm / crisis) store question and context as "" (enforced in buildRow).
   - Source = first-touch / last-touch tags (no click ids, only their presence).
 
 Reliability
@@ -50,8 +51,8 @@ export const COLUMNS = [
   "first_at",           // first landing time (client clock)
   "device",             // mobile | tablet | desktop | bot | unknown
   "reader",             // real | stub
-  "question",           // read_free only, PII-redacted
-  "context",            // read_free only, PII-redacted
+  "question",           // read_free only, PII-redacted; "" when safety = TRUE
+  "context",            // read_free only, PII-redacted; "" when safety = TRUE
   "card1",              // free card id (0–21)
   "safety",             // read_free: TRUE/FALSE
   "needs_rewrite",      // read_free: TRUE/FALSE
@@ -119,6 +120,8 @@ export function buildRow(event, fields = {}) {
   for (const [k, v] of Object.entries(fields || {})) if (k in row) row[k] = flat(v);
   if ("question" in (fields || {})) row.question = redactPII(fields.question).slice(0, 500);
   if ("context" in (fields || {})) row.context = redactPII(fields.context).slice(0, 1200);
+  // Safety (self-harm / crisis) rows never keep the text, whatever the caller passed.
+  if (fields?.safety === true) { row.question = ""; row.context = ""; }
   row.ts = new Date().toISOString();
   row.event = String(event);
   row.env = process.env.VERCEL_ENV || "dev";

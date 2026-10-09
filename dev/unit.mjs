@@ -128,6 +128,10 @@ assert.deepEqual([t("th", "positions.past"), t("th", "positions.present"), t("th
 assert.equal(t("th", "safety.paragraphs").join("\n\n"), vera.SAFETY_MESSAGE);
 assert.equal(t("en", "safety.paragraphs").join("\n\n"), vera.SAFETY_MESSAGE_EN); ok("safety copy = vera.js (1323 in both)");
 assert.ok(!/พี่เวรา|Pee Vera|P'Vera/i.test(JSON.stringify(STRINGS.en))); ok("English says just 'Vera'");
+assert.ok(!/\bA\.?I\b|ปัญญาประดิษฐ์|artificial intelligence/i.test(JSON.stringify(STRINGS)), "no 'AI' in any page copy");
+assert.ok(!/รับประกัน|แม่นยำ 100|guarantee|100% accurate/i.test(JSON.stringify(STRINGS)), "no guarantee claims"); ok("copy: no 'AI', no guarantees");
+assert.equal(t("en", "disclaimer.line"), "For Entertainment & Self-Reflection"); assert.equal(t("th", "disclaimer.line"), "เพื่อความบันเทิงและการสำรวจตัวเอง");
+assert.equal(t("en", "disclaimer.title"), "A Moment for Reflection"); ok("approved disclaimer copy");
 for (const [x, want] of [["en", "en"], ["EN", "en"], ["en-US", "en"], ["en_GB", "en"], ["th", "th"], ["fr", "th"], [undefined, "th"], ["english", "th"], [{}, "th"]]) {
   assert.equal(normLang(x), want); assert.equal(vera.normalizeLang(x), want);
 }
@@ -278,9 +282,16 @@ await new Promise((r) => setTimeout(r, 20));
 const ev = events.find((e) => e.event === "read_free" && e.order_id);
 assert.equal(ev.src, "tiktok"); assert.equal(ev.first_src, "friends"); assert.equal(ev.first_utm_campaign, "beta"); assert.equal(ev.click_id, "ttclid");
 assert.equal(ev.device, "mobile"); assert.equal(ev.lang, "en"); assert.ok(ev.question.includes("[phone]")); assert.equal(ev.card1, rr.body.card.id); ok("read_free event with source + device");
-const rs = fakeRes(); await readRoute(reqUA({ question: "I want to kill myself", lang: "en" }), rs);
+const rs = fakeRes(); await readRoute(reqUA({ question: "I want to kill myself", context: "since my breakup", lang: "en", source: { first: { src: "friends", src_type: "tag" } } }), rs);
 await new Promise((r) => setTimeout(r, 20));
-assert.equal(events.at(-1).safety, "TRUE"); assert.equal(events.at(-1).order_id, ""); ok("read_free logs safety flag");
+const es = events.at(-1);
+assert.equal(rs.body.safety, true); assert.equal(es.event, "read_free"); assert.equal(es.safety, "TRUE"); assert.equal(es.needs_rewrite, "FALSE"); assert.equal(es.order_id, "");
+assert.equal(es.question, ""); assert.equal(es.context, ""); assert.equal(es.src, "friends"); assert.equal(es.device, "mobile"); assert.equal(es.lang, "en");
+const rth = fakeRes(); await readRoute(reqUA({ question: "ช่วงนี้ไม่อยากมีชีวิตอยู่แล้ว", context: "เหนื่อยมาก", lang: "th" }), rth);
+await new Promise((r) => setTimeout(r, 20));
+assert.equal(events.at(-1).safety, "TRUE"); assert.equal(events.at(-1).question, ""); assert.equal(events.at(-1).context, "");
+assert.equal(log.buildRow("read_free", { safety: true, question: "x", context: "y" }).question, ""); assert.equal(log.buildRow("read_free", { safety: true, question: "x", context: "y" }).context, "");
+ok("safety rows: question/context empty (th + en), flag + source kept");
 const ordTok = rr.body.order, ordObj = verifyOrder(ordTok);
 const paidTok = signPaid({ orderId: ordObj.orderId, method: "promptpay-slip", ref: "T9", amount: 5900, currency: "THB" });
 const rd = fakeRes(); await deeperRoute(reqUA({ order: ordTok, paid: paidTok }), rd);
@@ -310,5 +321,39 @@ const rx = fakeRes(); await readRoute(reqUA({ question: "Will my new job go well
 console.warn = warn;
 assert.equal(rx.statusCode, 200); assert.ok(rx.body.card); ok("broken log sink never breaks /api/read");
 log.setSink(null);
+
+/* ---------------- reading id + purge plan (offline) ---------------- */
+assert.equal(order_.readingId("ord_KB1lpqjhlyTaVkXq"), "KB1LPQJH"); assert.equal(order_.readingId(""), "");
+assert.equal(rr.body.reading_id, order_.readingId(verifyOrder(rr.body.order).orderId)); assert.match(rr.body.reading_id, /^[A-Z0-9_-]{8}$/);
+assert.equal(rd.body.reading_id, rr.body.reading_id); ok("reading_id from /api/read and /api/deeper = readingId(order_id)");
+const purge = await import("../scripts/purge-old-rows.mjs");
+const csv = "ts,event,env,order_id,question\n" +
+  "2026-06-01T00:00:00.000Z,read_free,production,ord_abcdEFGH1234,\"old, \"\"quoted\"\"\nmultiline\"\n" +
+  "2026-10-08T00:00:00.000Z,rating,production,ord_abcdEFGH1234,\n" +
+  "2026-10-09T00:00:00.000Z,read_free,production,,\n" +
+  "2026-10-09T01:00:00.000Z,read_free,production,ord_zzzzzzzz9,x\n";
+const rowsCsv = purge.parseCSV(csv);
+assert.equal(rowsCsv.length, 5); assert.equal(rowsCsv[1][4], 'old, "quoted"\nmultiline');
+const now = Date.parse("2026-10-09T12:00:00Z");
+const p90 = purge.planPurge(rowsCsv, { now });
+assert.deepEqual(p90.matches.map((m) => m.sheetRow), [2]);
+assert.deepEqual(p90.request.requests[0].deleteDimension.range, { sheetId: 0, dimension: "ROWS", startIndex: 1, endIndex: 2 });
+const pid = purge.planPurge(rowsCsv, { readingId: "abcdefgh", now });
+assert.deepEqual(pid.matches.map((m) => m.sheetRow), [2, 3]);
+assert.deepEqual(pid.request.requests.map((r) => r.deleteDimension.range.startIndex), [2, 1], "bottom-up");
+ok("purge plan: >90 days by ts, by Reading ID, bottom-up, CSV quoting (no network)");
+
+/* ---------------- legal pages content ---------------- */
+const legalBuild = await import("../scripts/build-legal.mjs");
+const { readFileSync: rfs } = await import("node:fs");
+assert.equal(rfs(new URL("../legal/content.js", import.meta.url), "utf8"), legalBuild.buildContent(), "legal/content.js up to date");
+const { LEGAL } = await import("../legal/content.js");
+for (const page of ["terms", "privacy"]) for (const lg of ["th", "en"]) {
+  const html = LEGAL[page][lg];
+  assert.ok(!html.includes("{{") && html.includes("oneera1991@gmail.com") && /<h1>/.test(html), page + "." + lg);
+  assert.ok(!/<script|on\w+=/i.test(html), "no script in generated legal HTML");
+}
+assert.equal(legalBuild.mdToHtml("# T\n\nA **b** <x> 1323.\n\n- one\n- two"), '<h1>T</h1>\n<p>A <strong>b</strong> &lt;x&gt; <a href="tel:1323">1323</a>.</p>\n<ul><li>one</li><li>two</li></ul>');
+ok("legal content generated verbatim from legal/*.md, escaped, current");
 
 console.log(`unit: all ${n} checks passed`);

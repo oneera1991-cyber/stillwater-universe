@@ -65,7 +65,26 @@ async function waitSlipDone(page) {
 }
 const payStatus = (page) => page.textContent("#payStatus");
 
-const ONLY = process.env.ONLY || ""; // "en" → English suite only, "data" → source/rating/log suite only
+/* Timing (in-page clock, unaffected by screenshots): slip upload → verified → scene 6 → reading complete. */
+const timings = {};
+const startTimer = (page) => page.evaluate(() => {
+  const T = window.__slipT = { start: performance.now() };
+  const iv = setInterval(() => {
+    const now = performance.now();
+    if (!T.verified && document.getElementById("payStatus").classList.contains("is-ok")) T.verified = now;
+    if (!T.fullScene && document.getElementById("scene-full").classList.contains("is-active")) T.fullScene = now;
+    if (!T.firstCard && document.querySelector("#fullSpread .flip.is-flipped")) T.firstCard = now;
+    if (!T.done && !document.getElementById("fullActions").hidden) { T.done = now; clearInterval(iv); }
+  }, 25);
+});
+const readTimer = async (page, label) => {
+  const T = await page.evaluate(() => window.__slipT);
+  const ms = (k) => Math.round(T[k] - T.start);
+  timings[label] = { slip_verified_ms: ms("verified"), full_scene_ms: ms("fullScene"), first_card_flipped_ms: ms("firstCard"), reading_complete_ms: ms("done") };
+  log("timing " + label + ":", JSON.stringify(timings[label]));
+};
+
+const ONLY = process.env.ONLY || ""; // "en" | "data" | "font" → run only that suite
 const THAI = /[\u0E00-\u0E7F]/;
 
 /* ---------- main path: all 6 scenes ---------- */
@@ -107,6 +126,14 @@ if (!ONLY) {
   await active(page, "offering");
   await page.waitForTimeout(1100);
   await shot(page, "05a-offering-locked");
+  assert.equal((await page.textContent("#scene-offering .price")).trim(), "฿59");
+  assert.equal((await page.textContent("#scene-offering .scope")).trim(), "ไพ่ใหม่ 3 ใบ สำหรับคำถามเดิม — อดีต / ปัจจุบัน / แนวโน้มข้างหน้า");
+  assert.ok(await page.isVisible("#scene-offering .scope"), "scope visible before payment");
+  assert.deepEqual(await page.$$eval("#scene-offering .pay-links a", (a) => a.map((x) => x.getAttribute("href"))), ["/terms?lang=th", "/privacy?lang=th"]);
+  assert.equal(await page.$$eval("#scene-offering footer.legal a", (a) => a.length), 2);
+  await page.evaluate(() => { const s = document.getElementById("scene-offering"); s.scrollTop = document.querySelector("#scene-offering .pay-card").offsetTop - 120; });
+  await page.waitForTimeout(300);
+  await shot(page, "15-offering-th"); log("scene 5 (th): ฿59 + scope + Terms/Privacy links before payment");
   await page.click("#btnPay");
   await page.waitForSelector("#payQr:not([hidden])");
   await page.waitForSelector("#slipBox:not([hidden])");
@@ -159,6 +186,7 @@ if (!ONLY) {
 
   const goodSlip = await makeSlip("success", "success");
   globalThis.__goodSlip = goodSlip;
+  await startTimer(page);
   await uploadSlip(page, goodSlip);
   await page.waitForFunction(() => document.getElementById("payStatus").classList.contains("is-ok"), null, { timeout: 20000 });
   await scrollPay(); await page.waitForTimeout(200);
@@ -168,8 +196,17 @@ if (!ONLY) {
 
   await active(page, "full");
   await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
+  await readTimer(page, "th");
   await page.waitForTimeout(500);
   await shot(page, "11l-full-after-slip");
+  // Reading ID (scene 6)
+  const rid = await page.textContent("#readingIdValue");
+  assert.match(rid, /^[A-Z0-9_-]{8}$/);
+  assert.equal(rid, await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).readingId));
+  assert.equal((await page.textContent("#readingIdLine span")).trim(), "รหัสการอ่าน");
+  assert.equal(await page.getAttribute("#scene-full .legal-links a[data-legal=privacy]", "href"), "/privacy?lang=th");
+  await scrollScene(page, "full", "end");
+  await shot(page, "15-full-reading-id-th"); log("scene 6 Reading ID", rid);
   const positions = await page.$$eval("#fullSpread .pos", (n) => n.map((x) => x.textContent));
   assert.deepEqual(positions, ["อดีต", "ปัจจุบัน", "แนวโน้มข้างหน้า"]);
   const ids = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper.cards.map((c) => c.id));
@@ -343,6 +380,11 @@ if (!ONLY || ONLY === "en") {
   await page.waitForTimeout(1100);
   assert.deepEqual(await lines(page, "#scene-offering .locked figcaption"), ["Past", "Present", "Future"]);
   assert.equal((await page.textContent("#btnPay")).trim(), "Pay with PromptPay QR");
+  assert.equal((await page.textContent("#scene-offering .scope")).trim(), "3 new cards for the same question — past / present / future");
+  assert.deepEqual(await page.$$eval("#scene-offering .pay-links a", (a) => a.map((x) => x.textContent)), ["Terms", "Privacy Notice"]);
+  await page.evaluate(() => { const s = document.getElementById("scene-offering"); s.scrollTop = document.querySelector("#scene-offering .pay-card").offsetTop - 120; });
+  await page.waitForTimeout(300);
+  await shot(page, "15-offering-en"); log("scene 5 (en): ฿59 + scope + links");
   await page.click("#btnPay");
   await page.waitForSelector("#slipBox:not([hidden])");
   await page.waitForTimeout(600);
@@ -359,6 +401,7 @@ if (!ONLY || ONLY === "en") {
   await page.click("#langToggle"); await page.waitForTimeout(300);
   assert.match(await payStatus(page), /isn't 59 baht/); log("EN slip error (localized by order lang) + re-render on toggle");
 
+  await startTimer(page);
   await uploadSlip(page, await makeSlip("success", "success en"));
   await page.waitForFunction(() => document.getElementById("payStatus").classList.contains("is-ok"), null, { timeout: 20000 });
   await scrollPay(); await page.waitForTimeout(200);
@@ -367,7 +410,14 @@ if (!ONLY || ONLY === "en") {
 
   await active(page, "full");
   await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
+  await readTimer(page, "en");
   await page.waitForTimeout(500);
+  assert.equal((await page.textContent("#readingIdLine span")).trim(), "Reading ID");
+  await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = s.scrollHeight; });
+  await page.waitForTimeout(300);
+  await shot(page, "15-full-reading-id-en");
+  await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = 0; });
+  await page.waitForTimeout(300);
   assert.deepEqual(await lines(page, "#fullSpread .pos"), ["Past", "Present", "Future"]);
   assert.equal((await page.textContent("#fullIntro")).trim(), "Past · Present · Future");
   assert.equal((await page.textContent("#btnAgain")).trim(), "Ask Vera Again");
@@ -417,6 +467,8 @@ if (!ONLY || ONLY === "en") {
   assert.equal(await page.$$eval("#scene-safety a[href='tel:1323']", (a) => a.length), 1);
   assert.equal(await page.$$eval("#scene-safety button", (b) => b.length), 0, "no CTA on safety");
   await shot(page, "12-en-07-safety"); log("EN safety: 1323 (Thai-language), 1669, embassy; no CTA");
+  const sev = (await (await page.request.get(`${BASE}/__mock/events`)).json()).filter((e) => e.event === "read_free" && e.safety === "TRUE").at(-1);
+  assert.ok(sev && sev.question === "" && sev.context === "" && sev.lang === "en", "safety row keeps no text"); log("safety read_free row: question/context empty");
   await page.click("#langToggle"); await page.waitForTimeout(300);
   assert.match(await page.textContent("#scene-safety"), /สายด่วนสุขภาพจิต 1323/); log("safety re-renders on toggle");
   await page.context().close();
@@ -539,6 +591,169 @@ if (!ONLY || ONLY === "data") {
   await page.context().close();
 }
 
+/* ================= FONT (loopless Noto Sans Thai) + DISCLAIMER / TERMS ================= */
+const BAD_FONT = /looped|sarabun|kanit|prompt|mitr|thonburi-looped/i;
+async function renderedFonts(page, selector) {
+  // Chromium's actual font per node (not just the CSS stack).
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("DOM.enable"); await cdp.send("CSS.enable");
+  const { root } = await cdp.send("DOM.getDocument", { depth: -1, pierce: true });
+  const { nodeIds } = await cdp.send("DOM.querySelectorAll", { nodeId: root.nodeId, selector });
+  const out = [];
+  for (const nodeId of nodeIds) {
+    // Include user-agent shadow content (textarea / input text lives there).
+    const { node } = await cdp.send("DOM.describeNode", { nodeId, depth: -1, pierce: true });
+    const backend = [];
+    (function walk(n) { if (n.nodeType === 1) backend.push(n.backendNodeId); [...(n.children || []), ...(n.shadowRoots || [])].forEach(walk); })(node);
+    const { nodeIds: ids } = await cdp.send("DOM.pushNodesByBackendIdsToFrontend", { backendNodeIds: backend });
+    for (const id of ids) {
+      const { fonts } = await cdp.send("CSS.getPlatformFontsForNode", { nodeId: id }).catch(() => ({ fonts: [] }));
+      out.push(...fonts.filter((f) => f.glyphCount > 0).map((f) => f.familyName));
+    }
+  }
+  await cdp.detach();
+  return [...new Set(out)];
+}
+async function assertThaiFont(page, selectors) {
+  for (const sel of selectors) {
+    const fam = await page.$eval(sel, (el) => getComputedStyle(el).fontFamily);
+    assert.ok(/^"?Noto Sans Thai"?,/.test(fam) && !BAD_FONT.test(fam), `${sel} font-family = ${fam}`);
+    const used = await renderedFonts(page, sel);
+    assert.ok(used.length && used.every((f) => f === "Noto Sans Thai"), `${sel} rendered with ${used.join(", ")}`);
+  }
+}
+const noAI = async (page) => assert.ok(!/\bA\.?I\b/.test(await page.evaluate(() => document.body.innerText)), "no 'AI' on the page");
+const disclaimerVisible = (page) => page.evaluate(() => [...document.querySelectorAll(".disclaimer")].some((d) => d.offsetParent && getComputedStyle(d.closest(".scene")).visibility === "visible" && d.closest(".scene").classList.contains("is-active")));
+if (!ONLY || ONLY === "font") {
+  const page = await newPage({ locale: "th-TH" });
+  await page.goto(BASE + "/");
+  await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
+  // Cormorant comes from Google Fonts (external; may be slow/blocked in CI) → best effort.
+  await page.evaluate(() => Promise.all([document.fonts.load("300 26px 'Cormorant Garamond'", "Stillwater").catch(() => null), document.fonts.ready]).catch(() => null));
+  assert.equal(await page.evaluate(() => document.fonts.check('16px "Noto Sans Thai"', "กขค")), true, 'document.fonts.check("Noto Sans Thai")');
+  assert.equal(await page.evaluate(() => document.fonts.check('16px "Noto Sans Thai"')), true);
+  const loaded = await page.evaluate(() => [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, "")));
+  assert.ok(loaded.includes("Noto Sans Thai") && !loaded.some((f) => BAD_FONT.test(f)), "loaded faces: " + loaded.join(","));
+  await page.waitForTimeout(900);
+  await assertThaiFont(page, ["#windowLines .ln", "#btnEnter", "#langToggle"]);
+  assert.equal(await disclaimerVisible(page), false, "no disclaimer on landing"); await noAI(page);
+  await shot(page, "14-font-01-window-th"); log("font: window (Noto Sans Thai rendered, fonts.check true), no disclaimer");
+
+  await page.click("#btnEnter");
+  await active(page, "question");
+  await page.waitForTimeout(1500);
+  const ph = await page.$eval("#questionInput", (el) => getComputedStyle(el, "::placeholder").fontFamily);
+  assert.ok(/^"?Noto Sans Thai"?,/.test(ph), "placeholder font " + ph);
+  await assertThaiFont(page, ["#questionTitle", "#scene-question .label", "#scene-question .rule", "#scene-question .privacy", "#btnAsk", "#soundToggle"]);
+  await page.fill("#questionInput", "งานใหม่จะไปได้ดีไหม");
+  await page.fill("#contextInput", "เพิ่งลาออกจากที่เดิม ยังกังวลอยู่");
+  await assertThaiFont(page, ["#questionInput", "#contextInput"]);
+  await shot(page, "14-font-02-question-th"); log("font: question inputs/placeholders/buttons/privacy");
+  await page.fill("#contextInput", "");
+  await page.fill("#questionInput", "");
+  await page.click("#btnAsk");
+  await page.waitForSelector("#rewriteNote:not([hidden])", { timeout: 20000 }); // empty question → note
+  await assertThaiFont(page, ["#rewriteNote"]);
+  await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม");
+  await page.click("#btnAsk");
+  await active(page, "draw");
+  await page.waitForTimeout(1200);
+  assert.equal(await disclaimerVisible(page), false, "no disclaimer on draw"); await noAI(page);
+  await assertThaiFont(page, ["#drawLines .ln"]);
+  await active(page, "first");
+  await page.waitForSelector("#rate-free.is-in", { timeout: 20000 });
+  await page.waitForTimeout(1100);
+  await assertThaiFont(page, ["#firstLines .ln", "#firstInvite .ln", "#btnToOffer", "#rate-free .rate-title", "#rate-free .rate-q", "#disclaimerFirst a"]);
+  assert.equal(await disclaimerVisible(page), true); await noAI(page);
+  assert.equal((await page.textContent("#disclaimerFirst")).trim(), "เพื่อความบันเทิงและการสำรวจตัวเอง");
+  assert.equal(await page.getAttribute("#disclaimerFirst a", "href"), "/terms?lang=th");
+  await shot(page, "14-font-03-first-th");
+  await scrollScene(page, "first", "end");
+  await shot(page, "14-terms-01-scene4-footer-th");
+  await page.click("#langToggle"); await page.waitForTimeout(300);
+  assert.equal((await page.textContent("#disclaimerFirst")).trim(), "For Entertainment & Self-Reflection");
+  assert.equal(await page.getAttribute("#disclaimerFirst a", "href"), "/terms?lang=en");
+  await shot(page, "14-terms-02-scene4-footer-en");
+  await page.click("#langToggle"); await page.waitForTimeout(300); log("scene 4 disclaimer line th/en → /terms?lang=");
+
+  await page.click("#btnToOffer");
+  await active(page, "offering");
+  await page.waitForTimeout(1100);
+  await page.click("#btnPay");
+  await page.waitForSelector("#slipBox:not([hidden])");
+  await uploadSlip(page, await makeSlip("wrong_amount", "font"));
+  await waitSlipDone(page);
+  await assertThaiFont(page, ["#scene-offering h2", "#scene-offering .copy", "#payStatus", "#slipPick", "#payHint", "#btnBackFirst"]);
+  await uploadSlip(page, await makeSlip("success", "font"));
+  await active(page, "full");
+  await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
+  await page.waitForTimeout(500);
+  await assertThaiFont(page, ["#fullSpread .pos", "#fullReadings .ln", "#fullFinal .ln", "#btnSave", "#btnAgain", "#rate-full .rate-title", "#disclaimerFull a"]);
+  assert.equal(await disclaimerVisible(page), true); await noAI(page);
+  const lastBtn = await page.$$eval("#scene-full button", (b) => b.filter((x) => x.offsetParent).at(-1).textContent.trim());
+  assert.equal(lastBtn, "ถามพี่เวราอีกครั้ง", "last button unchanged (disclaimer is a link)");
+  await scrollScene(page, "full", "end");
+  await shot(page, "14-terms-03-scene6-footer-th");
+  await page.click("#langToggle"); await page.waitForTimeout(300);
+  await shot(page, "14-terms-04-scene6-footer-en");
+  await page.click("#langToggle"); await page.waitForTimeout(300);
+  await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = 0; });
+  await page.waitForTimeout(300);
+  await shot(page, "14-font-04-full-th"); log("scene 6: Thai font everywhere + disclaimer th/en");
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#btnSave")]);
+  await dl.saveAs(`${SHOTS}/14-font-05-saved-reading-th.png`);
+  assert.equal(await page.evaluate(() => document.fonts.check("300 34px 'Noto Sans Thai'", "ก") && document.fonts.check("400 34px 'Noto Sans Thai'", "ก")), true); log("saved PNG drawn after Noto Sans Thai loaded");
+
+  // /terms (opens in a new tab from the footer link)
+  // /terms and /privacy: Stillwater's final copy rendered verbatim (legal/*.md), th + en, following the toggle.
+  const { readFileSync } = await import("node:fs");
+  const mdText = (file) => readFileSync(new URL(`../legal/${file}`, import.meta.url), "utf8")
+    .split("\n").map((l) => l.replace(/^#{1,3} /, "").replace(/^- /, "").replace(/\*\*/g, "")).join(" ").replace(/\s+/g, " ").trim();
+  const docText = (tab) => tab.$eval("#doc", (d) => d.innerText.replace(/\s+/g, " ").trim());
+  async function checkLegal(tab, page, shotTh, shotEn) {
+    await tab.waitForLoadState();
+    await tab.waitForFunction(() => document.querySelector("#doc h1"));
+    await tab.evaluate(() => document.fonts.ready);
+    assert.equal(new URL(tab.url()).pathname, "/" + page);
+    assert.equal(await tab.getAttribute("html", "lang"), "th");
+    assert.equal(await docText(tab), mdText(`${page}.th.md`), page + " th wording verbatim");
+    assert.ok(!(await tab.evaluate(() => document.body.innerText)).includes("{{"), "no placeholders left");
+    assert.equal(await tab.$$eval('#doc a[href="mailto:oneera1991@gmail.com"]', (a) => a.length > 0), true);
+    assert.equal(await tab.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll on mobile");
+    await assertThaiFont(tab, ["#doc h1", "#doc h2", "#doc p", "#back", "#cross"]); await noAI(tab);
+    await tab.screenshot({ path: `${SHOTS}/${shotTh}.png` });
+    await tab.click("#langToggle"); await tab.waitForTimeout(300);
+    assert.equal(await tab.getAttribute("html", "lang"), "en");
+    assert.equal(await docText(tab), mdText(`${page}.en.md`), page + " en wording verbatim");
+    assert.equal(new URL(tab.url()).search, "?lang=en");
+    await noAI(tab);
+    await tab.screenshot({ path: `${SHOTS}/${shotEn}.png` });
+    await tab.click("#langToggle"); await tab.waitForTimeout(200); // leave the stored choice as th
+    await tab.close();
+  }
+  const [termsTab] = await Promise.all([page.context().waitForEvent("page"), page.click("#disclaimerFull a")]);
+  await checkLegal(termsTab, "terms", "14-terms-05-page-th", "14-terms-06-page-en");
+  log("/terms: final copy verbatim th + en, Thai font, mobile width");
+  const [privTab] = await Promise.all([page.context().waitForEvent("page"), page.click("#scene-full .legal-links a[data-legal=privacy]")]);
+  await checkLegal(privTab, "privacy", "15-privacy-th", "15-privacy-en");
+  log("/privacy: final copy verbatim th + en");
+
+  // safety screen font
+  await page.click("#btnAgain");
+  await active(page, "question");
+  await ask(page, "ช่วงนี้ไม่อยากมีชีวิตอยู่แล้ว");
+  await active(page, "safety");
+  await page.waitForTimeout(3500);
+  await assertThaiFont(page, ["#safetyMsg .ln"]);
+  assert.equal(await disclaimerVisible(page), false); await noAI(page);
+  await shot(page, "14-font-06-safety-th"); log("safety screen Thai font, no disclaimer/CTA");
+  await page.context().close();
+}
+
 await browser.close();
+if (Object.keys(timings).length) {
+  const { writeFile } = await import("node:fs/promises");
+  await writeFile(`${SHOTS}/15-timing.json`, JSON.stringify(timings, null, 2));
+}
 if (errors.length) { console.error(errors.join("\n")); process.exit(1); }
 console.log("e2e: all passed →", SHOTS);
