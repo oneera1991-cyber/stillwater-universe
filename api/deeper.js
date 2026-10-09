@@ -1,91 +1,97 @@
-const PRICE = 5900;
-const CARDS = [
-  { id: 0, name: "The Fool", file: "fool.jpg" },
-  { id: 1, name: "The Magician", file: "magician.jpg" },
-  { id: 2, name: "The High Priestess", file: "priestess.jpg" },
-  { id: 3, name: "The Empress", file: "empress.jpg" },
-  { id: 4, name: "The Emperor", file: "emperor.jpg" },
-  { id: 5, name: "The Hierophant", file: "hierophant.jpg" },
-  { id: 6, name: "The Lovers", file: "lovers.jpg" },
-  { id: 7, name: "The Chariot", file: "chariot.jpg" },
-  { id: 8, name: "Strength", file: "strength.jpg" },
-  { id: 9, name: "The Hermit", file: "hermit.jpg" },
-  { id: 10, name: "Wheel of Fortune", file: "wheel.jpg" },
-  { id: 11, name: "Justice", file: "justice.jpg" },
-  { id: 12, name: "The Hanged Man", file: "hanged.jpg" },
-  { id: 13, name: "Death", file: "death.jpg" },
-  { id: 14, name: "Temperance", file: "temperance.jpg" },
-  { id: 15, name: "The Devil", file: "devil.jpg" },
-  { id: 16, name: "The Tower", file: "tower.jpg" },
-  { id: 17, name: "The Star", file: "star.jpg" },
-  { id: 18, name: "The Moon", file: "moon.jpg" },
-  { id: 19, name: "The Sun", file: "sun.jpg" },
-  { id: 20, name: "Judgement", file: "judgement.jpg" },
-  { id: 21, name: "The World", file: "world.jpg" }
-];
+/*
+====================================================
+STILLWATER — PAID 3-CARD READING  (POST /api/deeper)
+====================================================
+Body:     { order, charge }   // order = token from /api/read,
+                              // charge = paymentId from /api/payment/create (alias: payment)
+Response: { ok, safety, cards: [{ position, id, name, file, image, text } x3],
+            final, closing, message }
 
-function pickThree(excludeId) {
-  const pool = CARDS.filter((card) => card.id !== Number(excludeId));
-  const chosen = [];
-  while (chosen.length < 3) {
-    const card = pool[Math.floor(Math.random() * pool.length)];
-    if (chosen.some((item) => item.id === card.id)) continue;
-    chosen.push(card);
-  }
-  const positions = ["อดีต", "ปัจจุบัน", "อนาคต"];
-  return chosen.map((card, index) => ({
-    ...card,
-    position: positions[index],
-    image: "/cards/web/" + card.file
+Gate (api/_lib/order.js → verifyPaidOrder):
+  1. order token signature + expiry (question / context / card 1 come ONLY from it)
+  2. payment status fetched server-side via api/_lib/payment.js (provider-
+     agnostic): paid, amount 5900, currency THB, orderId === order.orderId
+Then 3 cards are drawn server-side (crypto.randomInt, no card 1, no repeats).
+
+TODO(storage): one-time use / idempotency — today a replay of the same
+(order, payment) redraws. See the TODO block in api/_lib/order.js.
+*/
+
+import { POSITIONS, cardById, drawThree, publicCard } from "./_lib/cards.js";
+import { OrderError, parseBody, verifyPaidOrder } from "./_lib/order.js";
+import { PaymentError } from "./_lib/payment.js";
+
+/* ==================================================
+   // STUB until Stillwater's vera-3card lands
+   Replace stubReadThree() with `readThree` from api/_lib/vera.js and pass it
+   { question, context, freeCard, openThread } from the VERIFIED order.
+   Note: Stillwater's readThree() draws its own 3 cards with the same rule
+   (drawThree(freeCard.id)); either let it accept `drawn` below or drop the
+   drawThree() call here — but keep exactly one server-side draw.
+================================================== */
+async function stubReadThree({ freeCard, drawn }) {
+  const cards = drawn.map((card, i) => ({
+    position: POSITIONS[i],
+    ...publicCard(card),
+    text: [
+      `${POSITIONS[i]} — ${card.name}`,
+      `ใบนี้พูดถึง${card.core}`,
+      i === 0
+        ? "นี่คือสิ่งที่พาเรื่องนี้มาถึงจุดที่คุณยืนอยู่ค่ะ"
+        : i === 1
+          ? "นี่คือสิ่งที่อยู่ตรงหน้าคุณ และกำลังขอให้คุณมองให้ชัด"
+          : "นี่คือทิศที่พลังตอนนี้เอียงไป ถ้าคุณเดินต่อแบบเดิม"
+    ].join("\n")
   }));
+  return {
+    safety: false,
+    cards,
+    final: `เมื่อวางสามใบนี้ต่อจาก ${freeCard ? freeCard.name : "ใบแรก"} เรื่องของคุณเริ่มเล่าเป็นเส้นเดียวกันแล้วค่ะ สิ่งที่ทำได้จริงตอนนี้คือเลือกหนึ่งก้าวเล็ก ๆ ที่ตรงกับใจ แล้วลองดูว่ามันพาไปทางไหน`,
+    closing: "พี่เวราจะเก็บคำถามนี้ไว้ในน้ำนิ่งนะคะ ขอให้คุณเดินต่ออย่างเบาใจค่ะ",
+    message: null
+  };
 }
-
-async function paidCharge(chargeId) {
-  const secretKey = process.env.OMISE_SECRET_KEY;
-  if (!secretKey) {
-    const error = new Error("ยังไม่ได้ตั้งค่า OMISE_SECRET_KEY");
-    error.status = 500;
-    throw error;
-  }
-  const response = await fetch("https://api.omise.co/charges/" + chargeId, {
-    headers: {
-      Authorization: "Basic " + Buffer.from(secretKey + ":").toString("base64")
-    }
-  });
-  const charge = await response.json();
-  if (!response.ok) {
-    const error = new Error(charge.message || "ตรวจการจ่ายไม่สำเร็จ");
-    error.status = 502;
-    throw error;
-  }
-  return charge.status === "successful" && charge.amount === PRICE && charge.currency === "THB";
-}
+/* ================= END STUB ================= */
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
   try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-    if (!String(body.chargeId || "").startsWith("chrg_")) {
-      return res.status(400).json({ error: "ไม่พบรายการจ่าย" });
+    const body = parseBody(req);
+    const { order } = await verifyPaidOrder({
+      orderToken: body.order,
+      paymentId: String(body.charge || body.payment || "")
+    });
+
+    const freeCard = cardById(order.card1);
+    const drawn = drawThree(order.card1);
+
+    const result = await stubReadThree({
+      question: order.question,
+      context: order.context,
+      freeCard: freeCard ? { id: freeCard.id, name: freeCard.name, text: order.card1Text } : null,
+      openThread: order.open_thread,
+      drawn
+    });
+
+    if (result.safety) {
+      return res.status(200).json({ ok: true, safety: true, cards: [], final: "", closing: "", message: result.message });
     }
-    const paid = await paidCharge(body.chargeId);
-    if (!paid) {
-      return res.status(402).json({ error: "ยังไม่พบการชำระเงิน 59 บาท" });
-    }
-    const cards = pickThree(body.firstCardId);
-    const reading = [
-      "พี่เวราเปิดอีกสามใบให้แล้วนะคะ",
-      "ใบอดีตคือ " + cards[0].name + " สิ่งที่พามาถึงจุดนี้",
-      "ใบปัจจุบันคือ " + cards[1].name + " สิ่งที่กำลังอยู่ตรงหน้า",
-      "ใบอนาคตคือ " + cards[2].name + " ทิศที่เริ่มเปิดออก",
-      "สามใบนี้ไม่ได้แยกกันค่ะ มันกำลังเล่าเรื่องเดียวกันกับคำถามของคุณ"
-    ].join("\n");
-    return res.status(200).json({ ok: true, cards, reading });
+    return res.status(200).json({
+      ok: true,
+      safety: false,
+      cards: result.cards,
+      final: result.final,
+      closing: result.closing,
+      message: null
+    });
   } catch (error) {
-    return res.status(error.status || 500).json({
-      error: error.message || "เปิดไพ่เพิ่มไม่สำเร็จ"
+    const known = error instanceof OrderError || error instanceof PaymentError;
+    if (!known) console.error("Stillwater /api/deeper error:", error);
+    return res.status(known ? error.status : 500).json({
+      error: known ? error.message : "เปิดไพ่เพิ่มไม่สำเร็จ",
+      code: error.code || "error"
     });
   }
 }

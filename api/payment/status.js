@@ -1,37 +1,29 @@
-const PRICE = 5900;
+/*
+GET /api/payment/status?payment=<id>   (legacy: ?charge=<id>)
+Response: { ok, paid, status, paymentId }
+`paid` here only drives the polling UI; /api/deeper re-verifies everything
+(amount, currency, orderId binding) server-side before revealing anything.
+*/
+import { PRICE_SATANG, CURRENCY, PaymentError, getPaymentStatus, isPaymentId } from "../_lib/payment.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
-
-  const chargeId = req.query?.charge;
-  const secretKey = process.env.OMISE_SECRET_KEY;
-  if (!chargeId || !String(chargeId).startsWith("chrg_")) {
-    return res.status(400).json({ error: "Missing charge" });
-  }
-  if (!secretKey) {
-    return res.status(500).json({ error: "Payment configuration missing" });
-  }
-
+  const paymentId = String(req.query?.payment || req.query?.charge || "");
   try {
-    const response = await fetch("https://api.omise.co/charges/" + chargeId, {
-      headers: {
-        Authorization: "Basic " + Buffer.from(secretKey + ":").toString("base64")
-      }
-    });
-    const charge = await response.json();
-    if (!response.ok) {
-      return res.status(502).json({ error: charge.message || "ตรวจสถานะไม่สำเร็จ" });
+    if (!isPaymentId(paymentId)) {
+      return res.status(400).json({ error: "Missing payment" });
     }
-    const paid = charge.status === "successful" && charge.amount === PRICE && charge.currency === "THB";
+    const s = await getPaymentStatus(paymentId);
     return res.status(200).json({
       ok: true,
-      paid,
-      status: charge.status,
-      chargeId
+      paid: s.paid && s.amount === PRICE_SATANG && s.currency === CURRENCY,
+      status: s.status,
+      paymentId
     });
   } catch (error) {
-    return res.status(500).json({ error: error.message || "Payment status failed" });
+    const known = error instanceof PaymentError;
+    return res.status(known ? error.status : 500).json({ error: known ? error.message : "Payment status failed" });
   }
 }
