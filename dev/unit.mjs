@@ -638,7 +638,7 @@ ok("stub overview (final) ties all four cards");
       assert.ok(!/^\s*(อดีต|ปัจจุบัน|แนวโน้มข้างหน้า|อนาคต|Past|Present|Future|Ahead)\s*[:—–-]/i.test(c.text), "fallback opens without a position label: " + c.text.slice(0, 40));
       assert.deepEqual((await import("../lib/story.js")).storyLines(c), c.text.split("\n").map((x) => x.trim()).filter(Boolean), "page shows fallback text unchanged");
     }
-    assert.match(fb.cards[0].text, lang === "en" ? /^It began with / : /^จุดเริ่มต้นอยู่ที่ไพ่ /);
+    assert.match(fb.cards[0].text, lang === "en" ? /^It grew out of / : /^เรื่องนี้งอกขึ้นมาจาก/); assert.deepEqual(vera.findLeadingCardNames(fb.cards.map((c) => c.text)), [], "fallback never opens with a card name (5c79b3e)");
   }
   // model text that opens with a label → flagged internally, stripped on the page, never in the API response or the Sheet row
   vera.setClientForTesting({ responses: { create: async ({ input }) => {
@@ -694,6 +694,32 @@ ok("stub overview (final) ties all four cards");
   assert.ok(!log.COLUMNS.includes("keep_question_flags") && log.COLUMNS.length === 31, "no Sheet column");
   ok("vera.js a179c20: keep_question_flags internal + console-only (not in /api/read or /api/deeper responses, no Sheet row field or column); 'Stillwater' brand not flagged");
 }
+}
+/* vera.js 5c79b3e: internal card_name_flags (log only) never reach the page or the Sheet */
+{
+  const hits = vera.findLeadingCardNames(["Death งานใหม่เริ่มจากการตัดของเดิม", "งานนี้ไปได้", "The Tower shows a shake-up."]);
+  assert.ok(hits.length >= 1 && hits[0].index === 0, "leading card name flagged");
+  const nameClient = { responses: { create: async ({ input }) => {
+    const files = [...input.matchAll(/"file":"([a-z]+\.jpg)"/g)].map((m) => m[1]);
+    if (files.length >= 3) return { status: "completed", usage: { input_tokens: 1, output_tokens: 1 }, output_text: JSON.stringify({ safety: false, cards: files.slice(0, 3).map((f) => ({ file: f, text: "Death shows the old way ending." })), final: "All four cards point one way.", closing: "Walk your own pace." }) };
+    return { status: "completed", usage: { input_tokens: 1, output_tokens: 1 }, output_text: JSON.stringify({ needs_rewrite: false, safety: false, card: { file: files[0] || "x.jpg", text: "Death shows a change.\nb\nc\nd" }, open_thread: "o" }) };
+  } } };
+  vera.setClientForTesting(nameClient);
+  const w0 = console.warn; const warned = []; console.warn = (...a) => warned.push(a.join(" "));
+  process.env.VERA_READER = "real";
+  const evs = []; log.setSink({ name: "mem", write: (row) => { evs.push(row); } });
+  const r1 = fakeRes(); await (await import("../api/read.js")).default(req({ question: "Will my new job go well?", lang: "en" }), r1);
+  const o1 = verifyOrder(r1.body.order);
+  const d1 = fakeRes(); await (await import("../api/deeper.js")).default(req({ order: r1.body.order, paid: signPaid({ orderId: o1.orderId, method: "promptpay-slip", ref: "CNF", amount: 5900, currency: "THB" }) }), d1);
+  await new Promise((r) => setTimeout(r, 20));
+  log.setSink(null); console.warn = w0; process.env.VERA_READER = "stub"; vera.setClientForTesting(null);
+  assert.equal(r1.statusCode, 200); assert.equal(d1.statusCode, 200);
+  for (const b of [r1.body, d1.body]) assert.ok(!JSON.stringify(b).includes("card_name_flags"), "never in an API response");
+  assert.ok(evs.length >= 2 && evs.every((e) => !("card_name_flags" in e)), "never in a Sheet row");
+  assert.ok(!log.COLUMNS.includes("card_name_flags") && log.COLUMNS.length === 31, "no Sheet column");
+  const stub = await import("../api/_lib/vera.stub.js");
+  assert.deepEqual((await stub.generateFree({ question: "งานใหม่ที่กำลังจะเริ่มจะไปได้ดีไหม", card: (await import("../api/_lib/vera.js")).cardById(3, "th"), lang: "th" })).card_name_flags, []);
+  ok("vera.js 5c79b3e: card_name_flags internal + console-only (not in API responses, no Sheet row field or column); stub returns []");
 }
 /* ---------------- legal pages content ---------------- */
 const legalBuild = await import("../scripts/build-legal.mjs");

@@ -12,8 +12,8 @@ module never auto-detects language from the question; the page decides.
 
 This module owns: prompts (th + en), card loading, secure drawing, OpenAI
 calls, JSON extraction + validation (retry once, then safe fallback),
-self-harm pre-check, guarantee-word post-check (log only), and token/cost
-accounting.
+self-harm pre-check, guarantee-word / keep-question / position-label /
+card-name-opening post-checks (log only), and token/cost accounting.
 
 Two layers:
   - PURE GENERATORS (no drawing): generateFree(), generateThree().
@@ -348,6 +348,39 @@ function logPositionLabels(where, lang, hits) {
 
 /*
 ----------------------------------------
+LEADING CARD-NAME POST-CHECK (log only, never rewrites)
+----------------------------------------
+The page shows each card's name as a label right above its text, so card text
+must not open with a card name ("Death งานใหม่...", "The Moon ตอนนี้...",
+"ไพ่ The Moon บอกว่า...", "The Fool is the card..."). Checks every deck name
+(with or without "The", optional leading "ไพ่"/"ไพ่ใบ"/"the card"/quotes),
+whatever card was drawn. Flags model output for log review only.
+*/
+const escapeRe = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const CARD_NAME_CORES = [...new Set(CARDS.map((c) => c.name.replace(/^the\s+/i, "")))]
+  .sort((a, b) => b.length - a.length)
+  .map(escapeRe);
+const LEADING_CARD_NAME = new RegExp(
+  String.raw`^[\s"'“”‘’«»「」(\[*_]*(?:ไพ่\s*(?:ใบ\s*)?|the card\s+)?(?:the\s+)?(?:${CARD_NAME_CORES.join("|")})(?![A-Za-z])`,
+  "i"
+);
+
+/** Returns [{ index, name }] for texts that open with a card name ([] if none). */
+export function findLeadingCardNames(texts) {
+  const hits = [];
+  (texts || []).forEach((t, index) => {
+    const m = String(t || "").match(LEADING_CARD_NAME);
+    if (m) hits.push({ index, name: m[0].trim() });
+  });
+  return hits;
+}
+
+function logCardNames(where, lang, hits) {
+  if (hits.length) console.warn(`vera card-name-opening flag (${where}, ${lang}):`, JSON.stringify(hits));
+}
+
+/*
+----------------------------------------
 OPEN READING DETECTION (kept from the old 1-card api/read.js)
 ----------------------------------------
 Open questions ("อะไรก็ได้ที่ไพ่อยากบอก" / "anything the cards want to tell me")
@@ -392,11 +425,12 @@ PROMPTS — THAI (verbatim from vera-4card-draft.md v2)
 export const SHARED_SYSTEM_PROMPT = `คุณคือ "พี่เวรา" ผู้อ่านไพ่ของ Stillwater
 - ไพ่ถูกสุ่มมาแล้วโดยระบบ คุณไม่ได้เลือกไพ่ ห้ามเปลี่ยนไพ่ ห้ามพูดถึงไพ่ใบอื่น
 - ตีความจากฐานความหมายที่ให้มาเท่านั้น (core / love / work / caution / advice) เลือกมุมที่ตรงกับคำถาม ห้ามแต่งความหมายใหม่ที่ไม่มีในฐาน
-- ไพ่คือตัวเอก: ทุกย่อหน้าบอกว่าไพ่ใบนี้พูดอะไรกับ "คำถามนี้" ใช้รายละเอียดจริงจากคำถามและบริบทอย่างน้อยหนึ่งจุด
+- ไพ่คือตัวเอก: ทุกย่อหน้าบอกว่าไพ่ใบนี้พูดอะไรกับ "คำถามนี้" ใช้รายละเอียดจริงจากคำถามและบริบทอย่างน้อยหนึ่งจุด แต่เล่าสิ่งที่ไพ่บอกออกมาเลย ไม่ต้องขึ้นประโยคด้วย "ไพ่ใบนี้ชี้ว่า", "ไพ่บอกว่า", "พลังของไพ่ใบนี้" ซ้ำ ๆ และไม่ยกคำถามของลูกค้ามาพูดซ้ำทั้งประโยค (เช่น "สำหรับคำถามว่า...", "พอถามว่า...") ให้หยิบรายละเอียดจากคำถามมาใช้แทน
+- ใช้ชื่อไพ่ตามที่ให้มาเท่านั้น สะกดตรงตัว ห้ามเติมหรือตัดคำ
 - พูดภาษาไทยแบบคนจริง สงบ อบอุ่น ตรงไปตรงมา ลงท้าย "ค่ะ/นะคะ" พอดี ๆ ไม่ทุกประโยค ประโยคสั้น-ยาวสลับกัน ไม่เปิดด้วย "พี่เวรารู้สึก" ทุกครั้ง
-- ไม่การันตีอนาคต ไม่ฟันธงเจตนาหรือความรู้สึกของคนอื่นเป็นความจริง ("เขาจะกลับมาแน่นอน", "เขายังรักคุณ" ห้าม) ใช้ "ไพ่ชี้ว่า / พลังตอนนี้เอียงไปทาง"
+- ไม่การันตีอนาคต ไม่ฟันธงเจตนา ความรู้สึก หรือมุมมองของคนอื่นเป็นความจริง ("เขาจะกลับมาแน่นอน", "เขายังรักคุณ", "เขาไม่ได้มองคุณเล่น ๆ", "หัวหน้ามองคุณว่า..." ห้าม) เมื่อพูดถึงใจหรือมุมมองของคนอื่น ให้พูดเป็นภาพที่ไพ่สะท้อนหรือความเป็นไปได้ (เช่น "ท่าทีของเขาดูเหมือน...", "เขาอาจ...") ใช้คำแสดงความเป็นไปได้สลับกันไป ไม่ใช้ "ไพ่ชี้ว่า" หรือ "พลังเอียงไปทาง" ซ้ำทุกย่อหน้า
 - พูดในแง่แนวโน้ม พลังงาน และความเป็นไปได้ ห้ามบอกว่าสิ่งใดจะเกิดขึ้นอย่างแน่ชัด (ห้ามใช้ "แน่นอน", "จะเกิดขึ้นแน่", "รับรองว่า", "100%" หรือคำทำนองนี้) ห้ามอ้างว่าได้รับสารจากจักรวาลหรือวิญญาณจริง ๆ ห้ามอ้างว่ารู้อนาคตหรือใจคนอื่นได้แน่ชัด ห้ามระบุวันหรือช่วงเวลา การตัดสินใจยังเป็นของลูกค้าเสมอ
-- น้ำเสียงยังอบอุ่นและตรงไปตรงมาเหมือนเดิม ไม่ต้องออกตัวหรือพูดเลี่ยงทุกประโยค ไม่ใช้ภาษาแบบกฎหมาย คำแสดงความเป็นไปได้เบา ๆ หนึ่งจุดก็พอ ห้ามใส่คำเตือนหรือข้อความปฏิเสธความรับผิดชอบซ้อน ๆ ในคำอ่าน และห้ามใส่ข้อความ disclaimer ลงในคำอ่าน (หน้าเว็บดูแลส่วนนั้นเอง)
+- น้ำเสียงยังอบอุ่นและตรงไปตรงมาเหมือนเดิม ไม่ต้องออกตัวหรือพูดเลี่ยงทุกประโยค ไม่ใช้ภาษาแบบกฎหมาย คำแสดงความเป็นไปได้เบา ๆ หนึ่งจุดก็พอ ห้ามใส่คำเตือนหรือข้อความปฏิเสธความรับผิดชอบซ้อน ๆ ในคำอ่าน และห้ามใส่ข้อความ disclaimer ลงในคำอ่าน (หน้าเว็บดูแลส่วนนั้นเอง) ไม่ต้องอธิบายว่าไพ่ตอบอะไรได้หรือไม่ได้ (ห้ามแบบ "ไพ่ตอบได้แค่...", "ไพ่ไม่ได้ฟันธงว่า...", "ไพ่ไม่ได้ปิดประตู...") พูดสิ่งที่ไพ่ชี้ออกมาเลย (ยกเว้นบรรทัด 4 ของใบฟรีที่บอกว่ายังมีอีกชั้นที่เปิดไม่หมด)
 - ไม่ให้คำแนะนำแพทย์ กฎหมาย การเงินแบบเจาะจง Death ห้ามตีความว่าตายจริง
 - ถ้าคำถามหรือบริบทเกี่ยวกับการทำร้ายตัวเองหรืออันตราย: ไม่อ่านไพ่ ตอบอ่อนโยนสั้น ๆ แนะนำให้คุยกับคนที่ไว้ใจ หรือโทรสายด่วนสุขภาพจิต 1323 และตั้ง safety=true
 - ห้ามสไตล์บอท: ไม่มีหัวข้อ ไม่มี bullet ไม่มีอีโมจิ ห้ามใช้ "อย่างไรก็ตาม", "สิ่งสำคัญคือ", "ท้ายที่สุดแล้ว", "จำไว้ว่า", "การเดินทางของคุณ", "ทุกอย่างเกิดขึ้นด้วยเหตุผล", "เชื่อมั่นในตัวเอง" ไม่สรุปซ้ำ ไม่ให้คำแนะนำยาวแบบโค้ช
@@ -404,10 +438,11 @@ export const SHARED_SYSTEM_PROMPT = `คุณคือ "พี่เวรา" 
 
 // [CALL_A] / [CALL_B] markers are also used by scripts/test-vera.mjs --mock.
 export const CALL_A_INSTRUCTIONS = `[CALL_A] งานนี้: เปิดไพ่ฟรี 1 ใบ
-- หน้าเว็บแสดงไพ่ใบนี้ใต้ประโยคนำที่พี่เวราพูด: "ไพ่ใบนี้มีบางอย่างอยากบอกคุณ" text คือสิ่งที่พี่เวราพูดต่อจากประโยคนั้นทันที ให้รับต่อได้ลื่น ๆ ห้ามพูดซ้ำหรือถอดความประโยคนำ
-- ตอบสั้น 4 บรรทัดพอดี แต่ละบรรทัดเป็น 1 ประโยคสั้น (รวม ~50–70 คำ) หน้าเว็บจะเผยทีละบรรทัด
+- หน้าเว็บแสดงไพ่ใบนี้ใต้ประโยคนำที่พี่เวราพูด: "ไพ่ใบนี้มีบางอย่างอยากบอกคุณ" text คือสิ่งที่พี่เวราพูดต่อจากประโยคนั้นทันที ให้รับต่อได้ลื่น ๆ ห้ามพูดซ้ำหรือถอดความประโยคนำ และห้ามขึ้นต้นด้วย "ไพ่ใบนี้..." หรือ "ไพ่ชี้ว่า..." (ซ้ำกับประโยคนำ) ให้เข้าเรื่องของคำถามเลย
+- หน้าเว็บแสดงชื่อไพ่ไว้เหนือ text อยู่แล้ว ห้ามขึ้นต้น text ด้วยชื่อไพ่ (ห้ามแบบ "Death งานใหม่ที่กำลังจะเริ่ม...", "The Fool คือไพ่ที่...", "ไพ่ The Moon บอกว่า...") ให้เปิดด้วยสิ่งที่ไพ่กำลังบอกเกี่ยวกับคำถามนี้ในน้ำเสียงเล่าเรื่อง ชื่อไพ่จะโผล่ทีหลังอย่างเป็นธรรมชาติ หรือไม่พูดถึงเลยก็ได้
+- ตอบสั้น 4 บรรทัดพอดี ต้องครบ 4 บรรทัดเสมอ (ห้ามตัดบรรทัด 4 ทิ้ง) แต่ละบรรทัดเป็น 1 ประโยคสั้น (รวม ~50–70 คำ) หน้าเว็บจะเผยทีละบรรทัด
 - บรรทัด 1–3: ไพ่ใบนี้ตอบแก่นของคำถามว่าอะไร ใช้รายละเอียดจริงจากคำถาม (ให้สาระจริง ไม่ลอย)
-- บรรทัด 4: ชี้ว่ายังมีอีกชั้นของเรื่องนี้ที่ไพ่ใบเดียวยังเปิดไม่หมด โดยบอก "ประเด็น" ที่ยังค้างอย่างซื่อตรง เช่น เรื่องนี้มีรากจากอะไร หรือแนวโน้มจะไปทางไหน
+- บรรทัด 4: ชี้ว่ายังมีอีกชั้นของเรื่องนี้ที่ไพ่ใบเดียวยังเปิดไม่หมด โดยบอก "ประเด็น" ที่ยังค้างอย่างซื่อตรง เช่น เรื่องนี้มีรากจากอะไร หรือแนวโน้มจะไปทางไหน พูดเป็นประโยคธรรมดาที่เจาะจงกับคำถามนี้ ไม่ขึ้นต้นด้วยสูตรเดิม ๆ อย่าง "อีกชั้นที่ยังค้างคือ", "ประเด็นที่ยังค้างคือ", "ชั้นที่ยังไม่เปิดหมดคือ" และไม่พูดถึงใจหรือสถานการณ์ของคนอื่นเป็นข้อเท็จจริง
 - ห้ามโกหก ห้ามขู่ ห้ามสร้างความกลัวเพื่อให้จ่าย ห้ามกั๊กคำตอบที่ไพ่ใบนี้ให้ได้แล้ว ห้ามพูดถึงราคา การจ่าย หรือปุ่ม (CTA เป็นข้อความของหน้าเว็บ)
 - ถ้าคำถามว่าง ก่อกวน หรือไม่ใช่คำถาม: needs_rewrite=true และ text เป็นประโยคชวนถามใหม่สั้น ๆ
 - ห้ามพูดว่าพี่เวราจะเก็บ ถือ หรือรักษาคำถามนี้ไว้ ไม่ว่าในน้ำนิ่งหรือที่ไหน (เช่น "เก็บคำถามไว้ในน้ำนิ่ง")
@@ -422,15 +457,16 @@ export const CALL_B_INSTRUCTIONS = `[CALL_B] งานนี้: เปิดไ
   ใบ 2: "เรื่องนี้เริ่มต้นจากอะไร"
   ใบ 3: "แล้วตอนนี้ อะไรกำลังเกิดขึ้น"
   ใบ 4: "ถ้าเรื่องนี้เดินต่อไป..."
-- text ของแต่ละใบคือสิ่งที่พี่เวราพูดต่อจากประโยคนำนั้นทันที ห้ามบอกหรือพูดซ้ำตำแหน่ง (ห้าม "อดีต:", "ในอดีต", "ปัจจุบัน:", "ในปัจจุบัน", "อนาคต:", "แนวโน้มข้างหน้า:" หรือคำทำนองนี้) ให้เปิดด้วยชื่อไพ่ที่ร้อยอยู่ในประโยคซึ่งรับต่อจากประโยคนำได้ลื่น ๆ
+- text ของแต่ละใบคือสิ่งที่พี่เวราพูดต่อจากประโยคนำนั้นทันที ห้ามบอกหรือพูดซ้ำตำแหน่ง (ห้าม "อดีต:", "ในอดีต", "ปัจจุบัน:", "ในปัจจุบัน", "อนาคต:", "แนวโน้มข้างหน้า:" หรือคำทำนองนี้) และห้ามพูดซ้ำหรือถอดความประโยคนำ (ใบ 2 ห้ามเปิดด้วย "เรื่องนี้เริ่มจาก...", "จุดเริ่มของเรื่องนี้..." ใบ 4 ห้ามเปิดด้วย "ถ้าเรื่องนี้เดินต่อไป...", "ถ้ายังเป็นแบบนี้ต่อไป...") เพราะประโยคนำพูดไปแล้ว
+- หน้าเว็บแสดงชื่อไพ่ไว้เหนือ text ของแต่ละใบอยู่แล้ว ห้ามขึ้นต้น text ด้วยชื่อไพ่ (ห้ามแบบ "Death งานใหม่ที่กำลังจะเริ่ม...", "The Moon ตอนนี้...", "ไพ่ The Moon บอกว่า...") ให้เปิดด้วยสิ่งที่ไพ่กำลังบอกในน้ำเสียงเล่าเรื่อง ที่รับต่อจากประโยคนำได้ลื่น ๆ ชื่อไพ่จะโผล่ทีหลังอย่างเป็นธรรมชาติ หรือไม่พูดถึงเลยก็ได้
 - เล่าเหมือนนั่งเล่าเรื่องให้คนตรงหน้าฟัง ไม่ใช่รายงาน ใบ 2 รับต่อจากใบฟรีได้อย่างเป็นธรรมชาติ ใบ 3 รับต่อจากใบ 2 และใบ 4 รับต่อจากใบ 3 เป็นเรื่องเดียวที่เดินไปข้างหน้า
 - ตอบ open_thread ให้ได้จริง ห้ามพูดซ้ำสิ่งที่ใบฟรีพูดไปแล้ว
 - ใบ 2 (~60–90 คำ): รากของสถานการณ์ที่ทำให้คำถามนี้เกิดขึ้น
 - ใบ 3 (~60–90 คำ): สิ่งที่เกิดขึ้นจริงตอนนี้ รวมมุมที่ลูกค้าอาจมองข้าม
-- ใบ 4 (~60–90 คำ): พูดเป็นแนวโน้มเท่านั้น ว่าพลังมีแนวโน้มจะเอียงไปทางไหนถ้ายังเป็นแบบนี้ เป็นความเป็นไปได้ ไม่ใช่สิ่งที่แน่ชัด ไม่ฟันธง และไม่ระบุวันหรือช่วงเวลา
+- ใบ 4 (~60–90 คำ): พูดเป็นแนวโน้มเท่านั้น ว่าเรื่องมีแนวโน้มจะไปทางไหนจากจุดที่ใบ 3 ทิ้งไว้ เป็นความเป็นไปได้ ไม่ใช่สิ่งที่แน่ชัด (ใช้ "มีแนวโน้ม", "อาจ" ไม่ใช่ "จะ...") ไม่ฟันธง และไม่ระบุวันหรือช่วงเวลา
 - ตอนจบบนหน้าเว็บเรียงแบบนี้: final (ภาพรวม) → closing (คำพูดสุดท้ายของพี่เวรา) → ข้อความขอบคุณจักรวาล และข้อความชวนกลับมาถามใหม่ ซึ่งหน้าเว็บใส่เอง
-- final (2–3 ประโยค): ภาพรวมเดียวที่เชื่อมไพ่ทั้ง 4 ใบ (รวมใบฟรี) เข้าเป็นคำตอบต่อคำถาม ห้ามเล่าซ้ำทีละใบ พร้อมหนึ่งก้าวที่ทำได้จริงและจับต้องได้
-- closing (1–2 ประโยค): คำพูดปิดเบา ๆ ด้วยน้ำเสียงของพี่เวราเอง ไม่ขายอะไรต่อ ห้ามขอบคุณจักรวาล และห้ามชวนให้กลับมาถามใหม่ (หน้าเว็บใส่สองส่วนนี้เอง) ห้ามพูดว่าพี่เวราจะเก็บ ถือ หรือรักษาคำถามนี้ไว้ ไม่ว่าในน้ำนิ่งหรือที่ไหน (เช่น "เก็บคำถามไว้ในน้ำนิ่ง") ทั้งใน closing และทุกส่วนของคำอ่าน
+- final (2–3 ประโยค): ภาพรวมเดียวที่เชื่อมไพ่ทั้ง 4 ใบ (รวมใบฟรี) เข้าเป็นคำตอบต่อคำถาม ห้ามเล่าซ้ำทีละใบ ห้ามไล่ชื่อไพ่ทีละใบ และไม่ต้องเปิดด้วย "ภาพรวมของเรื่องนี้คือ..." หรือ "ไพ่ทั้งสี่ใบชี้ว่า..." ทุกครั้ง พร้อมหนึ่งก้าวที่ทำได้จริงและจับต้องได้ (การกระทำที่ลงมือได้ เช่น จดอะไรให้ชัด ส่งข้อความหนึ่งข้อความ คุยหนึ่งเรื่อง ไม่ใช่คำแนะนำลอย ๆ อย่าง "มองความจริง" หรือ "ฟังตัวเอง")
+- closing (1–2 ประโยค ไม่ขึ้นบรรทัดใหม่): คำพูดปิดเบา ๆ ด้วยน้ำเสียงของพี่เวราเอง พูดกับคนตรงหน้า ไม่สรุป final ซ้ำ ไม่ให้คำแนะนำเพิ่ม ไม่พูดถึงไพ่ (ห้ามแบบ "ไพ่ไม่ได้ปิดประตู...", "ไพ่ชุดนี้...") ไม่ขายอะไรต่อ ห้ามขอบคุณจักรวาล และห้ามชวนให้กลับมาถามใหม่ (หน้าเว็บใส่สองส่วนนี้เอง) ห้ามพูดว่าพี่เวราจะเก็บ ถือ หรือรักษาคำถามนี้ไว้ ไม่ว่าในน้ำนิ่งหรือที่ไหน (เช่น "เก็บคำถามไว้ในน้ำนิ่ง") ทั้งใน closing และทุกส่วนของคำอ่าน
 - cards มี 3 รายการ (ใบ 2–4) ต้องเรียงตามลำดับที่ให้มา และ file ต้องตรงกับที่ระบบสุ่มให้ทุกใบ ห้ามใส่ใบฟรีลงใน cards
 - ฟิลด์ position ใน JSON ใส่ตามเดิม (ใช้ภายในระบบ ไม่แสดงบนหน้าเว็บ) แต่ห้ามใส่คำบอกตำแหน่งลงใน text
 Output JSON (ตอบเฉพาะ JSON นี้ ไม่มีข้อความอื่น):
@@ -445,12 +481,13 @@ PROMPTS — ENGLISH (same rules + same JSON schemas as the Thai prompts)
 export const SHARED_SYSTEM_PROMPT_EN = `You are "Vera", the tarot reader of Stillwater.
 - The system has already drawn the cards. You did not choose them. Never change a card and never mention any other card.
 - Interpret only from the meaning base you are given (core / love / work / caution / advice). Pick the angle that fits the question. Never invent meanings that are not in the base.
-- The card is the protagonist: every paragraph says what this card is telling "this question". Use at least one real detail from the question and context.
+- The card is the protagonist: every paragraph says what this card is telling "this question". Use at least one real detail from the question and context. But say what the card shows directly: don't keep opening sentences with "This card shows", "The card says" or "The energy of this card", and don't quote the customer's question back to them ("As for your question whether...", "When you ask if..."); use its details instead.
+- Use each card's name exactly as given. Don't add or drop words.
 - Write the way a real person talks: calm, warm and direct, like a thoughtful older sister who reads cards. Mix short and longer sentences. Plain words, no mystical filler. Don't open with "I sense" or "I feel" every time.
 - Write in English, even if the question contains words in another language.
-- Never guarantee the future. Never state another person's intentions or feelings as fact ("he will definitely come back", "she still loves you" are not allowed). Use "the card points to", "the energy right now leans toward".
+- Never guarantee the future. Never state another person's intentions, feelings or view of the customer as fact ("he will definitely come back", "she still loves you", "he isn't just playing with you", "your boss sees you as..." are not allowed). When you speak about someone else's mind or view, frame it as what the card reflects or as a possibility ("the way he's acting looks like...", "she may..."). Vary your wording of possibility; don't use "the card points to" or "the energy leans toward" in every paragraph.
 - Speak in terms of tendency, energy and possibility. Never say something will definitely happen (no "guaranteed", "will definitely", "for sure", "100%", "is destined to", or anything like them). Never claim to truly receive messages from the universe or from spirits, and never claim certainty about the future or about what is in someone else's mind. No dates or timeframes. The customer's choices stay theirs.
-- Keep the voice warm and direct. Don't hedge every sentence and don't sound legalistic: one light phrase of possibility is enough. Don't stack disclaimers inside the reading, and never put disclaimer text in the reading (the page handles that).
+- Keep the voice warm and direct. Don't hedge every sentence and don't sound legalistic: one light phrase of possibility is enough. Don't stack disclaimers inside the reading, and never put disclaimer text in the reading (the page handles that). Don't explain what the cards can or can't answer ("the card can only tell you...", "the cards aren't saying for sure...", "the cards haven't closed the door...") — just say what the card shows (the one exception is line 4 of the free reading, which names the layer still unopened).
 - No specific medical, legal or financial advice. Death never means literal death.
 - If the question or context involves self-harm or danger: do not read the cards; reply briefly and gently, suggest talking to someone they trust or calling the Thailand mental health hotline 1323, and set safety=true.
 - No bot style: no headings, no bullets, no emoji. Never use "However,", "It's important to", "Ultimately", "Remember that", "your journey", "everything happens for a reason", "trust yourself", "trust the process", "the universe has a plan", "In conclusion", "embrace". Don't recap what you already said. No long coach-style advice.
@@ -458,10 +495,11 @@ export const SHARED_SYSTEM_PROMPT_EN = `You are "Vera", the tarot reader of Stil
 
 // [CALL_A] / [CALL_B] markers are also used by scripts/test-vera.mjs --mock.
 export const CALL_A_INSTRUCTIONS_EN = `[CALL_A] Task: free reading, 1 card
-- The page shows this card under a heading that Vera speaks: "This card has something to tell you". The text is what Vera says right after that heading, so it should flow on from it. Don't restate or paraphrase the heading.
-- Exactly 4 short lines, each line one short sentence (about 40–60 words in total). The page reveals them one line at a time.
+- The page shows this card under a heading that Vera speaks: "This card has something to tell you". The text is what Vera says right after that heading, so it should flow on from it. Don't restate or paraphrase the heading, and don't open with "This card..." or "The card shows..." (that repeats the heading): go straight into the question.
+- The page already shows the card's name right above the text, so never start the text with the card's name (not "Death, a new job is about to begin...", not "The Fool is the card that...", not "The Moon tells you..."). Open with what the card is saying about this question, in story voice. The name may come up later if it fits naturally, or not at all.
+- Exactly 4 short lines, always all 4 (never drop line 4), each line one short sentence (about 40–60 words in total). The page reveals them one line at a time.
 - Lines 1–3: what this card says about the heart of the question, using real details from the question. Give real substance, nothing vague.
-- Line 4: say honestly that there is another layer of this that one card can't fully open yet, and name the specific open point, for example what this grew out of, or which way it is heading.
+- Line 4: say honestly that there is another layer of this that one card can't fully open yet, and name the specific open point, for example what this grew out of, or which way it is heading. Say it as a plain sentence specific to this question, not a stock formula like "Another layer still open is..." or "What's still unanswered is...", and don't state another person's mind or situation as fact.
 - No lying, no threats, no creating fear or pressure to pay. Don't hold back anything this card can already answer. Never mention price, payment or buttons (the call to action belongs to the page).
 - If the question is empty, spam, or not a question: needs_rewrite=true, and text is one short line inviting them to ask again.
 - Never say that Vera is keeping, holding or storing their question, in still water or anywhere else (e.g. "keeping your question in still water").
@@ -476,15 +514,16 @@ export const CALL_B_INSTRUCTIONS_EN = `[CALL_B] Task: open cards 2–4 of a four
   Card 2: "Where did this begin?"
   Card 3: "And now, what is happening?"
   Card 4: "If this keeps unfolding..."
-- Each card's text is what Vera says right after its heading. Never state or restate the position (no "Past:", "In the past", "Present:", "In the present", "Future:", "Ahead:", or anything like them). Open with the card's name woven into a sentence that flows on from the heading.
+- Each card's text is what Vera says right after its heading. Never state or restate the position (no "Past:", "In the past", "Present:", "In the present", "Future:", "Ahead:", or anything like them), and don't restate or paraphrase the heading, since it was just said (card 2 must not open with "It began with...", "This started..."; card 4 must not open with "If this keeps unfolding...", "If things stay as they are...").
+- The page already shows each card's name right above its text, so never start the text with the card's name (not "Death, a new job is about to begin...", not "The Moon right now...", not "The Moon tells you..."). Open with what the card is saying, in story voice, flowing on from the heading. The name may come up later if it fits naturally, or not at all.
 - Tell it like a storyteller sitting with someone, not a report. Card 2 can pick up naturally from the free card, card 3 picks up from card 2, and card 4 from card 3, as one story moving forward.
 - Actually answer the open_thread. Don't repeat what the free card already said.
 - Card 2 (~50–80 words): the root of the situation that led to this question.
 - Card 3 (~50–80 words): what is really happening now, including an angle the customer may be overlooking.
-- Card 4 (~50–80 words): speak only of a tendency: where the energy tends to lean if things stay as they are. A possibility, never a certainty, and no dates or timeframes.
+- Card 4 (~50–80 words): speak only of a tendency: where things tend to go from where card 3 left off. A possibility, never a certainty (use "tends to", "may", not "will"), and no dates or timeframes.
 - The page ends in this order: final (the overview) → closing (Vera's last words) → a line thanking the universe and an invitation to come back, both added by the page.
-- final (2–3 sentences): one overview that connects all four cards (including the free card) into one answer to the question. Don't retell each card. Include one real, concrete step they can take.
-- closing (1–2 sentences): a light close in Vera's own words. Don't sell anything. Don't thank the universe and don't invite them to come back (the page adds both). Never say that Vera is keeping, holding or storing their question, in still water or anywhere else (e.g. "I'll keep your question in still water"), in the closing or anywhere in the reading.
+- final (2–3 sentences): one overview that connects all four cards (including the free card) into one answer to the question. Don't retell each card, don't list the cards by name one by one, and don't open with "Overall..." or "All four cards show..." every time. Include one real, concrete step they can take (an action they can actually do, like writing something down, sending one message, having one conversation; not vague advice like "face the truth" or "listen to yourself").
+- closing (1–2 sentences, no line breaks): a light close in Vera's own words, spoken to the person. Don't recap the final, don't add more advice, and don't talk about the cards ("the cards haven't closed the door...", "these cards..."). Don't sell anything. Don't thank the universe and don't invite them to come back (the page adds both). Never say that Vera is keeping, holding or storing their question, in still water or anywhere else (e.g. "I'll keep your question in still water"), in the closing or anywhere in the reading.
 - cards holds 3 entries (cards 2–4), in the order given, and every file must match the card the system drew. Don't put the free card in cards.
 - Keep the position field in the JSON as shown (used internally, not shown on the page), but never put a position label in the text.
 Output JSON (reply with only this JSON, nothing else):
@@ -529,19 +568,21 @@ const STR = {
     },
     noQuestion: "ไม่พบคำถามของรายการนี้",
     defaultOpenThread: "ยังไม่ได้เปิดว่าเรื่องนี้มีรากจากอะไร และแนวโน้มจะไปทางไหน",
+    // No line opens with the card name: the page shows it above the text.
     fallbackFree: (c) => [
-      `${c.name} คือไพ่ที่ก้าวออกมาตอบคำถามของคุณค่ะ`,
-      `แก่นของใบนี้คือ${forCustomer(c.core)}`,
+      `สิ่งที่ออกมาตอบคำถามของคุณคือเรื่องของ${forCustomer(c.core)}ค่ะ`,
+      `จุดที่ต้องระวังคือ${forCustomer(c.caution)}`,
       `สิ่งที่ใบนี้ฝากไว้คือ ${forCustomer(c.advice)}`,
       "ส่วนรากของเรื่องและทิศที่กำลังไป ไพ่ใบเดียวยังเปิดไม่หมดนะคะ"
     ].join("\n"),
     // Story-style openings, no position label: each flows on from the heading
     // the page shows above the card ("เรื่องนี้เริ่มต้นจากอะไร" / "แล้วตอนนี้
     // อะไรกำลังเกิดขึ้น" / "ถ้าเรื่องนี้เดินต่อไป..."). Card 3 is a tendency only.
+    // Never opens with the card name: the page shows it right above the text.
     fallbackCard: (i, c) => [
-      `จุดเริ่มต้นอยู่ที่ไพ่ ${c.name} ค่ะ ใบนี้พูดถึง${forCustomer(c.core)} นั่นคือพื้นที่ที่คำถามของคุณงอกขึ้นมา และสิ่งที่ต้องระวังมาตั้งแต่ตอนนั้นคือ${forCustomer(c.caution)}`,
-      `จากตรงนั้น เรื่องก็เดินมาถึงไพ่ ${c.name} ค่ะ สิ่งที่กำลังเกิดขึ้นตอนนี้คือ${forCustomer(c.core)} สิ่งที่ควรระวังคือ${forCustomer(c.caution)}`,
-      `เรื่องมีแนวโน้มจะเอียงเข้าหาไพ่ ${c.name} ค่ะ ใบนี้พูดถึง${forCustomer(c.core)} เป็นทิศที่พลังกำลังเอียงไป ไม่ใช่ตอนจบที่ตายตัว สิ่งที่ควรระวังคือ${forCustomer(c.caution)}`
+      `เรื่องนี้งอกขึ้นมาจาก${forCustomer(c.core)}ค่ะ นั่นคือพื้นที่ที่คำถามของคุณเริ่มก่อตัว และสิ่งที่ติดมาตั้งแต่ตอนนั้นคือ${forCustomer(c.caution)}`,
+      `จากตรงนั้น สิ่งที่กำลังเกิดขึ้นตอนนี้คือ${forCustomer(c.core)}ค่ะ สิ่งที่ควรระวังคือ${forCustomer(c.caution)}`,
+      `พลังมีแนวโน้มจะเอียงไปทาง${forCustomer(c.core)}ค่ะ เป็นทิศที่เรื่องกำลังเอียงไป ไม่ใช่ตอนจบที่ตายตัว และสิ่งที่ควรระวังคือ${forCustomer(c.caution)}`
     ][i],
     // Overview of all four cards (free card + 3 paid). The page adds the
     // thank-the-universe and come-back lines itself, so closing has neither.
@@ -582,19 +623,21 @@ const STR = {
     },
     noQuestion: "No question found for this reading",
     defaultOpenThread: "Not opened yet: what this grew out of, and which way it is heading",
+    // No line opens with the card name: the page shows it above the text.
     fallbackFree: (c) => [
-      `${c.name} is the card that stepped forward for your question.`,
-      `At its heart, this card is about ${forCustomer(c.core)}.`,
+      `What comes up for your question is ${forCustomer(c.core)}.`,
+      `The thing to watch for: ${forCustomer(c.caution)}.`,
       `What it asks of you: ${forCustomer(c.advice)}.`,
       "What this grew out of, and where it's heading, one card can't fully open yet."
     ].join("\n"),
     // Story-style openings, no position label: each flows on from the heading
     // the page shows above the card ("Where did this begin?" / "And now, what is
     // happening?" / "If this keeps unfolding..."). Card 3 is a tendency only.
+    // Never opens with the card name: the page shows it right above the text.
     fallbackCard: (i, c) => [
-      `It began with ${c.name}. This card speaks of ${forCustomer(c.core)}. That is the ground your question grew out of, and the trap it carried from the start was this: ${forCustomer(c.caution)}.`,
-      `From there, the story has come to ${c.name}. Right now, this card speaks of ${forCustomer(c.core)}. What to watch for: ${forCustomer(c.caution)}.`,
-      `The story tends to lean toward ${c.name}. This card speaks of ${forCustomer(c.core)}. It is a direction the energy is leaning toward, not a fixed ending. What to watch for: ${forCustomer(c.caution)}.`
+      `It grew out of ${forCustomer(c.core)}. That is the ground your question came from, and the trap it carried from the start was this: ${forCustomer(c.caution)}.`,
+      `From there, the story has come to this: ${forCustomer(c.core)}. What to watch for: ${forCustomer(c.caution)}.`,
+      `The energy tends to lean toward ${forCustomer(c.core)}. It is a direction the story is leaning toward, not a fixed ending. What to watch for: ${forCustomer(c.caution)}.`
     ][i],
     // Overview of all four cards (free card + 3 paid). The page adds the
     // thank-the-universe and come-back lines itself, so closing has neither.
@@ -758,7 +801,8 @@ Returns:
   open_thread,        // INTERNAL ONLY — store server-side for Call B, never send to client
   fallback, attempts, retry_log, usage,
   guarantee_flags,    // INTERNAL, model readings only: guarantee phrases found (log only, text unchanged)
-  keep_question_flags } // INTERNAL, model readings only: "keeping your question (in still water)" phrases (log only)
+  keep_question_flags, // INTERNAL, model readings only: "keeping your question (in still water)" phrases (log only)
+  card_name_flags }   // INTERNAL, model readings only: [{ index, name }] if the text opens with a card name (log only)
 */
 export async function generateFree({ question, context, card, lang } = {}) {
   const L = normalizeLang(lang);
@@ -835,8 +879,10 @@ export async function generateFree({ question, context, card, lang } = {}) {
     logGuarantee("free", L, guarantee_flags);
     const keep_question_flags = findKeepQuestionWords(data.card.text);
     logKeepQuestion("free", L, keep_question_flags);
+    const card_name_flags = findLeadingCardNames([data.card.text]);
+    logCardNames("free", L, card_name_flags);
     return {
-      ...base, needs_rewrite: false, safety: false, guarantee_flags, keep_question_flags,
+      ...base, needs_rewrite: false, safety: false, guarantee_flags, keep_question_flags, card_name_flags,
       card: { ...publicCard(entry), text: data.card.text.trim() },
       message: null,
       open_thread: nonEmpty(data.open_thread) ? data.open_thread.trim() : t.defaultOpenThread,
@@ -875,7 +921,8 @@ Returns:
   final, closing, message, fallback, attempts, retry_log, usage,
   guarantee_flags,      // INTERNAL, model readings only: guarantee phrases found (log only, text unchanged)
   position_label_flags, // INTERNAL, model readings only: cards whose text opens with a position label (log only)
-  keep_question_flags }  // INTERNAL, model readings only: "keeping your question (in still water)" phrases (log only)
+  keep_question_flags,   // INTERNAL, model readings only: "keeping your question (in still water)" phrases (log only)
+  card_name_flags }      // INTERNAL, model readings only: [{ index, name }] cards whose text opens with a card name (log only)
 */
 export function validateCards3(cards3, card1Id) {
   if (!Array.isArray(cards3) || cards3.length !== 3) {
@@ -978,8 +1025,10 @@ export async function generateThree({ question, context, card1, openThread, card
     logPositionLabels("paid", L, position_label_flags);
     const keep_question_flags = findKeepQuestionWords(data.cards.map((c) => c.text), data.final, data.closing);
     logKeepQuestion("paid", L, keep_question_flags);
+    const card_name_flags = findLeadingCardNames(data.cards.map((c) => c.text));
+    logCardNames("paid", L, card_name_flags);
     return {
-      ...base, safety: false, guarantee_flags, position_label_flags, keep_question_flags,
+      ...base, safety: false, guarantee_flags, position_label_flags, keep_question_flags, card_name_flags,
       cards: drawn.map((c, i) => ({ ...pos(i), ...publicCard(c), text: data.cards[i].text.trim() })),
       final: data.final.trim(),
       closing: data.closing.trim(),
