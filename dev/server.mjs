@@ -25,6 +25,7 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import crypto from "node:crypto";
+import { setSink, consoleSink } from "../api/_lib/log.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = Number(process.argv[2] || process.env.PORT || 3123);
@@ -39,6 +40,10 @@ process.env.EASYSLIP_API_KEY ||= "mock-easyslip-key";
 process.env.EASYSLIP_MOCK = "1";
 delete process.env.OPENAI_API_KEY;
 process.env.VERA_READER = "stub"; // never call OpenAI locally / in tests (see api/_lib/reader.js)
+
+/* ---------------- event log: console + in-memory (GET /__mock/events) ---------------- */
+const loggedEvents = [];
+setSink({ name: "dev", async write(row) { loggedEvents.push(row); if (process.env.LOG_QUIET !== "1") await consoleSink.write(row); } });
 
 /* ---------------- mock EasySlip v2 ---------------- */
 const seenTransRefs = new Set();
@@ -159,6 +164,7 @@ const server = http.createServer(async (req, res) => {
   req.query = Object.fromEntries(url.searchParams);
   try {
     if (url.pathname === "/__mock/easyslip-calls") return res.status(200).json(easyslipCalls);
+    if (url.pathname === "/__mock/events") return res.status(200).json(loggedEvents);
     if (url.pathname.startsWith("/__mock/")) {
       const c = charges.get(url.searchParams.get("payment"));
       if (!c) return res.status(404).json({ error: "no such mock charge" });

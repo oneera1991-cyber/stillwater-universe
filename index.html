@@ -173,6 +173,23 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
   border:1px solid rgba(215,222,255,.22);
 }
 
+/* ---------- star rating (shared component; placed in #scene-first and #scene-full) ---------- */
+.rate{width:100%;margin-top:1.6rem;padding-top:1.1rem;border-top:1px solid rgba(190,202,255,.12);opacity:0;transition:opacity 1s ease}
+.rate.is-in{opacity:1}
+.rate .rate-title{font:400 .82rem var(--sans);letter-spacing:.06em;color:var(--cream)}
+.rate .rate-q{font-size:.76rem;color:var(--soft);margin:.25rem 0 .5rem}
+.rate .stars{display:flex;justify-content:center;gap:.35rem}
+.rate .star{
+  background:none;border:0;cursor:pointer;padding:.2rem .25rem;
+  font-size:1.55rem;line-height:1;color:rgba(205,214,244,.28);transition:color .3s,transform .3s,text-shadow .3s;
+}
+.rate .star.on{color:#f3dfa2;text-shadow:0 0 14px rgba(243,223,162,.45)}
+.rate .star:focus-visible{outline:1px solid rgba(215,220,255,.55);border-radius:6px}
+.rate .stars:not(.is-busy) .star:hover{transform:scale(1.12)}
+.rate .stars.is-busy{opacity:.6;pointer-events:none}
+.rate .rate-note{font-size:.74rem;color:var(--soft);min-height:1.1rem;margin-top:.35rem}
+.rm .rate{transition:opacity .2s}
+
 /* Reduced motion: JS sets html.rm from prefers-reduced-motion */
 .rm .scene,.rm .scene.is-active,.rm .scene.is-leaving{transform:none;transition:opacity .25s,visibility .25s}
 .rm .flip-inner{transition:none}
@@ -211,6 +228,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 #scene-question #questionInput{min-height:6rem}
 #scene-question #contextInput{min-height:4rem;font-size:.92rem}
 #scene-question .label{display:block;text-align:left;font-size:.78rem;color:var(--soft);margin:1rem 0 .45rem}
+#scene-question .privacy{font-size:.7rem;line-height:1.75;color:rgba(190,200,225,.6);margin-top:1.1rem}
 #scene-question .rule{font-size:.76rem;line-height:1.8;color:var(--soft);margin:1rem 0 .2rem}
 #scene-question .btn{margin-top:1rem}
 
@@ -372,6 +390,8 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
       <p class="rule" data-i18n="question.rule">พี่เวรายังไม่รับคำถามเรื่องสุขภาพ กฎหมาย
 และเรื่องเงินก้อนใหญ่นะคะ</p>
       <button class="btn" id="btnAsk" type="submit" data-i18n="question.submit">พร้อมรับคำตอบ</button>
+      <p class="privacy" data-i18n="question.privacy">พี่เวราเก็บคำถามไว้แบบไม่ระบุตัวตน เพื่อพัฒนาคำอ่านให้ดีขึ้น
+อย่าใส่ชื่อหรือเบอร์โทรนะคะ</p>
     </form>
   </div>
 </section>
@@ -407,6 +427,19 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
     <div class="invite" id="firstInvite">
       <div data-i18n-lines="first.invite"></div>
       <button class="btn ln" id="btnToOffer" type="button" data-i18n="first.next">ให้พี่ถามต่อ</button>
+    </div>
+    <!-- optional free-stage rating (gentle, below the CTA) -->
+    <div class="rate" id="rate-free" data-stage="free">
+      <p class="rate-title" data-i18n="rate.title">ให้ดาวพี่เวรา</p>
+      <p class="rate-q" id="rate-free-q" data-i18n="rate.free"></p>
+      <div class="stars" role="radiogroup" aria-labelledby="rate-free-q">
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="1" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":1}' aria-label="1 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="2" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":2}' aria-label="2 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="3" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":3}' aria-label="3 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="4" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":4}' aria-label="4 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="5" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":5}' aria-label="5 ดาว">★</button>
+      </div>
+      <p class="rate-note" aria-live="polite"></p>
     </div>
   </div>
 </section>
@@ -460,6 +493,18 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
       <button class="btn btn-quiet" id="btnFullRetry" type="button" data-i18n="full.retry">ลองเปิดอีกครั้ง</button>
     </div>
     <div class="actions" id="fullActions" hidden>
+      <div class="rate" id="rate-full" data-stage="full">
+      <p class="rate-title" data-i18n="rate.title">ให้ดาวพี่เวรา</p>
+      <p class="rate-q" id="rate-full-q" data-i18n="rate.full"></p>
+      <div class="stars" role="radiogroup" aria-labelledby="rate-full-q">
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="1" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":1}' aria-label="1 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="2" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":2}' aria-label="2 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="3" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":3}' aria-label="3 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="4" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":4}' aria-label="4 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="5" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":5}' aria-label="5 ดาว">★</button>
+      </div>
+      <p class="rate-note" aria-live="polite"></p>
+    </div>
       <div class="row">
         <button class="btn btn-quiet" id="btnSave" type="button" data-i18n="full.save">บันทึกคำอ่าน</button>
         <button class="btn btn-quiet" id="btnShare" type="button" data-i18n="full.share">แชร์คำอ่าน</button>
@@ -483,6 +528,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 <script type="module">
 /* All user-facing copy lives in /i18n/strings.js (shared with the API). */
 import { t as tr, normLang, errorKey, LANGS } from '/i18n/strings.js';
+import { touchFromLanding, isSignal, TRACKING_PARAMS } from '/lib/source.js';
 
 (function(){
 'use strict';
@@ -535,7 +581,11 @@ function applyLang(){
     el.textContent = t(el.dataset.i18n, vars);
   });
   for(const attr of ['placeholder','alt','aria-label']){
-    document.querySelectorAll('[data-i18n-' + attr + ']').forEach((el) => el.setAttribute(attr, t(el.getAttribute('data-i18n-' + attr))));
+    document.querySelectorAll('[data-i18n-' + attr + ']').forEach((el) => {
+      let vars;
+      try{ vars = el.dataset.i18nVars ? JSON.parse(el.dataset.i18nVars) : undefined; }catch(e){}
+      el.setAttribute(attr, t(el.getAttribute('data-i18n-' + attr), vars));
+    });
   }
   document.querySelectorAll('#langToggle [data-l]').forEach((el) => el.classList.toggle('on', el.dataset.l === uiLang));
   $('langToggle').setAttribute('aria-pressed', uiLang === 'en' ? 'true' : 'false');
@@ -632,13 +682,13 @@ async function showScene(name){
 /* ================= state ================= */
 const STORE = 'stillwater.vera.v1';
 const STORE_TTL = 24 * 60 * 60 * 1000;
-const state = { question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null, pollTimer:null };
+const state = { ratings:{}, question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null, pollTimer:null };
 
 function save(){
   try{
     localStorage.setItem(STORE, JSON.stringify({
       order: state.order, card: state.card, lang: state.lang, paymentId: state.paymentId,
-      paid: state.paid, deeper: state.deeper, stage: state.stage, savedAt: Date.now()
+      paid: state.paid, deeper: state.deeper, stage: state.stage, ratings: state.ratings, savedAt: Date.now()
     }));
   }catch(e){}
 }
@@ -650,6 +700,32 @@ function load(){
   }catch(e){ return null; }
 }
 function clearStore(){ try{ localStorage.removeItem(STORE); }catch(e){} }
+
+/* ================= traffic source (first-touch / last-touch) =================
+   ?src= (friends, tiktok, ig, fb, line, fb_ads, youtube, or a custom tag),
+   utm_*, fbclid/ttclid presence, else document.referrer → fb/ig/tiktok/line/
+   google/youtube/referral/direct. Sent to /api/read, sanitized again and
+   sealed into the order token there. */
+const SRC_FIRST = 'stillwater.src.first', SRC_LAST = 'stillwater.src.last';
+function readTouch(key){ try{ return JSON.parse(localStorage.getItem(key) || 'null'); }catch(e){ return null; } }
+function captureSource(){
+  const touch = touchFromLanding({ search: location.search, referrer: document.referrer, selfHost: location.host });
+  try{
+    if(!readTouch(SRC_FIRST)) localStorage.setItem(SRC_FIRST, JSON.stringify(touch));
+    if(isSignal(touch) || !readTouch(SRC_LAST)) localStorage.setItem(SRC_LAST, JSON.stringify(touch));
+  }catch(e){}
+  // Keep shared links clean: drop tracking params (other params, e.g. ?payment=, stay).
+  const params = new URLSearchParams(location.search);
+  if(TRACKING_PARAMS.some((k) => params.has(k))){
+    TRACKING_PARAMS.forEach((k) => params.delete(k));
+    const qs = params.toString();
+    history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+  }
+}
+function currentSource(){
+  const first = readTouch(SRC_FIRST), last = readTouch(SRC_LAST);
+  return first || last ? { first: first || last, last: last || first } : undefined;
+}
 
 /* ================= audio (kept from the live page, trimmed) ================= */
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -860,7 +936,7 @@ async function startDraw(){
   try{
     const res = await fetch('/api/read', {
       method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ question: state.question, context: state.context || undefined, lang: uiLang })
+      body: JSON.stringify({ question: state.question, context: state.context || undefined, lang: uiLang, source: currentSource() })
     });
     status = res.status;
     data = await res.json().catch(() => ({}));
@@ -895,6 +971,7 @@ async function startDraw(){
   state.paymentId = null;
   state.paid = null;
   state.deeper = null;
+  state.ratings = {};
   state.stage = 'first';
   save();
 
@@ -917,11 +994,13 @@ async function showFirst(){
   $('firstName').textContent = card.name || '';
   $('firstLines').textContent = '';
   hideExisting($('firstInvite'));
+  resetRating('free');
   $('btnToOffer').disabled = !state.order;
   await showScene('first');
   await revealLines($('firstLines'), splitLines(card.text).slice(0, 6), { gap: 900 });
   await wait(500);
   await revealExisting($('firstInvite'), 450);
+  showRating('free');
   trackEvent('invitation_shown');
 }
 
@@ -936,6 +1015,7 @@ function fillFirstStatic(){
     const p = document.createElement('p'); p.className = 'ln is-in'; p.textContent = line; $('firstLines').appendChild(p);
   });
   $('firstInvite').querySelectorAll('.ln').forEach((n) => n.classList.add('is-in'));
+  showRating('free');
   $('btnToOffer').disabled = !state.order;
 }
 
@@ -1252,9 +1332,63 @@ async function revealFull(data){
   fin.appendChild(after);
   const afterLines = await revealLines(after, [t('full.after')], { className: 'after' });
   afterLines.forEach((n) => { n.dataset.i18n = 'full.after'; });
+  showRating('full');
   $('fullActions').hidden = false;
   trackEvent('full_reading_shown');
 }
+
+/* ================= STAR RATING (stage 'free' | 'full') =================
+   Optional, one per order + stage; rating again overwrites (server keeps the latest). */
+function paintStars(stage, n){
+  $('rate-' + stage).querySelectorAll('.star').forEach((b) => {
+    const on = Number(b.dataset.n) <= (n || 0);
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', Number(b.dataset.n) === n ? 'true' : 'false');
+  });
+}
+function resetRating(stage){
+  const box = $('rate-' + stage);
+  box.classList.remove('is-in');
+  paintStars(stage, 0);
+  setText(box.querySelector('.rate-note'), null);
+}
+function showRating(stage){
+  const box = $('rate-' + stage);
+  const n = (state.ratings || {})[stage] || 0;
+  paintStars(stage, n);
+  if(!n) setText(box.querySelector('.rate-note'), null);
+  box.classList.add('is-in');
+}
+async function rate(stage, stars){
+  if(!state.order) return;
+  const box = $('rate-' + stage);
+  const prev = (state.ratings || {})[stage] || 0;
+  const row = box.querySelector('.stars');
+  paintStars(stage, stars);
+  row.classList.add('is-busy');
+  buttonSound();
+  let ok = false;
+  try{
+    const body = { order: state.order, stage, stars };
+    if(stage === 'full'){ if(state.paid) body.paid = state.paid; else if(state.paymentId) body.charge = state.paymentId; }
+    const res = await fetch('/api/rate', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    ok = res.ok && data.ok;
+  }catch(e){}
+  row.classList.remove('is-busy');
+  if(ok){
+    state.ratings = { ...(state.ratings || {}), [stage]: stars };
+    save();
+    setText(box.querySelector('.rate-note'), 'rate.thanks');
+    trackEvent('rating', { stage, stars });
+  }else{
+    paintStars(stage, prev);
+    setText(box.querySelector('.rate-note'), 'rate.failed');
+  }
+}
+['free','full'].forEach((stage) => {
+  $('rate-' + stage).querySelectorAll('.star').forEach((b) => b.addEventListener('click', () => rate(stage, Number(b.dataset.n))));
+});
 
 /* Save: render a portrait PNG (story-sized) and download it. */
 function wrapText(c, text, maxWidth){
@@ -1364,7 +1498,8 @@ function askAgain(){
   trackEvent('ask_again');
   stopPolling();
   clearStore();
-  Object.assign(state, { question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null });
+  resetRating('free'); resetRating('full');
+  Object.assign(state, { ratings:{}, question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null });
   $('questionInput').value = '';
   $('contextInput').value = '';
   resetDraw();
@@ -1428,6 +1563,7 @@ $('soundToggle').addEventListener('click', async () => {
 
 /* ================= payment return / same-browser resume ================= */
 applyLang();
+captureSource();
 
 (function resume(){
   const params = new URLSearchParams(location.search);
@@ -1436,7 +1572,7 @@ applyLang();
     // resume an unfinished paid step in the same browser.
     const saved = load();
     if(saved && saved.order && saved.card && ['offering','paid','full'].includes(saved.stage)){
-      Object.assign(state, { order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || null, paid: saved.paid || null, deeper: saved.deeper || null, stage: saved.stage });
+      Object.assign(state, { order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || null, paid: saved.paid || null, deeper: saved.deeper || null, stage: saved.stage, ratings: saved.ratings || {} });
       $('soundToggle').classList.add('is-on');
       fillFirstStatic();
       if(state.deeper || state.paid){ openFull(); return; }
@@ -1457,7 +1593,7 @@ applyLang();
   history.replaceState(null, '', location.pathname);
   const saved = load();
   if(!saved || !saved.order || !saved.card) return; // nothing to resume: start fresh
-  Object.assign(state, { order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || pid || null, deeper: saved.deeper || null });
+  Object.assign(state, { ratings: saved.ratings || {}, order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || pid || null, deeper: saved.deeper || null });
   if(pid && saved.paymentId && pid !== saved.paymentId) state.paymentId = pid; // server still verifies orderId binding
   $('soundToggle').classList.add('is-on');
   if(state.deeper){ openFull(); return; }

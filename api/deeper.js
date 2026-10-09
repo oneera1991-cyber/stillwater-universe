@@ -22,10 +22,11 @@ TODO(storage): one-time use / idempotency — today a replay of the same
 */
 
 // Vera comes ONLY through api/_lib/reader.js (real vera.js with an OpenAI key, else the stub).
-import { POSITION_KEYS, cardById, drawThree, generateThree } from "./_lib/reader.js";
+import { POSITION_KEYS, cardById, drawThree, generateThree, readerMode } from "./_lib/reader.js";
 import { OrderError, parseBody, verifyOrder, verifyPaidOrder } from "./_lib/order.js";
 import { PaymentError } from "./_lib/payment.js";
 import { errorText, normLang, t } from "../i18n/strings.js";
+import { deviceType, logEvent, orderColumns } from "./_lib/log.js";
 
 
 export default async function handler(req, res) {
@@ -84,6 +85,10 @@ export default async function handler(req, res) {
       };
     });
 
+    logEvent("read_full", { // fire-and-forget; TODO(storage): a replay redraws → another row
+      ...orderColumns(order), device: deviceType(req.headers?.["user-agent"]),
+      card1: order.card1, cards3: cards3.join(","), reader: readerMode()
+    });
     return res.status(200).json({
       ok: true, safety: false, lang, cards,
       final: String(result.final || ""), closing: String(result.closing || ""), message: null

@@ -17,6 +17,7 @@ import { OrderError, signPaid, verifyOrder } from "../_lib/order.js";
 import { PaymentError, providerInfo, verifySlip } from "../_lib/payment.js";
 import { clientIp, rateLimit } from "../_lib/rate-limit.js";
 import { errorText, t } from "../../i18n/strings.js";
+import { deviceType, logEvent, orderColumns } from "../_lib/log.js";
 
 const MAX_BODY = 4.5 * 1024 * 1024;
 const MAX_SLIP = 4 * 1024 * 1024;
@@ -85,6 +86,10 @@ export default async function handler(req, res) {
       amount: result.amount,
       currency: result.currency,
       slipDate: result.slipDate
+    });
+    logEvent("payment_verified", { // fire-and-forget
+      ...orderColumns(order), device: deviceType(req.headers?.["user-agent"]),
+      trans_ref: result.ref, amount_thb: result.amount / 100
     });
     return res.status(200).json({ ok: true, paid });
   } catch (error) {

@@ -218,4 +218,97 @@ assert.equal(r3.body.error, t("en", "errors.paid_bad")); ok("deeper errors local
 assert.equal(fakeCalls, 6, "fake client only (no network)");
 vera.setClientForTesting(null); process.env.VERA_READER = "stub";
 
+/* ---------------- source tracking ---------------- */
+const src = await import("../lib/source.js");
+assert.equal(src.sanitizeTag("Friends"), "friends"); assert.equal(src.sanitizeTag(" FB_Ads "), "fb_ads");
+assert.equal(src.sanitizeTag("Beta Test!"), "beta_test"); assert.equal(src.sanitizeTag("<script>x"), "scriptx");
+assert.equal(src.sanitizeTag("a".repeat(50)).length, 32); assert.equal(src.sanitizeTag(null), ""); assert.equal(src.sanitizeTag("!!!"), "");
+for (const p of src.SRC_PRESETS) assert.equal(src.sanitizeTag(p), p); ok("src sanitize (lowercase, [a-z0-9_-], ≤32), presets kept");
+const R2 = (r) => src.sourceFromReferrer(r, "stillwater.app");
+assert.deepEqual(["https://l.facebook.com/l.php?u=x", "https://www.instagram.com/", "https://www.tiktok.com/@x", "https://line.me/R/", "https://www.google.co.th/", "https://m.youtube.com/watch", "", "https://stillwater.app/", "https://example.org/a"].map(R2),
+  ["fb", "ig", "tiktok", "line", "google", "youtube", "direct", "direct", "referral"]); ok("referrer → source");
+const L = (search, referrer = "") => src.touchFromLanding({ search, referrer, selfHost: "stillwater.app", now: new Date("2026-10-09T03:00:00Z") });
+assert.equal(L("?src=friends&utm_source=ig").src, "friends"); assert.equal(L("?src=friends").src_type, "tag");
+assert.deepEqual([L("?utm_source=IG&utm_medium=Story&utm_campaign=Launch 1").src, L("?utm_source=IG&utm_medium=Story&utm_campaign=Launch 1").utm_campaign], ["ig", "launch_1"]);
+assert.equal(L("?fbclid=abc").src, "fb"); assert.equal(L("?fbclid=abc").fbclid, true); assert.ok(!JSON.stringify(L("?fbclid=SECRETID")).includes("SECRETID"), "click id value never stored");
+assert.equal(L("?ttclid=1").src, "tiktok"); assert.equal(L("", "https://l.instagram.com/").src, "ig"); assert.equal(L("", "https://l.instagram.com/x?y").ref, "l.instagram.com");
+assert.equal(L("").src, "direct"); assert.equal(src.isSignal(L("")), false); assert.equal(src.isSignal(L("?src=line")), true); ok("landing priority: src > utm > click ids > referrer > direct");
+assert.equal(src.sanitizeTouch({ src: "" }), null); assert.equal(src.sanitizeTouch("x"), null);
+const dirty = src.sanitizeTouch({ src: "TikTok", src_type: "evil", ref: "https://evil.com/path?q=1", fbclid: "yes", at: "nope", ip: "1.2.3.4" });
+assert.deepEqual(dirty, { src: "tiktok", src_type: "direct", utm_source: "", utm_medium: "", utm_campaign: "", fbclid: false, ttclid: false, ref: "evil.com", at: "" });
+const pair = src.sanitizeSource({ first: { src: "friends", src_type: "tag" } }); assert.equal(pair.last.src, "friends"); ok("server re-sanitizes touches (no extra fields)");
+const so = signOrder({ question: "q", card1: 2, source: { first: { src: "Friends", src_type: "tag" }, last: { src: "ig", src_type: "referrer", ref: "l.instagram.com" } } });
+assert.equal(verifyOrder(so.token).source.first.src, "friends"); assert.equal(verifyOrder(so.token).source.last.src, "ig");
+assert.ok(!Buffer.from(so.token.split(".")[1], "base64url").toString("latin1").includes("instagram"), "sealed");
+assert.deepEqual(verifyOrder(signOrder({ question: "q", card1: 2 }).token).source, { first: null, last: null }); ok("source sealed in order token");
+
+/* ---------------- event log ---------------- */
+const log = await import("../api/_lib/log.js");
+const row = log.buildRow("read_free", { order_id: "o1", question: "โทร 081-234-5678 mail a@b.co", ip: "1.2.3.4", user_agent: "UA", safety: false, stars: 3 });
+assert.deepEqual(Object.keys(row), log.COLUMNS); assert.ok(!("ip" in row) && !("user_agent" in row));
+assert.ok(!/0812|a@b/.test(row.question) && row.question.includes("[phone]") && row.question.includes("[email]")); assert.equal(row.safety, "FALSE"); assert.equal(row.stars, 3);
+ok("row = COLUMNS only (no IP / UA), PII redacted");
+assert.deepEqual(["Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)", "Mozilla/5.0 (Linux; Android 14; SM-X200)", "Mozilla/5.0 (Linux; Android 14; Pixel 8) Mobile", "Mozilla/5.0 (Windows NT 10.0)", "Googlebot/2.1", ""].map(log.deviceType),
+  ["mobile", "tablet", "mobile", "desktop", "bot", "unknown"]); ok("coarse device type");
+const mem = []; log.setSink({ name: "mem", async write(r) { mem.push(r); } });
+await log.logEvent("rating", { stage: "free", stars: 5 }); assert.equal(mem.at(-1).event, "rating"); ok("pluggable sink");
+log.setSink({ name: "throws", write() { throw new Error("boom"); } });
+const warn = console.warn; console.warn = () => {};
+await log.logEvent("rating", {}); ok("sync-throwing sink swallowed");
+log.setSink({ name: "rejects", async write() { throw new Error("boom"); } }); await log.logEvent("rating", {}); ok("rejecting sink swallowed");
+log.setSink({ name: "hangs", write: () => new Promise(() => {}) });
+let t0 = Date.now(); await log.logEvent("rating", {}, { timeoutMs: 50 }); assert.ok(Date.now() - t0 < 500); ok("hanging sink times out");
+console.warn = warn;
+let googleCalls = 0; const f0 = globalThis.fetch;
+globalThis.fetch = async (u, i) => { if (/googleapis/.test(String(u?.url || u))) googleCalls++; return f0(u, i); };
+const quietLog = console.log; console.log = () => {};
+const sheets = log.sheetsSink({ sheetId: "SHEET123" }); log.setSink(sheets);
+await log.logEvent("read_full", { order_id: "o2", cards3: "1,2,3" });
+console.log = quietLog; globalThis.fetch = f0;
+assert.equal(googleCalls, 0, "sheets stub never calls Google");
+assert.match(sheets.pending[0].url, /spreadsheets\/SHEET123\/values\/events!A1:append/); assert.equal(sheets.pending[0].body.values[0].length, log.COLUMNS.length);
+assert.equal(sheets.pending[0].body.values[0][log.COLUMNS.indexOf("cards3")], "1,2,3"); ok("sheets sink stub builds append row in COLUMNS order, no network");
+
+/* routes log events; logging can never break a reading */
+const events = []; log.setSink({ name: "mem", async write(r) { events.push(r); } });
+const ua = { "user-agent": "Mozilla/5.0 (iPhone)" };
+const reqUA = (body) => ({ method: "POST", headers: { ...ua, "x-forwarded-for": "10.1.0." + (n % 250) }, body });
+const rr = fakeRes(); await readRoute(reqUA({ question: "Will my new job go well? call 0812345678", lang: "en", source: { first: { src: "friends", src_type: "tag", utm_campaign: "beta" }, last: { src: "tiktok", src_type: "click", ttclid: true } } }), rr);
+await new Promise((r) => setTimeout(r, 20));
+const ev = events.find((e) => e.event === "read_free" && e.order_id);
+assert.equal(ev.src, "tiktok"); assert.equal(ev.first_src, "friends"); assert.equal(ev.first_utm_campaign, "beta"); assert.equal(ev.click_id, "ttclid");
+assert.equal(ev.device, "mobile"); assert.equal(ev.lang, "en"); assert.ok(ev.question.includes("[phone]")); assert.equal(ev.card1, rr.body.card.id); ok("read_free event with source + device");
+const rs = fakeRes(); await readRoute(reqUA({ question: "I want to kill myself", lang: "en" }), rs);
+await new Promise((r) => setTimeout(r, 20));
+assert.equal(events.at(-1).safety, "TRUE"); assert.equal(events.at(-1).order_id, ""); ok("read_free logs safety flag");
+const ordTok = rr.body.order, ordObj = verifyOrder(ordTok);
+const paidTok = signPaid({ orderId: ordObj.orderId, method: "promptpay-slip", ref: "T9", amount: 5900, currency: "THB" });
+const rd = fakeRes(); await deeperRoute(reqUA({ order: ordTok, paid: paidTok }), rd);
+await new Promise((r) => setTimeout(r, 20));
+const ef = events.find((e) => e.event === "read_full");
+assert.equal(ef.cards3, rd.body.cards.map((c) => c.id).join(",")); assert.equal(ef.src, "tiktok"); assert.equal(ef.order_id, ordObj.orderId); ok("read_full event carries cards3 + sealed source");
+const rateRoute = (await import("../api/rate.js")).default;
+const RT = async (body) => { const r = fakeRes(); await rateRoute(reqUA(body), r); return r; };
+for (const bad of [{ stars: 0 }, { stars: 6 }, { stars: "3" }, { stars: 2.5 }, { stars: 3, stage: "x" }, { stars: 3, stage: undefined }]) {
+  const r = await RT({ order: ordTok, stage: "free", ...bad }); assert.equal(r.statusCode, 400, JSON.stringify(bad));
+}
+assert.equal((await RT({ order: "junk", stage: "free", stars: 3 })).statusCode, 400);
+assert.equal((await RT({ order: ordTok, stage: "full", stars: 3 })).statusCode, 402, "full rating needs payment");
+const otherPaid = signPaid({ orderId: "ord_other", method: "x", ref: "r", amount: 5900, currency: "THB" });
+assert.equal((await RT({ order: ordTok, stage: "full", stars: 3, paid: otherPaid })).statusCode, 403);
+ok("rate validation: stars 1–5 int, stage free|full, full needs this order's payment");
+const a1 = await RT({ order: ordTok, stage: "free", stars: 2 }), a2 = await RT({ order: ordTok, stage: "free", stars: 5 }), a3 = await RT({ order: ordTok, stage: "full", stars: 4, paid: paidTok });
+assert.equal(a1.body.rating_key, ordObj.orderId + ":free"); assert.equal(a1.body.rating_key, a2.body.rating_key); assert.equal(a3.body.rating_key, ordObj.orderId + ":full");
+await new Promise((r) => setTimeout(r, 20));
+const ratings = events.filter((e) => e.event === "rating");
+const latest = Object.fromEntries(ratings.map((e) => [e.rating_key, e.stars]));
+assert.deepEqual(latest, { [ordObj.orderId + ":free"]: 5, [ordObj.orderId + ":full"]: 4 }); assert.equal(ratings.at(-1).lang, "en");
+ok("one rating per order+stage (latest row per rating_key wins)");
+log.setSink({ name: "explodes", write() { throw new Error("sheet down"); } });
+console.warn = () => {};
+const rx = fakeRes(); await readRoute(reqUA({ question: "Will my new job go well?", lang: "th" }), rx);
+console.warn = warn;
+assert.equal(rx.statusCode, 200); assert.ok(rx.body.card); ok("broken log sink never breaks /api/read");
+log.setSink(null);
+
 console.log(`unit: all ${n} checks passed`);

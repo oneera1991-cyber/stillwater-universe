@@ -51,7 +51,17 @@ export const STRINGS = {
       contextPlaceholder: "เช่น เรื่องนี้เริ่มเมื่อไร ตอนนี้รู้สึกอย่างไร",
       rule: "พี่เวรายังไม่รับคำถามเรื่องสุขภาพ กฎหมาย\nและเรื่องเงินก้อนใหญ่นะคะ",
       submit: "พร้อมรับคำตอบ",
-      empty: "พิมพ์คำถามสักนิดก่อนนะคะ"
+      empty: "พิมพ์คำถามสักนิดก่อนนะคะ",
+      privacy: "พี่เวราเก็บคำถามไว้แบบไม่ระบุตัวตน เพื่อพัฒนาคำอ่านให้ดีขึ้น\nอย่าใส่ชื่อหรือเบอร์โทรนะคะ"
+    },
+    rate: {
+      title: "ให้ดาวพี่เวรา",
+      free: "คำตอบแรกตรงใจแค่ไหนคะ",
+      full: "คำอ่านครั้งนี้ตรงใจแค่ไหนคะ",
+      star: "{n} ดาว",
+      thanks: "ขอบคุณนะคะ พี่เวราได้รับดาวแล้ว",
+      failed: "ยังส่งดาวไม่ได้ ลองอีกครั้งนะคะ",
+      invalid: "เลือกดาว 1–5 ดวงนะคะ"
     },
     rewrite: {
       unclear: "พี่เวรายังจับใจความไม่ได้ค่ะ ลองเล่าเป็นคำถามสั้น ๆ อีกครั้งนะคะ ว่าอยากรู้เรื่องอะไร",
@@ -198,7 +208,17 @@ export const STRINGS = {
       contextPlaceholder: "e.g. when this started, how you feel right now",
       rule: "Vera doesn't take questions about health, legal matters\nor large sums of money.",
       submit: "Let's begin", // [Palm]
-      empty: "Please write your question first."
+      empty: "Please write your question first.",
+      privacy: "We keep questions anonymously to improve readings.\nPlease don't include names or phone numbers."
+    },
+    rate: {
+      title: "Rate Vera",
+      free: "How did this first answer feel?",
+      full: "How did this reading feel?",
+      star: "{n} of 5 stars",
+      thanks: "Thank you. Vera has received your stars.",
+      failed: "Couldn't send your rating. Please try again.",
+      invalid: "Please choose 1 to 5 stars."
     },
     rewrite: {
       unclear: "I couldn't quite catch that. Could you ask again in one short question — what would you like to know?",

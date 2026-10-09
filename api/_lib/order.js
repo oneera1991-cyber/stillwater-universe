@@ -6,7 +6,7 @@ There is no database yet, so state lives in tokens the server hands to the
 browser and verifies when they come back.
 
   order token  — issued by /api/read after a free reading
-                 { orderId, question, context, card1, card1Name, card1Text, open_thread, lang, issuedAt }
+                 { orderId, question, context, card1, card1Name, card1Text, open_thread, lang, source, issuedAt }
                  lang ("th" | "en") is the reading language; payment + deeper
                  use THIS value, never a lang sent by the client. Tokens issued
                  before lang existed verify as "th".
@@ -54,6 +54,7 @@ TODO(storage — needs a database once Vercel access exists):
 */
 import crypto from "node:crypto";
 import { normLang } from "../../i18n/strings.js";
+import { sanitizeSource } from "../../lib/source.js";
 import { CURRENCY, PRICE_SATANG, getPaymentStatus, isPaymentId, paymentProblem } from "./payment.js";
 
 export const ORDER_TTL_MS = 24 * 60 * 60 * 1000; // pay + open within 24h
@@ -157,7 +158,7 @@ export function newOrderId() {
   return "ord_" + crypto.randomBytes(12).toString("base64url");
 }
 
-export function signOrder({ orderId, question, context, card1, card1Name, card1Text, openThread, lang }) {
+export function signOrder({ orderId, question, context, card1, card1Name, card1Text, openThread, lang, source }) {
   const order = {
     lang: normLang(lang),
     orderId: orderId || newOrderId(),
@@ -167,6 +168,7 @@ export function signOrder({ orderId, question, context, card1, card1Name, card1T
     card1Name: card1Name ? String(card1Name) : null,
     card1Text: String(card1Text || ""),
     open_thread: openThread ? String(openThread) : null,
+    source: sanitizeSource(source), // { first, last } traffic source (lib/source.js) — carried to paid events
     issuedAt: Date.now()
   };
   return { token: seal("order", order), order };
@@ -183,6 +185,7 @@ export function verifyOrder(token, { now = Date.now(), ttlMs = ORDER_TTL_MS } = 
     throw new OrderError("รายการนี้ไม่ถูกต้อง กรุณาเริ่มใหม่อีกครั้ง", 400, "order_bad_payload");
   }
   p.lang = normLang(p.lang);
+  p.source = sanitizeSource(p.source); // tokens issued before source existed → { first: null, last: null }
   return p;
 }
 

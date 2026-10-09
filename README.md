@@ -30,6 +30,51 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 - Positions: `position_key` (`past`/`present`/`ahead`) for ordering/logic, `position`/`label` for display (อดีต/ปัจจุบัน/แนวโน้มข้างหน้า, Past/Present/Future).
 - Safety: the fixed text from `vera.js` is shown as-is (Thai: 1323/1669; English: 1323 (Thai-language), 1669, embassy / local emergency services). No CTA.
 
+### Data collection (source, ratings, event log)
+- **Source** (`lib/source.js`, shared by the page and the API):
+  - On landing the page reads `?src=` (presets: `friends`, `tiktok`, `ig`, `fb`, `line`, `fb_ads`, `youtube`; any other value is lowercased, spaces become `_`, and only `[a-z0-9_-]` is kept, up to 32 chars).
+  - It also reads `utm_source` / `utm_medium` / `utm_campaign`, and whether `fbclid` / `ttclid` are present (the id values are never stored).
+  - With no tag, the source comes from `document.referrer`: `fb`, `ig`, `tiktok`, `line`, `google`, `youtube`, `referral` (other site) or `direct`.
+  - The first touch is stored once in `localStorage["stillwater.src.first"]`. The last touch (`stillwater.src.last`) is updated on every non-direct landing.
+  - Tracking params are removed from the address bar.
+  - `/api/read` re-sanitizes `{first, last}` and seals it in the order token, so payment / full-reading / rating events carry the source server-side.
+- **Ratings**: an optional 1–5 star "ให้ดาวพี่เวรา" / "Rate Vera" widget after the free answer (`stage: "free"`) and after the full reading (`stage: "full"`).
+  - `POST /api/rate { order, stage, stars, paid? }`: `stars` must be an integer 1–5. `full` requires this order's payment (same gate as `/api/deeper`).
+  - There is one rating per order + stage. `rating_key = <order_id>:<stage>`; rating again adds a row with the same key, and the latest row wins. TODO(storage): upsert.
+- **Privacy**: the question scene says questions are kept anonymously and asks people not to include names or phone numbers.
+  - No IP or user agent is logged, only a coarse `device` (mobile/tablet/desktop/bot/unknown).
+  - Phone numbers, emails and LINE ids in the question/context are redacted to `[phone]` / `[email]` / `[line id]` before logging.
+- **Event log** (`api/_lib/log.js`):
+  - `logEvent()` is fire-and-forget: never awaited by the routes, 1.5 s timeout, all errors swallowed. A broken sink never breaks a reading.
+  - Sinks are chosen with `LOG_SINK`: `console` (default; one `STILLWATER_EVENT {json}` line in the Vercel logs), `sheets` (stub) or `none`.
+  - **Google Sheets sink is a stub.** It builds the `values:append` request but does not call Google. TODO(auth): service-account token via `GOOGLE_SERVICE_ACCOUNT_JSON` (or `GOOGLE_SHEETS_TOKEN`), plus `waitUntil()` on Vercel.
+
+**Events**: `read_free` (every free attempt, including safety / needs_rewrite), `payment_verified` (slip OK), `read_full` (3 cards generated), `rating`.
+
+**Sheet columns** (row 1 of tab `events`, in this order; every event fills the common columns plus its own):
+
+| # | column | filled by | meaning |
+| --- | --- | --- | --- |
+| 1 | `ts` | all | server time (ISO, UTC) |
+| 2 | `event` | all | `read_free` / `payment_verified` / `read_full` / `rating` |
+| 3 | `env` | all | `production` / `preview` / `dev` |
+| 4 | `order_id` | all (empty for safety / needs_rewrite) | from the order token |
+| 5 | `lang` | all | `th` / `en` |
+| 6 | `src` | all | last-touch source |
+| 7 | `src_type` | all | `tag` / `utm` / `click` / `referrer` / `direct` |
+| 8–10 | `utm_source`, `utm_medium`, `utm_campaign` | all | last touch |
+| 11 | `click_id` | all | `fbclid` / `ttclid` / `fbclid+ttclid` (presence only) |
+| 12 | `referrer` | all | referrer host only |
+| 13–16 | `first_src`, `first_src_type`, `first_utm_campaign`, `first_at` | all | first touch |
+| 17 | `device` | all | mobile / tablet / desktop / bot / unknown |
+| 18 | `reader` | read_free, read_full | `real` / `stub` |
+| 19–20 | `question`, `context` | read_free | PII-redacted |
+| 21 | `card1` | read_free, read_full, rating | free card id |
+| 22–23 | `safety`, `needs_rewrite` | read_free | TRUE / FALSE |
+| 24–25 | `trans_ref`, `amount_thb` | payment_verified | EasySlip transRef, 59 |
+| 26 | `cards3` | read_full | ids past,present,future, e.g. `4,17,9` |
+| 27–29 | `stage`, `stars`, `rating_key` | rating | `free`/`full`, 1–5, `<order_id>:<stage>` |
+
 ### Payment: PromptPay to own account + EasySlip
 1. `/api/payment/create` → dynamic PromptPay QR for exactly ฿59.00 (`promptpay-qr` + `qrcode`), shown on the offering scene (with "บันทึกรูป QR" for phone users).
 2. Customer pays in their bank app and attaches the slip.
@@ -46,6 +91,8 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 | `ORDER_SIGNING_KEY` | yes | Random secret ≥ 32 chars, e.g. `openssl rand -hex 32`. Signs/seals order + paid tokens. (Falls back to `OMISE_SECRET_KEY` only if that exists.) Changing it invalidates in-flight orders. |
 | `PAYMENT_PROVIDER` | no | `promptpay` (default) or `omise` (inactive). |
 | `OPENAI_API_KEY` | yes (production) | Stillwater's reader (`api/_lib/vera.js`). If it is missing on production, readings return an error. |
+| `LOG_SINK` | no | `console` (default), `sheets` (stub, needs `GOOGLE_SHEETS_ID`), `none`. |
+| `GOOGLE_SHEETS_ID` / `GOOGLE_SHEETS_TAB` / `GOOGLE_SERVICE_ACCOUNT_JSON` | later | For the Sheets sink once auth is implemented (share the sheet with the service-account email). Not used yet. |
 | `VERA_READER` | no | `stub` or `real` to force a reader. Leave it unset in production. |
 | `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` | no | Only for `PAYMENT_PROVIDER=omise`. |
 
@@ -56,6 +103,6 @@ EasySlip IP whitelist: Vercel functions do not have fixed outbound IPs by defaul
 npm install
 node dev/server.mjs 3123 &          # static + /api shim + mock EasySlip (and Omise)
 node dev/unit.mjs                   # tokens / EasySlip / QR / draw / rate limit / i18n / stub==vera.js shapes (fake OpenAI client)
-PLAYWRIGHT=<path to playwright> node dev/e2e.mjs   # 390x844 walk-through, Thai + English (ONLY=en for English only) + screenshots
+PLAYWRIGHT=<path to playwright> node dev/e2e.mjs   # 390x844 walk-through, Thai + English + data (ONLY=en / ONLY=data) + screenshots
 ```
-Tests force the stub reader, unset `OPENAI_API_KEY` and block any request to openai.com. Restart `dev/server.mjs` before each e2e run (in-memory duplicate list + rate limits). `dev/` is excluded from deploys via `.vercelignore`.
+The dev server records events in memory (`GET /__mock/events`; `LOG_QUIET=1` silences the console lines). Tests force the stub reader, unset `OPENAI_API_KEY` and block any request to openai.com. Restart `dev/server.mjs` before each e2e run (in-memory duplicate list + rate limits). `dev/` is excluded from deploys via `.vercelignore`.

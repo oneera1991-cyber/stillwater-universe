@@ -65,11 +65,11 @@ async function waitSlipDone(page) {
 }
 const payStatus = (page) => page.textContent("#payStatus");
 
-const ONLY = process.env.ONLY || ""; // "en" → English suite only
+const ONLY = process.env.ONLY || ""; // "en" → English suite only, "data" → source/rating/log suite only
 const THAI = /[\u0E00-\u0E7F]/;
 
 /* ---------- main path: all 6 scenes ---------- */
-if (ONLY !== "en") {
+if (!ONLY) {
   const page = await newPage();
   await page.goto(BASE + "/");
   await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
@@ -204,7 +204,7 @@ if (ONLY !== "en") {
 }
 
 /* ---------- safety path ---------- */
-if (ONLY !== "en") {
+if (!ONLY) {
   const page = await newPage();
   await page.goto(BASE + "/");
   await page.click("#btnEnter");
@@ -221,7 +221,7 @@ if (ONLY !== "en") {
 }
 
 /* ---------- needs_rewrite path ---------- */
-if (ONLY !== "en") {
+if (!ONLY) {
   const page = await newPage();
   await page.goto(BASE + "/");
   await page.click("#btnEnter");
@@ -240,7 +240,7 @@ if (ONLY !== "en") {
 }
 
 /* ---------- duplicate slip on another order + tab reload during payment ---------- */
-if (ONLY !== "en") {
+if (!ONLY) {
   const page = await newPage();
   await page.goto(BASE + "/");
   await page.click("#btnEnter");
@@ -272,7 +272,7 @@ if (ONLY !== "en") {
 }
 
 /* ---------- reduced motion ---------- */
-if (ONLY !== "en") {
+if (!ONLY) {
   const page = await newPage({ reducedMotion: "reduce" });
   await page.goto(BASE + "/");
   assert.ok(await page.evaluate(() => document.documentElement.classList.contains("rm")));
@@ -287,7 +287,7 @@ if (ONLY !== "en") {
 
 /* ================= ENGLISH (navigator.language en-US) ================= */
 const lines = (page, sel) => page.$$eval(sel, (n) => n.map((x) => x.textContent));
-{
+if (!ONLY || ONLY === "en") {
   const page = await newPage({ locale: "en-US" });
   await page.goto(BASE + "/");
   await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
@@ -395,7 +395,7 @@ const lines = (page, sel) => page.$$eval(sel, (n) => n.map((x) => x.textContent)
   assert.equal((await page.textContent("#btnAsk")).trim(), "Let's begin"); log("EN ask again → scene 2");
   await page.context().close();
 }
-{
+if (!ONLY || ONLY === "en") {
   // Thai browser, but the visitor chose English earlier → remembered
   const page = await newPage({ locale: "th-TH" });
   await page.goto(BASE + "/");
@@ -419,6 +419,123 @@ const lines = (page, sel) => page.$$eval(sel, (n) => n.map((x) => x.textContent)
   await shot(page, "12-en-07-safety"); log("EN safety: 1323 (Thai-language), 1669, embassy; no CTA");
   await page.click("#langToggle"); await page.waitForTimeout(300);
   assert.match(await page.textContent("#scene-safety"), /สายด่วนสุขภาพจิต 1323/); log("safety re-renders on toggle");
+  await page.context().close();
+}
+
+/* ================= DATA: source tracking, ratings, event log ================= */
+const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+const events = async (page) => (await page.request.get(`${BASE}/__mock/events`)).json();
+const lsJSON = (page, k) => page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "null"), k);
+async function rateStars(page, stage, n) {
+  await page.click(`#rate-${stage} .star[data-n="${n}"]`);
+  await page.waitForFunction((s) => document.querySelector(`#rate-${s} .rate-note`).textContent.length > 0 && !document.querySelector(`#rate-${s} .stars`).classList.contains("is-busy"), stage);
+}
+if (!ONLY || ONLY === "data") {
+  const page = await newPage({ locale: "th-TH", userAgent: IPHONE_UA });
+  await page.goto(BASE + "/?src=Friends&utm_source=line&utm_campaign=beta%20round&fbclid=SECRET123");
+  await page.waitForFunction(() => !!localStorage.getItem("stillwater.src.first"));
+  const f1 = await lsJSON(page, "stillwater.src.first");
+  assert.deepEqual([f1.src, f1.src_type, f1.utm_source, f1.utm_campaign, f1.fbclid], ["friends", "tag", "line", "beta_round", true]);
+  assert.ok(!JSON.stringify(f1).includes("SECRET123"), "click id value not stored");
+  assert.equal(new URL(page.url()).search, "", "tracking params stripped from the address bar");
+  await page.goto(BASE + "/?src=TikTok");
+  await page.waitForFunction(() => (JSON.parse(localStorage.getItem("stillwater.src.last") || "{}").src === "tiktok"));
+  assert.equal((await lsJSON(page, "stillwater.src.first")).src, "friends", "first-touch kept");
+  await page.goto(BASE + "/");
+  await page.waitForTimeout(300);
+  assert.equal((await lsJSON(page, "stillwater.src.last")).src, "tiktok", "direct revisit keeps last-touch"); log("source: first-touch friends, last-touch tiktok, params stripped");
+
+  await page.click("#btnEnter");
+  await active(page, "question");
+  await page.waitForTimeout(1500);
+  assert.match(await page.textContent("#scene-question .privacy"), /ไม่ระบุตัวตน/);
+  await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มจะไปได้ดีไหม ติดต่อ 081-234-5678");
+  await scrollScene(page, "question", "end");
+  await shot(page, "13-question-privacy-th"); log("question privacy line (th)");
+
+  await page.click("#btnAsk");
+  await active(page, "first");
+  await page.waitForSelector("#rate-free.is-in", { timeout: 20000 });
+  await page.waitForTimeout(1100);
+  await rateStars(page, "free", 4);
+  assert.match(await page.textContent("#rate-free .rate-note"), /ขอบคุณ/);
+  assert.equal(await page.$$eval("#rate-free .star.on", (n) => n.length), 4);
+  await scrollScene(page, "first", "end");
+  await shot(page, "13-rate-free-th");
+  await rateStars(page, "free", 5); // overwrite
+  let ev = await events(page);
+  const rf = ev.filter((e) => e.event === "read_free" && e.order_id).at(-1);
+  assert.deepEqual([rf.src, rf.src_type, rf.first_src, rf.first_utm_campaign, rf.click_id, rf.device, rf.lang], ["tiktok", "tag", "friends", "beta_round", "", "mobile", "th"]);
+  assert.ok(rf.question.includes("[phone]") && !rf.question.includes("081"), "phone redacted");
+  assert.ok(ev.every((e) => !("ip" in e) && !("user_agent" in e)), "no IP / UA columns");
+  const freeRatings = ev.filter((e) => e.event === "rating" && e.rating_key === rf.order_id + ":free").map((e) => e.stars);
+  assert.deepEqual(freeRatings, [4, 5]); log("free rating 4 → 5 (same rating_key), read_free event with source/device, phone redacted");
+
+  await page.click("#btnToOffer");
+  await active(page, "offering");
+  await page.click("#btnPay");
+  await page.waitForSelector("#slipBox:not([hidden])");
+  await uploadSlip(page, await makeSlip("success", "data"));
+  await active(page, "full");
+  await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
+  await page.waitForSelector("#rate-full.is-in");
+  await page.waitForTimeout(600);
+  await rateStars(page, "full", 5);
+  const lastBtn = await page.$$eval("#scene-full button", (b) => b.filter((x) => x.offsetParent).at(-1).textContent.trim());
+  assert.equal(lastBtn, "ถามพี่เวราอีกครั้ง", "last button unchanged");
+  await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = document.getElementById("rate-full").offsetTop - 250; });
+  await page.waitForTimeout(300);
+  await shot(page, "13-rate-full-th");
+  await page.click("#langToggle"); await page.waitForTimeout(400);
+  assert.equal((await page.textContent("#rate-full .rate-title")).trim(), "Rate Vera");
+  assert.match(await page.textContent("#rate-full .rate-note"), /Thank you/);
+  assert.equal(await page.getAttribute('#rate-full .star[data-n="3"]', "aria-label"), "3 of 5 stars");
+  await shot(page, "13-rate-full-en"); log("full rating 5 (th) + widget re-rendered in English");
+  await page.click("#langToggle"); await page.waitForTimeout(200);
+
+  ev = await events(page);
+  const pv = ev.find((e) => e.event === "payment_verified" && e.order_id === rf.order_id);
+  assert.ok(pv && pv.trans_ref && pv.amount_thb === 59 && pv.src === "tiktok" && pv.first_src === "friends");
+  const rfull = ev.find((e) => e.event === "read_full" && e.order_id === rf.order_id);
+  assert.equal(rfull.cards3.split(",").length, 3); assert.equal(rfull.src, "tiktok");
+  const deeperIds = (await lsJSON(page, "stillwater.vera.v1")).deeper.cards.map((c) => c.id).join(",");
+  assert.equal(rfull.cards3, deeperIds);
+  assert.ok(ev.some((e) => e.event === "rating" && e.rating_key === rf.order_id + ":full" && e.stars === 5));
+  log("payment_verified (transRef, ฿59) + read_full (cards3) carry the sealed source");
+  await page.reload();
+  await page.waitForSelector("#scene-full.is-active #fullActions:not([hidden])", { timeout: 40000 });
+  assert.equal(await page.$$eval("#rate-full .star.on", (n) => n.length), 5); log("rating remembered after reload");
+  await page.click("#btnAgain");
+  await active(page, "question");
+  assert.equal(await page.$$eval(".rate .star.on", (n) => n.length), 0); log("ask again resets ratings");
+  await page.context().close();
+}
+if (!ONLY || ONLY === "data") {
+  const page = await newPage({ locale: "en-US", userAgent: IPHONE_UA });
+  await page.goto(BASE + "/", { referer: "https://l.instagram.com/" });
+  await page.waitForFunction(() => !!localStorage.getItem("stillwater.src.first"));
+  const f = await lsJSON(page, "stillwater.src.first");
+  assert.deepEqual([f.src, f.src_type, f.ref], ["ig", "referrer", "l.instagram.com"]); log("referrer instagram → src ig");
+  await page.click("#btnEnter");
+  await active(page, "question");
+  await page.waitForTimeout(1500);
+  assert.equal((await page.textContent("#scene-question .privacy")).trim(), "We keep questions anonymously to improve readings.\nPlease don't include names or phone numbers.");
+  await page.fill("#questionInput", "I'm starting a new job next month. Will it go well?");
+  await scrollScene(page, "question", "end");
+  await shot(page, "13-question-privacy-en"); log("question privacy line (en)");
+  await page.click("#btnAsk");
+  await active(page, "first");
+  await page.waitForSelector("#rate-free.is-in", { timeout: 20000 });
+  await page.waitForTimeout(1100);
+  await rateStars(page, "free", 3);
+  assert.match(await page.textContent("#rate-free .rate-note"), /Thank you/);
+  await scrollScene(page, "first", "end");
+  await shot(page, "13-rate-free-en");
+  const ev = await events(page);
+  const rf = ev.filter((e) => e.event === "read_free" && e.lang === "en").at(-1);
+  assert.deepEqual([rf.src, rf.src_type, rf.referrer], ["ig", "referrer", "l.instagram.com"]);
+  assert.ok(ev.some((e) => e.event === "rating" && e.order_id === rf.order_id && e.stage === "free" && e.stars === 3 && e.lang === "en"));
+  log("EN free rating 3 + read_free src ig");
   await page.context().close();
 }
 

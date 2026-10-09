@@ -2,7 +2,8 @@
 ====================================================
 STILLWATER — FREE 1-CARD READING  (POST /api/read)
 ====================================================
-Body:     { question, context?, lang? }        lang: "th" | "en" (validated; default "th")
+Body:     { question, context?, lang?, source? }   lang: "th" | "en" (validated; default "th")
+          source: { first, last } touches from lib/source.js (re-sanitized here, sealed in the order token)
 Response: { ok, needs_rewrite, safety,
             card: { id, name, file, image, text } | null,
             open_thread,   // always null here: the real value is sealed inside `order`
@@ -19,7 +20,9 @@ trust the client for any of them.
 
 // Vera comes ONLY through api/_lib/reader.js: Stillwater's api/_lib/vera.js when
 // an OpenAI key is set, else the same-interface stub (local dev / tests).
-import { drawOne, generateFree } from "./_lib/reader.js";
+import { drawOne, generateFree, readerMode } from "./_lib/reader.js";
+import { deviceType, logEvent, sourceColumns } from "./_lib/log.js";
+import { sanitizeSource } from "../lib/source.js";
 import { OrderError, parseBody, signOrder } from "./_lib/order.js";
 import { clientIp, rateLimit } from "./_lib/rate-limit.js";
 import { errorText, normLang, t } from "../i18n/strings.js";
@@ -48,6 +51,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: t(lang, "errors.question_required"), code: "question_required" });
     }
 
+    const source = sanitizeSource(body.source); // server-side sanitize; sealed into the order token
+    const logBase = {
+      lang, ...sourceColumns(source), device: deviceType(req.headers?.["user-agent"]),
+      reader: readerMode(), question, context
+    };
+
     const drawn = drawOne(); // the ONLY free-card draw (crypto.randomInt)
     const result = await generateFree({ question, context, card: drawn.id, lang });
     if (result.usage) console.log("Stillwater /api/read usage:", JSON.stringify({ lang, fallback: result.fallback, attempts: result.attempts, usage: result.usage }));
@@ -55,6 +64,7 @@ export default async function handler(req, res) {
     // Safety / needs_rewrite: show `message` as-is (fixed safety text or Vera's rewrite prompt), no card, no order.
     if (result.safety || result.needs_rewrite || !result.card) {
       const safety = !!result.safety;
+      logEvent("read_free", { ...logBase, safety, needs_rewrite: !safety, card1: "" }); // fire-and-forget
       const message = (typeof result.message === "string" && result.message.trim()) ||
         (safety ? t(lang, "safety.paragraphs").join("\n\n") : t(lang, "rewrite.fallback"));
       return res.status(200).json({
@@ -65,13 +75,15 @@ export default async function handler(req, res) {
 
     const card = result.card; // { id, name, file, image, text }
     if (Number(card.id) !== drawn.id) throw new Error("reader returned a different card than the server draw");
-    const order = signOrder({
-      question, context, lang,
+    const signed = signOrder({
+      question, context, lang, source,
       card1: drawn.id,
       card1Name: card.name,
       card1Text: String(card.text),
       openThread: result.open_thread
-    }).token;
+    });
+    const order = signed.token;
+    logEvent("read_free", { ...logBase, order_id: signed.order.orderId, card1: drawn.id, safety: false, needs_rewrite: false }); // fire-and-forget
 
     return res.status(200).json({
       ok: true,
