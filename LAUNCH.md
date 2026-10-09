@@ -19,7 +19,7 @@ Nothing in this file has been done yet. Every push, deploy, env-var change and S
 
 | # | Item | Notes |
 | --- | --- | --- |
-| 1 | **PromptPay ID** that receives the ฿59 | A mobile number (10 digits), national/tax ID (13) or e-wallet ID (15). It goes in `PROMPTPAY_ID`. It must be the **same account** registered in EasySlip, or `matchAccount` fails every slip. |
+| 1 | **PromptPay ID** that receives the ฿59 | Palm's **personal PromptPay (10-digit mobile number)**. It is held only in the box environment as `PROMPTPAY_ID` and is never written to a file, log or commit. It must be the **same account** registered in EasySlip, or `matchAccount` fails every slip. At go-time it is set from that env (§4 step 3). |
 | 2 | **EasySlip account + API key** | Sign up at EasySlip and register the receiving bank / PromptPay account. Create an API key → `EASYSLIP_API_KEY`. IP whitelist: Vercel has no fixed outbound IP by default, so leave the whitelist open (`*`) or set up a fixed-IP option and whitelist it. If the IP is blocked, customers see "ระบบตรวจสลิปยังไม่พร้อม" and the logs show `IP_NOT_ALLOWED`. |
 | 3 | **OpenAI API key** → `OPENAI_API_KEY` | Stillwater's reader. Without it, **production** readings return an error, and preview falls back to the stub reader. |
 | 4 | **Google service account** (for the Sheet log) | Created under oneera1991@gmail.com. Steps are in §3. |
@@ -63,7 +63,12 @@ If `LOG_SINK=sheets` but the Sheet id or service account is missing, the app log
 ## 4. Order of steps
 1. Palm provides §1.1–1.4 and approves the push.
 2. Vercel project → Settings → General → **Node.js Version 24.x** (`engines` in `package.json` also enforces it).
-3. Add the **Preview** env vars (§2), with `GOOGLE_SHEETS_TAB=events_preview`.
+3. Add the **Preview** env vars (§2), with `GOOGLE_SHEETS_TAB=events_preview`. Set `PROMPTPAY_ID` straight from the box env, so it is never typed, echoed or saved:
+   ```
+   printf '%s' "$PROMPTPAY_ID" | vercel env add PROMPTPAY_ID preview
+   printf '%s' "$PROMPTPAY_ID" | vercel env add PROMPTPAY_ID production   # at step 7
+   ```
+   First check that the env value really is 10 digits, without printing it: `node -e 'console.log(/^\d{10}$/.test(process.env.PROMPTPAY_ID||"")?"valid":"invalid")'`.
 4. Palm adds AD1/AE1 to the Sheet and creates `events_preview` (§3.6).
 5. Push branch `vera-6scene`. The Vercel Git integration builds a **preview** URL. If it doesn't, run `vercel deploy` (preview), not `--prod`.
 6. Run the **preview test plan** (§5 A), including one real ฿59 payment.
