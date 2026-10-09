@@ -269,15 +269,62 @@ log.setSink({ name: "rejects", async write() { throw new Error("boom"); } }); aw
 log.setSink({ name: "hangs", write: () => new Promise(() => {}) });
 let t0 = Date.now(); await log.logEvent("rating", {}, { timeoutMs: 50 }); assert.ok(Date.now() - t0 < 500); ok("hanging sink times out");
 console.warn = warn;
-let googleCalls = 0; const f0 = globalThis.fetch;
-globalThis.fetch = async (u, i) => { if (/googleapis/.test(String(u?.url || u))) googleCalls++; return f0(u, i); };
-const quietLog = console.log; console.log = () => {};
-const sheets = log.sheetsSink({ sheetId: "SHEET123" }); log.setSink(sheets);
-await log.logEvent("read_full", { order_id: "o2", cards3: "1,2,3" });
-console.log = quietLog; globalThis.fetch = f0;
-assert.equal(googleCalls, 0, "sheets stub never calls Google");
-assert.match(sheets.pending[0].url, /spreadsheets\/SHEET123\/values\/events!A1:append/); assert.equal(sheets.pending[0].body.values[0].length, log.COLUMNS.length);
-assert.equal(sheets.pending[0].body.values[0][log.COLUMNS.indexOf("cards3")], "1,2,3"); ok("sheets sink stub builds append row in COLUMNS order, no network");
+{ // Google Sheets sink (LOG_SINK=sheets) — mock fetch only, never calls Google
+  const crypto = await import("node:crypto");
+  const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const pem = privateKey.export({ type: "pkcs8", format: "pem" });
+  const creds = { email: "vera-logger@stillwater-test.iam.gserviceaccount.com", key: pem };
+  // env parsing: key-file JSON (raw / base64) or EMAIL + PRIVATE_KEY with escaped \n
+  const keyJson = JSON.stringify({ type: "service_account", client_email: creds.email, private_key: pem });
+  assert.deepEqual(log.serviceAccountFromEnv({ GOOGLE_SERVICE_ACCOUNT_JSON: keyJson }), creds);
+  assert.deepEqual(log.serviceAccountFromEnv({ GOOGLE_SERVICE_ACCOUNT_JSON: Buffer.from(keyJson).toString("base64") }), creds);
+  assert.deepEqual(log.serviceAccountFromEnv({ GOOGLE_SERVICE_ACCOUNT_EMAIL: creds.email, GOOGLE_PRIVATE_KEY: pem.replace(/\n/g, "\\n") }).key.trim(), pem.trim());
+  assert.equal(log.serviceAccountFromEnv({}), null); assert.equal(log.serviceAccountFromEnv({ GOOGLE_SERVICE_ACCOUNT_JSON: "{bad" }), null);
+  // JWT: RS256, right claims, verifiable signature
+  const jwt = log.serviceAccountJwt(creds, 1_800_000_000); const [h, c, sg] = jwt.split(".");
+  const dec = (x) => JSON.parse(Buffer.from(x, "base64url").toString());
+  assert.deepEqual(dec(h), { alg: "RS256", typ: "JWT" });
+  assert.deepEqual(dec(c), { iss: creds.email, scope: "https://www.googleapis.com/auth/spreadsheets", aud: "https://oauth2.googleapis.com/token", iat: 1_800_000_000, exp: 1_800_003_600 });
+  assert.ok(crypto.createVerify("RSA-SHA256").update(h + "." + c).verify(publicKey, Buffer.from(sg, "base64url")), "JWT signature verifies");
+  // happy path: one token for two rows, append in COLUMNS order, RAW, Bearer
+  const calls = []; let realFetch = 0; const f0 = globalThis.fetch;
+  globalThis.fetch = async (...a) => { realFetch++; return f0(...a); };
+  const mock = async (url, init) => {
+    calls.push({ url: String(url), init });
+    if (String(url).startsWith("https://oauth2.googleapis.com/token")) return new Response(JSON.stringify({ access_token: "tok-1", expires_in: 3600 }), { status: 200 });
+    return new Response(JSON.stringify({ updates: { updatedRows: 1 } }), { status: 200 });
+  };
+  const sheets = log.sheetsSink({ sheetId: "1IlhWkJJBKTs3UTtbAPcQLreHouSCRF04QFqfsS93W58", tab: "events", credentials: creds, fetch: mock });
+  log.setSink(sheets);
+  await log.logEvent("read_full", { order_id: "o2", cards3: "1,2,3", question: "=HYPERLINK(\"x\") โทร 0812345678" });
+  await log.logEvent("share", { order_id: "o2", share_channel: "native", share_result: "completed" });
+  assert.equal(calls.filter((x) => x.url.includes("oauth2")).length, 1, "token cached across rows");
+  const tokReq = calls[0]; assert.equal(tokReq.init.method, "POST");
+  const form = new URLSearchParams(tokReq.init.body); assert.equal(form.get("grant_type"), "urn:ietf:params:oauth:grant-type:jwt-bearer"); assert.equal(form.get("assertion").split(".").length, 3);
+  const appends = calls.filter((x) => x.url.includes("sheets.googleapis.com"));
+  assert.equal(appends.length, 2);
+  assert.equal(appends[0].url, "https://sheets.googleapis.com/v4/spreadsheets/1IlhWkJJBKTs3UTtbAPcQLreHouSCRF04QFqfsS93W58/values/events!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS");
+  assert.equal(appends[0].init.headers.authorization, "Bearer tok-1");
+  const v0 = JSON.parse(appends[0].init.body).values[0], v1 = JSON.parse(appends[1].init.body).values[0];
+  assert.equal(log.COLUMNS.length, 31); assert.equal(v0.length, 31); assert.equal(v1.length, 31);
+  assert.equal(v0[log.COLUMNS.indexOf("cards3")], "1,2,3"); assert.equal(v0[1], "read_full");
+  assert.ok(v0[log.COLUMNS.indexOf("question")].includes("[phone]"), "PII redacted before Sheets");
+  assert.deepEqual([v1[29], v1[30]], ["native", "completed"], "share_channel / share_result = columns AD / AE");
+  // failures: token error / append 500 / network hang → row printed to console, never throws, reading unaffected
+  const printed = []; const qlog = console.log, qwarn = console.warn; console.log = (x) => printed.push(String(x)); console.warn = () => {};
+  const bad = log.sheetsSink({ sheetId: "S", credentials: creds, fetch: async (u) => new Response("{}", { status: String(u).includes("oauth2") ? 400 : 200 }) });
+  log.setSink(bad); await log.logEvent("rating", { order_id: "o3", stars: 4 });
+  const down = log.sheetsSink({ sheetId: "S", credentials: creds, fetch: async (u) => String(u).includes("oauth2") ? new Response(JSON.stringify({ access_token: "t" }), { status: 200 }) : new Response("x", { status: 500 }) });
+  log.setSink(down); await log.logEvent("rating", { order_id: "o4", stars: 5 });
+  const nocreds = log.sheetsSink({ sheetId: "S", credentials: null, fetch: mock });
+  log.setSink(nocreds); await log.logEvent("rating", { order_id: "o5", stars: 1 });
+  const hang = log.sheetsSink({ sheetId: "S", credentials: creds, fetch: () => new Promise(() => {}) });
+  log.setSink(hang); t0 = Date.now(); await log.logEvent("rating", { order_id: "o6" }, { timeoutMs: 80 }); assert.ok(Date.now() - t0 < 600);
+  console.log = qlog; console.warn = qwarn; globalThis.fetch = f0;
+  assert.deepEqual(["o3", "o4", "o5"].map((o) => printed.some((l) => l.startsWith("STILLWATER_EVENT ") && l.includes(`"order_id":"${o}"`))), [true, true, true], "failed appends fall back to the console log line");
+  assert.equal(sheets.timeoutMs, 8000); assert.equal(realFetch, 0, "never touches the network in tests");
+  ok("sheets sink: service-account JWT (RS256, verifiable), token cached, 31-column RAW append to events!A1, PII redacted, failures → console fallback, never throws");
+}
 
 /* routes log events; logging can never break a reading */
 const events = []; log.setSink({ name: "mem", async write(r) { events.push(r); } });

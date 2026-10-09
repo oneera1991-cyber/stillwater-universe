@@ -100,8 +100,8 @@ The page now shows the free card as card 1 of a 4-card story and puts reader `fi
   - Safety (self-harm / crisis) `read_free` rows keep `question` and `context` empty; the safety flag, source, lang and device are still logged.
 - **Event log** (`api/_lib/log.js`):
   - `logEvent()` is fire-and-forget: never awaited by the routes, 1.5 s timeout, all errors swallowed. A broken sink never breaks a reading.
-  - Sinks are chosen with `LOG_SINK`: `console` (default; one `STILLWATER_EVENT {json}` line in the Vercel logs), `sheets` (stub) or `none`.
-  - **Google Sheets sink is a stub.** It builds the `values:append` request but does not call Google. TODO(auth): service-account token via `GOOGLE_SERVICE_ACCOUNT_JSON` (or `GOOGLE_SHEETS_TOKEN`), plus `waitUntil()` on Vercel.
+  - Sinks are chosen with `LOG_SINK`: `console` (default; one `STILLWATER_EVENT {json}` line in the Vercel logs), `sheets` (Google Sheets) or `none`.
+  - **Google Sheets sink:** a service account signs an RS256 JWT (no extra library), and the access token is cached ~55 min. Each event is one `values:append` (RAW, 31 columns) to `GOOGLE_SHEETS_TAB`. The write is handed to `waitUntil()` (`@vercel/functions`), so it finishes after the response, with an 8 s cap. If it fails, the row is still printed to the Vercel logs. Unit tests use a mock fetch and never call Google. Setup: LAUNCH.md §3.
 
 **Events**: `read_free` (every free attempt, including safety / needs_rewrite), `payment_verified` (slip OK), `read_full` (3 cards generated), `rating`, `share`.
 
@@ -198,6 +198,7 @@ function deleteByReadingId(id) {
 - TODO(DB): unique `transRef` storage, one-time use, re-issue on same-customer duplicate, reopen links — see the top of `api/_lib/order.js`.
 
 ### Environment variables (Vercel → Project Settings → Environment Variables)
+Full launch checklist (order of steps, real ฿59 test, rollback): **LAUNCH.md**. Node.js 24.x (`engines`).
 | Name | Required | What |
 | --- | --- | --- |
 | `PROMPTPAY_ID` | yes | PromptPay ID that receives the ฿59 (mobile 10 digits, national/tax ID 13, or e-wallet 15). Must be the same account registered in EasySlip. |
@@ -205,10 +206,10 @@ function deleteByReadingId(id) {
 | `ORDER_SIGNING_KEY` | yes | Random secret ≥ 32 chars, e.g. `openssl rand -hex 32`. Signs/seals order + paid tokens. (Falls back to `OMISE_SECRET_KEY` only if that exists.) Changing it invalidates in-flight orders. |
 | `PAYMENT_PROVIDER` | no | `promptpay` (default) or `omise` (inactive). |
 | `OPENAI_API_KEY` | yes (production) | Stillwater's reader (`api/_lib/vera.js`). If it is missing on production, readings return an error. |
-| `LOG_SINK` | no | `console` (default), `sheets` (stub, needs `GOOGLE_SHEETS_ID`), `none`. |
-| `GOOGLE_SHEETS_ID` | later | Intended value: `1IlhWkJJBKTs3UTtbAPcQLreHouSCRF04QFqfsS93W58` (spreadsheet id, not a secret). Header row has the first 29 columns; add `share_channel` (AD1) and `share_result` (AE1) for the 31-column schema. Not used until Sheets auth is implemented. |
-| `GOOGLE_SHEETS_TAB` | later | `events` (default). |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | later | Service-account key for the Sheets sink (secret). Share the sheet with the service-account email as Editor. |
+| `LOG_SINK` | no | `console` (default), `sheets` (Google Sheets append via a service account; see LAUNCH.md §3), `none`. |
+| `GOOGLE_SHEETS_ID` | later | Intended value: `1IlhWkJJBKTs3UTtbAPcQLreHouSCRF04QFqfsS93W58` (spreadsheet id, not a secret). Header row has the first 29 columns; add `share_channel` (AD1) and `share_result` (AE1) for the 31-column schema. |
+| `GOOGLE_SHEETS_TAB` | later | `events` (default; `events_preview` recommended for Preview). |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | later | Service-account key file JSON (raw or base64) for the Sheets sink (secret). Alternative: `GOOGLE_SERVICE_ACCOUNT_EMAIL` + `GOOGLE_PRIVATE_KEY`. Share the sheet with the service-account email as Editor. Setup: LAUNCH.md §3. |
 | `VERA_READER` | no | `stub` or `real` to force a reader. Leave it unset in production. |
 | `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` | no | Only for `PAYMENT_PROVIDER=omise`. |
 

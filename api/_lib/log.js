@@ -21,17 +21,18 @@ Privacy
 
 Reliability
   logEvent() never throws and never blocks a reading: callers do NOT await it
-  (fire-and-forget); each write is raced against a short timeout and every
-  error is swallowed (one console.warn).
-  TODO(sheets on Vercel): once a network sink is live, wrap the call with
-  waitUntil() from @vercel/functions so the append can finish after the
-  response is sent (a frozen function otherwise drops it).
+  (fire-and-forget). The write is handed to waitUntil() (@vercel/functions) so
+  on Vercel it may finish after the response is sent; outside Vercel that is a
+  no-op. Each write is raced against a timeout (sheets: 8 s, console: 1.5 s) and
+  every error is swallowed (one console.warn). If a Sheets append fails, the row
+  is still printed as a `STILLWATER_EVENT` line, so it survives in Vercel logs.
 
 Sinks (env LOG_SINK)
   console  (default)  one JSON line per event: `STILLWATER_EVENT {...}` → Vercel logs
-  sheets              Google Sheets append (STUB — never calls Google yet, see sheetsSink)
+  sheets              Google Sheets append via a service account (see sheetsSink);
+                      falls back to console if the credentials are missing
   none                drop everything
-  Tests use setSink() with an in-memory sink.
+  Tests use setSink() with an in-memory sink, or sheetsSink({ fetch }) with a mock.
 */
 
 export const COLUMNS = [
@@ -134,6 +135,9 @@ export function buildRow(event, fields = {}) {
 
 /* ---------------- sinks ---------------- */
 
+import { createSign } from "node:crypto";
+import { waitUntil } from "@vercel/functions";
+
 export const consoleSink = {
   name: "console",
   async write(row) {
@@ -156,28 +160,90 @@ export function sheetsAppendRequest(row, { sheetId, tab = "events" } = {}) {
   };
 }
 
+/* ---------------- Google service account → access token (no extra deps) ---------------- */
+
+const TOKEN_URL = "https://oauth2.googleapis.com/token";
+const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
+const b64url = (x) => Buffer.from(x).toString("base64").replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+
 /**
- * Google Sheets sink — STUB. Builds the append request but does NOT call Google.
- * env: GOOGLE_SHEETS_ID (spreadsheet id), GOOGLE_SHEETS_TAB (default "events"),
- *      GOOGLE_SERVICE_ACCOUNT_JSON (service-account key JSON; share the sheet with its email)
- *      — or GOOGLE_SHEETS_TOKEN (OAuth access token) for a quick test.
- * TODO(auth): mint an access token from the service account (JWT RS256 →
- *   https://oauth2.googleapis.com/token, scope https://www.googleapis.com/auth/spreadsheets)
- *   and cache it ~55 min; then `fetch(req.url, { method, headers: { authorization:
- *   "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify(req.body),
- *   signal: AbortSignal.timeout(1500) })`. Until then rows also go to the console.
- * TODO(rating overwrite): Sheets append is append-only; the sheet keeps every rating row and
- *   the latest row per `rating_key` wins (use a pivot / MAXIFS view, or upsert once a DB exists).
+ * Service-account credentials from env. Either
+ *   GOOGLE_SERVICE_ACCOUNT_JSON = the key file JSON (raw, or base64 of it), or
+ *   GOOGLE_SERVICE_ACCOUNT_EMAIL + GOOGLE_PRIVATE_KEY (PEM; "\n" escapes are fine).
+ * Returns { email, key } or null. Never logs the key.
  */
-export function sheetsSink({ sheetId = process.env.GOOGLE_SHEETS_ID, tab = process.env.GOOGLE_SHEETS_TAB || "events" } = {}) {
+export function serviceAccountFromEnv(env = process.env) {
+  try {
+    let raw = String(env.GOOGLE_SERVICE_ACCOUNT_JSON || "").trim();
+    if (raw) {
+      if (!raw.startsWith("{")) raw = Buffer.from(raw, "base64").toString("utf8");
+      const j = JSON.parse(raw);
+      if (j.client_email && j.private_key) return { email: j.client_email, key: String(j.private_key).replace(/\\n/g, "\n") };
+    }
+  } catch { /* fall through */ }
+  const email = String(env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "").trim();
+  const key = String(env.GOOGLE_PRIVATE_KEY || "").replace(/\\n/g, "\n").trim();
+  return email && key ? { email, key } : null;
+}
+
+/** Signed JWT assertion (RS256) for the OAuth2 jwt-bearer grant. */
+export function serviceAccountJwt({ email, key }, now = Math.floor(Date.now() / 1000)) {
+  const head = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const claims = b64url(JSON.stringify({ iss: email, scope: SHEETS_SCOPE, aud: TOKEN_URL, iat: now, exp: now + 3600 }));
+  const sig = createSign("RSA-SHA256").update(head + "." + claims).sign(key);
+  return head + "." + claims + "." + b64url(sig);
+}
+
+/**
+ * Google Sheets sink. Appends one row per event to GOOGLE_SHEETS_ID / GOOGLE_SHEETS_TAB
+ * (values in COLUMNS order, valueInputOption=RAW so text is never parsed as a formula).
+ * The access token is cached until ~5 min before expiry (per warm function instance).
+ * If anything fails, the row is printed to the console instead and the error re-thrown
+ * so logEvent() warns once — a reading is never affected.
+ * NOTE(rating overwrite): Sheets append is append-only; the latest row per `rating_key` wins.
+ */
+export function sheetsSink({
+  sheetId = process.env.GOOGLE_SHEETS_ID,
+  tab = process.env.GOOGLE_SHEETS_TAB || "events",
+  credentials = serviceAccountFromEnv(),
+  fetch: doFetch = globalThis.fetch,
+  requestTimeoutMs = 3500
+} = {}) {
+  let cached = null; // { token, exp }
+  async function accessToken() {
+    const now = Math.floor(Date.now() / 1000);
+    if (cached && cached.exp - 300 > now) return cached.token;
+    const r = await doFetch(TOKEN_URL, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: serviceAccountJwt(credentials, now) }).toString(),
+      signal: AbortSignal.timeout(requestTimeoutMs)
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.access_token) throw new Error("sheets token " + r.status + " " + (j.error || ""));
+    cached = { token: j.access_token, exp: now + Number(j.expires_in || 3600) };
+    return cached.token;
+  }
   return {
     name: "sheets",
-    pending: [],
+    timeoutMs: 8000,
     async write(row) {
-      const req = sheetsAppendRequest(row, { sheetId, tab });
-      this.pending.push(req); // stub: kept in memory for inspection, never sent
-      if (this.pending.length > 50) this.pending.shift();
-      await consoleSink.write(row);
+      try {
+        if (!sheetId || !credentials) throw new Error("sheets not configured");
+        const req = sheetsAppendRequest(row, { sheetId, tab });
+        const token = await accessToken();
+        const r = await doFetch(req.url, {
+          method: req.method,
+          headers: { authorization: "Bearer " + token, "content-type": "application/json" },
+          body: JSON.stringify(req.body),
+          signal: AbortSignal.timeout(requestTimeoutMs)
+        });
+        if (r.status === 401) cached = null; // token revoked/expired → mint a new one next time
+        if (!r.ok) throw new Error("sheets append " + r.status);
+      } catch (e) {
+        await consoleSink.write(row); // never lose the row: it stays in Vercel logs
+        throw e;
+      }
     }
   };
 }
@@ -185,7 +251,10 @@ export function sheetsSink({ sheetId = process.env.GOOGLE_SHEETS_ID, tab = proce
 function defaultSink() {
   const kind = String(process.env.LOG_SINK || "console").toLowerCase();
   if (kind === "none") return noneSink;
-  if (kind === "sheets" && process.env.GOOGLE_SHEETS_ID) return sheetsSink();
+  if (kind === "sheets") {
+    if (process.env.GOOGLE_SHEETS_ID && serviceAccountFromEnv()) return sheetsSink();
+    console.warn("Stillwater log: LOG_SINK=sheets but GOOGLE_SHEETS_ID / service account env missing → console");
+  }
   return consoleSink;
 }
 
@@ -197,17 +266,20 @@ export function getSink() { return (sink ||= defaultSink()); }
  * Fire-and-forget. Never throws, never rejects; resolves after the write or the timeout.
  * Callers: `logEvent("read_free", {...})` WITHOUT await.
  */
-export function logEvent(event, fields, { timeoutMs = 1500 } = {}) {
+export function logEvent(event, fields, { timeoutMs } = {}) {
   let timer;
   try {
     const row = buildRow(event, fields);
     const s = getSink();
+    timeoutMs ??= s.timeoutMs || 1500;
     const write = Promise.resolve().then(() => s.write(row));
     const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve("timeout"), timeoutMs); });
-    return Promise.race([write, timeout])
+    const done = Promise.race([write, timeout])
       .then((r) => { if (r === "timeout") console.warn("Stillwater log: sink timeout for", event); })
       .catch((e) => { console.warn("Stillwater log: sink error for", event, e?.message || e); })
       .finally(() => clearTimeout(timer));
+    try { waitUntil(done); } catch { /* not on Vercel / no request context */ }
+    return done;
   } catch (e) {
     clearTimeout(timer);
     try { console.warn("Stillwater log: dropped", event, e?.message || e); } catch {}
