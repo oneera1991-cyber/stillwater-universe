@@ -26,6 +26,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import crypto from "node:crypto";
 import { setSink, consoleSink } from "../api/_lib/log.js";
+import { orderRef, MAEMANEE_BILLER_ID } from "../api/_lib/payment/maemanee.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = Number(process.argv[2] || process.env.PORT || 3123);
@@ -38,6 +39,9 @@ process.env.ORDER_SIGNING_KEY ||= crypto.randomBytes(32).toString("hex");
 process.env.PROMPTPAY_ID ||= "0000000000"; // obviously-fake mock PromptPay ID
 process.env.EASYSLIP_API_KEY ||= "mock-easyslip-key";
 process.env.EASYSLIP_MOCK = "1";
+// PAYMENT_QR_MODE=maemanee node dev/server.mjs → Mae Manee bill-payment QR + Mae Manee-shaped mock slips
+const MAEMANEE = String(process.env.PAYMENT_QR_MODE || "").toLowerCase() === "maemanee";
+if (MAEMANEE) { process.env.MAEMANEE_SHOP_ID ||= "000000000000000"; process.env.MAEMANEE_SHOP_NAME ||= "ร้านทดสอบ สติลวอเตอร์"; }
 delete process.env.OPENAI_API_KEY;
 process.env.VERA_READER = "stub"; // never call OpenAI locally / in tests (see api/_lib/reader.js)
 
@@ -74,6 +78,19 @@ async function mockEasySlip(url, init) {
   const amount = scenario === "wrong_amount" ? 5.9 : 59;
   const isDuplicate = seenTransRefs.has(transRef);
   seenTransRefs.add(transRef);
+  if (MAEMANEE) { // Mae Manee-shaped slip (assumed shape until the real 1-baht calibration; matchedAccount null on purpose)
+    const wrong = scenario === "wrong_account";
+    return json(200, { success: true, message: "Bank slip verified successfully", data: {
+      remark: fields.remark, isDuplicate, matchedAccount: null, amountInOrder: 59, amountInSlip: amount, isAmountMatched: amount === 59,
+      rawSlip: { payload: "mock", transRef, date: new Date(Date.now() - (scenario === "old" ? 3 * 864e5 : 60e3)).toISOString(), countryCode: "TH",
+        amount: { amount, local: { amount, currency: "THB" } }, fee: 0,
+        ref1: wrong ? "" : process.env.MAEMANEE_SHOP_ID, ref2: wrong ? "" : orderRef(fields.remark), ref3: "",
+        sender: { bank: { id: "004", name: "กสิกรไทย", short: "KBANK" }, account: { name: { th: "ผู้โอน ทดสอบ" } } },
+        receiver: wrong
+          ? { bank: { id: "004", name: "กสิกรไทย", short: "KBANK" }, account: { name: { th: "ร้านอื่น" } } }
+          : { bank: { id: "014", name: "ไทยพาณิชย์", short: "SCB" }, account: { name: { th: process.env.MAEMANEE_SHOP_NAME }, proxy: { type: "BILLERID", account: MAEMANEE_BILLER_ID } }, merchantId: null }
+      } } });
+  }
   return json(200, {
     success: true,
     message: "Bank slip verified successfully",

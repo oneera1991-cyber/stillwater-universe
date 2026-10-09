@@ -40,6 +40,7 @@ Nothing in this file has been done yet. Every push, deploy, env-var change and S
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | with `sheets` | Preview + Production | The key-file JSON, raw or base64 (`base64 -w0 key.json`). Sensitive. Or use the alternative below. |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` + `GOOGLE_PRIVATE_KEY` | alternative to the JSON | same | `client_email` and `private_key` from the key file (`\n` escapes are fine). |
 | `PAYMENT_PROVIDER` | no | — | Leave unset (= `promptpay`). |
+| `PAYMENT_QR_MODE` | no | — | **Leave unset** (= `promptpay`, Palm's personal PromptPay). `maemanee` is an inactive future option (§7). |
 | `VERA_READER` | no | — | **Leave unset** in production. `stub` forces the offline reader. |
 | `EASYSLIP_MOCK` | no | — | **Never set** on Vercel (it is for the local dev server only). |
 | `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` | no | — | Only for `PAYMENT_PROVIDER=omise` (inactive). |
@@ -105,7 +106,30 @@ The test payments go into Palm's own PromptPay. Note their `trans_ref`s so the t
 - **Bad reader output:** roll back, or temporarily set `VERA_READER=stub` (offline readings, no OpenAI) as a last resort.
 - **Leaked key:** rotate it (`ORDER_SIGNING_KEY` invalidates in-flight orders; the service-account key is deleted in the Cloud console; EasySlip/OpenAI keys are regenerated in their dashboards), update Vercel and redeploy.
 
-## 7. Local commands
+## 7. Optional / future: Mae Manee (SCB) QR mode — INACTIVE
+Palm launches with her **personal PromptPay** (`PAYMENT_QR_MODE` unset = `promptpay`). Nothing below is needed for launch.
+The code is ready but unused. Turn it on later with `PAYMENT_QR_MODE=maemanee`:
+- **QR:** SCB Mae Manee Tag-30 bill payment with a fixed **59.00**: Biller ID `010753600010286`, Ref1 = `MAEMANEE_SHOP_ID` (15 digits), Ref2 = a 12-character A–Z0–9 order ref. It is byte-identical to the reference `TamRaiDee/PyThaiPaymentQR` `MaeManeeQR.py` (7 vectors in `dev/fixtures/maemanee-vectors.json`, unit-tested). UI copy is identical in both modes.
+- **Env:**
+  - `MAEMANEE_SHOP_ID` (required in this mode)
+  - `MAEMANEE_SHOP_NAME` (the receiver name printed on slips)
+  - optional `MAEMANEE_CHECKS` (default `bank,identity,biller,shop,ref2`; add `matched` to also require EasySlip's matchAccount, or `name`)
+  - optional `MAEMANEE_NAME_MIN` (default 0.6)
+  - `PROMPTPAY_ID` is not used in this mode.
+- **Verification:** the same EasySlip v2 call (`matchAmount=59`, `matchAccount=true`, `checkDuplicate=true`). It does not rely on `matchedAccount` alone. Code also requires:
+  - receiver bank `014` (SCB)
+  - one identity proof: the name fuzzy-matches, the BILLERID proxy = `010753600010286`, ref1/merchantId = shop id, or matchedAccount
+  - no *present-but-different* biller, shop id or Ref2
+- **Calibration log:** every Mae Manee slip logs `MAEMANEE_SLIP {...}` to the Vercel logs (receiver-side fields + check results, never sender data).
+- **The exact Mae Manee slip JSON is unverified.** Before using this mode, run a **1-baht calibration test** on a preview:
+  1. Temporarily point the QR at 1.00 baht. This is a deliberate one-off code/env change on a preview only, since 59 is fixed in code. Alternatively, pay ฿59 and accept the cost.
+  2. Pay it **from the SCB app**, then **from another bank** (e.g. KBANK).
+  3. Read the two `MAEMANEE_SLIP` lines. Confirm `receiver.bank.id`, name, `proxy`, `ref1`/`merchantId` and `ref2` look as assumed.
+  4. Adjust `MAEMANEE_CHECKS` / `MAEMANEE_NAME_MIN` (or the check code) until both slips pass, and a slip paid to another account fails.
+  5. Then run the ฿59 test plan (§5) in this mode.
+- Local: `PAYMENT_QR_MODE=maemanee node dev/server.mjs 3123` serves Mae Manee-shaped mock slips (`ONLY=proto` e2e passes in this mode).
+
+## 8. Local commands
 ```
 npm install
 node dev/unit.mjs                                   # unit (mock Sheets fetch, stub reader)

@@ -9,6 +9,18 @@ Env:
                     matchAccount will return matchedAccount=null.
   EASYSLIP_API_KEY  EasySlip API key (Bearer). If EasySlip IP whitelist is
                     on, Vercel's egress IPs must be allowed (see README).
+  PAYMENT_QR_MODE   promptpay (default) | maemanee
+    maemanee:       MAEMANEE_SHOP_ID (15 digits, Reference 1), MAEMANEE_SHOP_NAME
+                    (receiver name on slips, fuzzy-matched), optional MAEMANEE_CHECKS /
+                    MAEMANEE_NAME_MIN — see ./maemanee.js. PROMPTPAY_ID is not used.
+
+Mae Manee mode: the QR is an SCB Mae Manee Tag-30 bill payment (Biller 010753600010286,
+Ref1 = shop id, Ref2 = order ref, fixed 59.00). Verification is the same EasySlip v2 call
+(matchAmount=59, matchAccount=true, checkDuplicate=true), but the receiver is NOT trusted on
+matchedAccount alone: checkMaeManeeSlip() also requires SCB (014) + a positive identity proof
+(name / biller / shop id / matchedAccount) and rejects a present-but-different biller, shop id
+or Ref2. Every Mae Manee slip logs `MAEMANEE_SLIP {...}` (receiver-side fields + check results)
+to calibrate against the real slip JSON. UI copy is identical in both modes.
 
 Flow:
   createPayment → dynamic PromptPay QR with the exact amount (฿59).
@@ -21,6 +33,15 @@ Docs: https://document.easyslip.com/en/v2/verify/bank/
 */
 import generatePayload from "promptpay-qr";
 import QRCode from "qrcode";
+import { checkMaeManeeSlip, maemaneeConfig, maemaneePayload, orderRef, receiverSnapshot } from "./maemanee.js";
+
+export function qrMode(env = process.env) {
+  return String(env.PAYMENT_QR_MODE || "promptpay").trim().toLowerCase() === "maemanee" ? "maemanee" : "promptpay";
+}
+function maemanee(PaymentError) {
+  try { return maemaneeConfig(); }
+  catch (e) { throw new PaymentError(e.message, 500, e.code || "config_missing"); }
+}
 
 export const FLOW = "slip";
 export const EASYSLIP_URL = "https://api.easyslip.com/v2/verify/bank";
@@ -46,7 +67,9 @@ export function isPaymentId() {
 }
 
 export async function createPayment(order, { PRICE_THB, PRICE_SATANG, CURRENCY, PaymentError }) {
-  const payload = generatePayload(promptpayId(PaymentError), { amount: PRICE_THB });
+  const payload = qrMode() === "maemanee"
+    ? maemaneePayload({ shopId: maemanee(PaymentError).shopId, ref: orderRef(order.orderId), amount: PRICE_THB })
+    : generatePayload(promptpayId(PaymentError), { amount: PRICE_THB });
   const qr = await QRCode.toDataURL(payload, { errorCorrectionLevel: "M", margin: 2, width: 480 });
   return {
     paymentId: null,
@@ -70,7 +93,7 @@ export function sniffImage(bytes) {
  * Pure interpretation of an EasySlip v2 response. Exported for unit tests.
  * @returns {{ok:true, ref, amount, currency, slipDate} | {ok:false, reason, code?}}
  */
-export function interpretEasySlip(httpStatus, body, { orderIssuedAt, priceThb = 59, priceSatang = 5900, currency = "THB" } = {}) {
+export function interpretEasySlip(httpStatus, body, { orderIssuedAt, priceThb = 59, priceSatang = 5900, currency = "THB", maemanee = null, ref = "" } = {}) {
   if (!body || body.success !== true) {
     const code = String(body?.error?.code || "");
     if (code === "SLIP_PENDING") return { ok: false, reason: "pending", code };
@@ -91,7 +114,10 @@ export function interpretEasySlip(httpStatus, body, { orderIssuedAt, priceThb = 
   }
   const cur = raw.amount?.local?.currency;
   if (cur && String(cur).toUpperCase() !== currency) return { ok: false, reason: "wrong_amount" };
-  if (!d.matchedAccount) return { ok: false, reason: "wrong_account" };
+  if (maemanee) {
+    const mm = checkMaeManeeSlip(raw, d.matchedAccount, maemanee, ref);
+    if (!mm.ok) return { ok: false, reason: "wrong_account", maemanee: mm };
+  } else if (!d.matchedAccount) return { ok: false, reason: "wrong_account" };
   if (typeof raw.transRef !== "string" || !raw.transRef) return { ok: false, reason: "unreadable" };
   const slipTime = Date.parse(raw.date || "");
   if (Number.isFinite(slipTime) && Number.isFinite(orderIssuedAt) && slipTime < orderIssuedAt - SLIP_CLOCK_SLACK_MS) {
@@ -115,6 +141,8 @@ export async function verifySlip(order, { bytes, mime }, { PRICE_THB, PRICE_SATA
   const type = sniffImage(bytes);
   if (!type || bytes.length > MAX_SLIP_BYTES) return { ok: false, reason: "bad_file" };
   const key = easyslipKey(PaymentError);
+  const mm = qrMode() === "maemanee" ? maemanee(PaymentError) : null;
+  const ref = mm ? orderRef(order.orderId) : "";
 
   const form = new FormData();
   form.append("image", new Blob([bytes], { type }), type === "image/png" ? "slip.png" : "slip.jpg");
@@ -139,8 +167,17 @@ export async function verifySlip(order, { bytes, mime }, { PRICE_THB, PRICE_SATA
   }
 
   const r = interpretEasySlip(status, body, {
-    orderIssuedAt: order.issuedAt, priceThb: PRICE_THB, priceSatang: PRICE_SATANG, currency: CURRENCY
+    orderIssuedAt: order.issuedAt, priceThb: PRICE_THB, priceSatang: PRICE_SATANG, currency: CURRENCY, maemanee: mm, ref
   });
+  if (mm && body?.success === true) {
+    // Calibration log (receiver side only — no sender data): what the real Mae Manee slip looks like.
+    const check = r.maemanee || checkMaeManeeSlip(body.data?.rawSlip || {}, body.data?.matchedAccount, mm, ref);
+    console.info("MAEMANEE_SLIP " + JSON.stringify({
+      order_ref: ref, result: r.ok ? "ok" : r.reason, checks: check.checks, name_similarity: check.similarity,
+      enforced: mm.checks, matched_account: body.data?.matchedAccount ? { bank: body.data.matchedAccount.bank?.code ?? null, nameTh: body.data.matchedAccount.nameTh ?? null, nameEn: body.data.matchedAccount.nameEn ?? null } : null,
+      amount: body.data?.amountInSlip ?? null, receiver: receiverSnapshot(body.data?.rawSlip || {})
+    }));
+  }
   if (!r.ok) {
     if (r.reason === "service" || r.reason === "quota") console.error("EasySlip error:", r.code, status);
     return r;

@@ -97,6 +97,88 @@ assert.match(p.qrPayload, /^000201010212/); assert.ok(p.qrPayload.includes("5405
 process.env.PROMPTPAY_ID = "12345";
 await assert.rejects(payment.createPayment(order), /PROMPTPAY_ID/); ok("bad PROMPTPAY_ID rejected");
 
+/* Mae Manee (SCB) bill-payment QR mode — PAYMENT_QR_MODE=maemanee */
+{
+  const mm = await import("../api/_lib/payment/maemanee.js");
+  const { readFileSync } = await import("node:fs");
+  const vec = JSON.parse(readFileSync(new URL("./fixtures/maemanee-vectors.json", import.meta.url), "utf8")).vectors;
+  for (const v of vec) assert.equal(mm.maemaneePayload({ shopId: v.shop, ref: v.ref, amount: v.amount }), v.payload, "byte-identical to PyThaiPaymentQR: " + v.ref);
+  assert.equal(mm.crc16("00020101021129370016A000000677010111011300660000000005802TH53037646304"), "8956", "reference CRC test vector 0x8956");
+  // the reference's own MaeManeeQR_test.py assertions, on our payload
+  const t1 = mm.maemaneePayload({ shopId: "014000000820910", ref: "TESTPYTHON", amount: 14.53 });
+  for (const part of ["000201", "010211", "0016A000000677010112", "0115010753600010286", "0215014000000820910", "0310TESTPYTHON", "622007160000000000085234", "5303764", "540514.53", "5802TH"]) assert.ok(t1.includes(part), part);
+  assert.equal(t1.slice(0, -8), "00020101021130720016A000000677010112011501075360001028602150140000008209100310TESTPYTHON5303764540514.535802TH622007160000000000085234");
+  assert.equal(mm.maemaneePayload({ shopId: "014000000820910", ref: "Supatipanno", amount: 40007 }).at(-4), "0", "zero-leading CRC kept");
+  ok(`Mae Manee QR: ${vec.length} payloads byte-identical to PyThaiPaymentQR MaeManeeQR.py (+ its own assertions, CRC 0x8956)`);
+  assert.equal(mm.orderRef("ord_KB1lpqjh-lyTa_VkXq"), "KB1LPQJHLYTA"); assert.match(mm.orderRef(order.orderId), /^[A-Z0-9]{1,20}$/);
+  assert.throws(() => mm.maemaneePayload({ shopId: "123", ref: "A", amount: 59 })); assert.throws(() => mm.maemaneePayload({ shopId: "014000000820910", ref: "A-1", amount: 59 }));
+  assert.throws(() => mm.maemaneePayload({ shopId: "014000000820910", ref: "A".repeat(21), amount: 59 })); ok("order ref = A–Z0–9 ≤ 20; shop id 15 digits");
+
+  // createPayment in maemanee mode
+  const envBefore = { ...process.env };
+  process.env.PAYMENT_QR_MODE = "maemanee"; process.env.MAEMANEE_SHOP_ID = "014000000820910"; process.env.MAEMANEE_SHOP_NAME = "ร้าน สติลวอเตอร์ (Stillwater)";
+  process.env.PROMPTPAY_ID = "12345"; // not used in this mode
+  const pm = await payment.createPayment(order);
+  const ref = mm.orderRef(order.orderId);
+  assert.equal(pm.flow, "slip"); assert.match(pm.qr, /^data:image\/png;base64,/);
+  assert.equal(pm.qrPayload, mm.maemaneePayload({ shopId: "014000000820910", ref, amount: 59 }));
+  assert.ok(pm.qrPayload.startsWith("000201010211") && pm.qrPayload.includes("0115010753600010286") && pm.qrPayload.includes("0215014000000820910") && pm.qrPayload.includes("03" + String(ref.length).padStart(2, "0") + ref) && pm.qrPayload.includes("540559.00"));
+  assert.equal(mm.crc16(pm.qrPayload.slice(0, -4)), pm.qrPayload.slice(-4)); assert.equal(pm.amount, 5900);
+  process.env.MAEMANEE_SHOP_ID = "01400000082091"; await assert.rejects(payment.createPayment(order), (e) => e.code === "config_missing");
+  process.env.MAEMANEE_SHOP_ID = "014-000000-820910"; assert.equal((await payment.createPayment(order)).qrPayload, pm.qrPayload, "separators tolerated");
+  ok("createPayment (maemanee): Tag 30 bill payment, Biller 010753600010286, Ref1 = shop id, Ref2 = order ref, 59.00, valid CRC; bad shop id → config_missing");
+
+  // slip checks (assumed v2 shape; tolerant)
+  const cfg = () => mm.maemaneeConfig(process.env);
+  const mmSlip = (o = {}) => ({ success: true, data: { isDuplicate: false, matchedAccount: null, amountInOrder: 59, amountInSlip: 59, isAmountMatched: true,
+    rawSlip: { transRef: "MM1", date: new Date(issued + 60e3).toISOString(), amount: { amount: 59, local: { amount: 59, currency: "THB" } }, ref1: "014000000820910", ref2: ref, ref3: "",
+      sender: { bank: { id: "004" }, account: { name: { th: "นาย ผู้โอน" } } },
+      receiver: { bank: { id: "014", short: "SCB" }, account: { name: { th: "ร้าน สติลวอเตอร์" }, proxy: { type: "BILLERID", account: "010753600010286" } }, merchantId: null }, ...o } } });
+  const M = (b, c = cfg()) => slip.interpretEasySlip(200, b, { orderIssuedAt: issued, maemanee: c, ref });
+  assert.equal(M(mmSlip()).ok, true, "matchedAccount null is fine when SCB + identity proofs pass");
+  assert.equal(slip.interpretEasySlip(200, mmSlip(), { orderIssuedAt: issued }).reason, "wrong_account", "promptpay mode still needs matchedAccount");
+  const rcv = (r) => mmSlip({ receiver: r });
+  assert.equal(M(rcv({ bank: { id: "004" }, account: { name: { th: "ร้าน สติลวอเตอร์" } } })).reason, "wrong_account", "not SCB");
+  assert.equal(M(rcv({ account: { name: { th: "ร้าน สติลวอเตอร์" } } })).reason, "wrong_account", "bank id missing");
+  assert.equal(M(mmSlip({ ref1: "", receiver: { bank: { id: "014" }, account: { name: { th: "ร้านกาแฟอื่น" } } } })).reason, "wrong_account", "SCB but no identity proof");
+  for (const nm of ["ร้าน สติลวอเตอร์", "สติลวอเตอร์", "STILLWATER", "Stillwat", "สติลวxxxxx", "ร้านสติลวอเตอ"]) {
+    assert.equal(M(mmSlip({ ref1: "", receiver: { bank: { id: "014" }, account: { name: { th: nm } } } })).ok, true, "fuzzy name: " + nm);
+  }
+  assert.equal(M(mmSlip({ ref1: "", receiver: { bank: { id: "014" }, account: { name: { en: "MR SOMCHAI" } } } })).ok, false, "unrelated name");
+  assert.equal(M(mmSlip({ receiver: { bank: { id: "014" }, account: { name: { th: "x" }, proxy: { type: "BILLERID", account: "099999999999999" } } } })).reason, "wrong_account", "other biller");
+  assert.equal(M(mmSlip({ ref1: "014000000999999" })).reason, "wrong_account", "other shop id in ref1");
+  assert.equal(M(mmSlip({ ref1: "014xxxxxxx20910" })).ok, true, "masked shop id tolerated");
+  assert.equal(M(mmSlip({ ref1: "", receiver: { bank: { id: "014" }, account: { name: {} } , merchantId: "014000000820910" } })).ok, true, "shop id via merchantId");
+  assert.equal(M(mmSlip({ ref2: "OTHERORDER1" })).reason, "wrong_account", "Ref2 of another order");
+  assert.equal(M(mmSlip({ ref2: "" })).ok, true, "Ref2 absent → ok");
+  process.env.MAEMANEE_CHECKS = "bank,identity"; assert.equal(M(mmSlip({ ref2: "OTHERORDER1" })).ok, true, "ref2 log-only when not enforced");
+  process.env.MAEMANEE_CHECKS = "bank,identity,matched"; assert.equal(M(mmSlip()).reason, "wrong_account", "matched required → needs matchedAccount");
+  process.env.MAEMANEE_CHECKS = ""; process.env.MAEMANEE_NAME_MIN = "0.99";
+  assert.equal(M(mmSlip({ ref1: "", receiver: { bank: { id: "014" }, account: { name: { th: "สติลวอเตอร" } } } })).ok, false, "name threshold configurable");
+  delete process.env.MAEMANEE_NAME_MIN;
+  let gm = mmSlip(); gm.data.isAmountMatched = false; assert.equal(M(gm).reason, "wrong_amount");
+  gm = mmSlip(); gm.data.isDuplicate = true; assert.equal(M(gm).reason, "duplicate"); ok("Mae Manee slip checks: SCB 014 + identity (name fuzzy / biller / shop id / matched), mismatching biller / shop / Ref2 rejected, configurable via MAEMANEE_CHECKS / MAEMANEE_NAME_MIN; amount + duplicate unchanged");
+
+  // verifySlip end to end with a mocked EasySlip: same request, calibration log has receiver fields only
+  process.env.EASYSLIP_API_KEY = "test-key"; const f0 = globalThis.fetch; const sent = []; const infos = []; const info0 = console.info;
+  globalThis.fetch = async (url, init) => { sent.push({ url: String(url), form: init.body }); return new Response(JSON.stringify(mmSlip()), { status: 200 }); };
+  console.info = (x) => infos.push(String(x));
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+  const vr = await payment.verifySlip({ ...order, issuedAt: issued }, { bytes: png, mime: "image/png" });
+  globalThis.fetch = f0; console.info = info0;
+  assert.equal(vr.ok, true); assert.equal(sent[0].url, "https://api.easyslip.com/v2/verify/bank");
+  assert.deepEqual(["matchAmount", "matchAccount", "checkDuplicate"].map((k) => sent[0].form.get(k)), ["59", "true", "true"]);
+  const line = infos.find((l) => l.startsWith("MAEMANEE_SLIP ")); assert.ok(line, "calibration log line");
+  const logged = JSON.parse(line.slice(14));
+  assert.equal(logged.receiver.bank.id, "014"); assert.equal(logged.receiver.ref2, ref); assert.equal(logged.checks.biller, "pass"); assert.equal(logged.result, "ok");
+  assert.ok(!line.includes("ผู้โอน") && !line.includes('"sender"'), "no sender data logged");
+  for (const k of Object.keys(process.env)) if (!(k in envBefore)) delete process.env[k];
+  Object.assign(process.env, envBefore);
+  ok("verifySlip (maemanee): EasySlip v2 matchAmount=59 / matchAccount / checkDuplicate, MAEMANEE_SLIP calibration log = receiver side only");
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8") + JSON.stringify(STRINGS);
+  assert.ok(!/แม่มณี|mae\s*manee|maemanee/i.test(html), "UI copy identical in both modes (no mode-specific text)"); ok("UI copy has no Mae Manee-specific text");
+}
+
 /* Omise (inactive) poll checks */
 const okS = { paid: true, amount: 5900, currency: "THB", orderId: order.orderId };
 assert.equal(payment.paymentProblem(okS, order.orderId), null);

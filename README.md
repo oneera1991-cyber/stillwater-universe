@@ -212,6 +212,7 @@ Full launch checklist (order of steps, real ฿59 test, rollback): **LAUNCH.md**
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | later | Service-account key file JSON (raw or base64) for the Sheets sink (secret). Alternative: `GOOGLE_SERVICE_ACCOUNT_EMAIL` + `GOOGLE_PRIVATE_KEY`. Share the sheet with the service-account email as Editor. Setup: LAUNCH.md §3. |
 | `VERA_READER` | no | `stub` or `real` to force a reader. Leave it unset in production. |
 | `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` | no | Only for `PAYMENT_PROVIDER=omise`. |
+| `PAYMENT_QR_MODE` | no | `promptpay` (default; launch). `maemanee` is an optional, **inactive** SCB Mae Manee bill-payment QR mode (`MAEMANEE_SHOP_ID`, `MAEMANEE_SHOP_NAME`, optional `MAEMANEE_CHECKS` / `MAEMANEE_NAME_MIN`). See LAUNCH.md §7. It needs a 1-baht calibration test before use. |
 
 EasySlip IP whitelist: Vercel functions do not have fixed outbound IPs by default, so either leave the EasySlip whitelist open (`*`, rely on the secret key) or use a fixed-IP setup (Vercel static-IP / Secure Compute options are paid add-ons — check the current plan — or a small proxy) and whitelist that. A blocked call shows customers "ระบบตรวจสลิปยังไม่พร้อม" and logs `EasySlip error: IP_NOT_ALLOWED`.
 
