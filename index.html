@@ -141,8 +141,15 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* ---------- scene frame (one page, one scene visible at a time) ---------- */
+/* The SOUND / TH-EN controls live in a top band (--bar). Every scene scrolls only
+   BELOW that band, so headings and reading text can never slide under the
+   controls; the scroll edge fades softly (mask) instead of a hard cut. The
+   background is on <body>, so the band shows the same sky. */
+:root{--bar:calc(max(1rem,env(safe-area-inset-top)) + 2.6rem)}
 .scene{
-  position:fixed;inset:0;z-index:10;
+  position:fixed;inset:0;top:var(--bar);z-index:10;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 1.4rem);
+          mask-image:linear-gradient(to bottom,transparent 0,#000 1.4rem);
   overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;
   opacity:0;visibility:hidden;pointer-events:none;
   transform:scale(1.04);
@@ -154,7 +161,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
   min-height:100%;width:100%;max-width:28rem;margin:0 auto;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   text-align:center;
-  padding:max(3.2rem,env(safe-area-inset-top)) 1.4rem max(2.6rem,env(safe-area-inset-bottom));
+  padding:1.6rem 1.4rem max(3.6rem,env(safe-area-inset-bottom));
 }
 
 /* ---------- Vera: ONE locked figure (symbol #vera-figure), reused ---------- */
@@ -274,6 +281,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 ========================================================= */
 #scene-first .stage{height:96px}
 #scene-first .vera{width:26px;height:60px}
+#scene-first .say{font:400 1.14rem/1.7 var(--sans);color:var(--cream);margin:0 0 1rem;letter-spacing:.01em}
 #scene-first .card-row{display:flex;flex-direction:column;align-items:center;margin-bottom:.8rem}
 #scene-first .card-img{
   width:min(150px,40vw);height:auto;aspect-ratio:2/3;object-fit:cover;border-radius:10px;
@@ -281,7 +289,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 }
 #scene-first .card-name{font:400 1.25rem var(--serif);letter-spacing:.08em;margin-top:.8rem}
 #scene-first .answer{margin:.6rem 0 1.4rem}
-#scene-first .answer .ln{font-size:.98rem;line-height:1.9;color:var(--text);margin-bottom:.35rem}
+#scene-first .answer .ln{font-size:1rem;line-height:1.95;color:var(--text);margin-bottom:.35rem}
 #scene-first .invite{border-top:1px solid var(--line);padding-top:1.3rem;width:100%}
 #scene-first .invite .ln{font-size:.88rem;line-height:1.95;color:var(--soft)}
 #scene-first .invite .btn{margin-top:1.2rem}
@@ -333,24 +341,34 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 #scene-full .vera{width:26px;height:60px}
 #scene-full .intro{font-size:.92rem;line-height:1.9;color:var(--soft);margin-bottom:1rem}
 #scene-full .story{width:100%}
-#scene-full .chapter{display:flex;flex-direction:column;align-items:center;width:100%;margin-bottom:1.2rem;opacity:0;transform:translateY(10px);transition:opacity .9s ease,transform .9s ease}
+/* one section per card: heading, card, name, reading; a soft glow divider before the next card */
+#scene-full .chapter{display:flex;flex-direction:column;align-items:center;width:100%;margin-bottom:1.4rem;opacity:0;transform:translateY(14px) scale(.985);transition:opacity .9s ease,transform .9s ease}
 #scene-full .chapter.is-in{opacity:1;transform:none}
-#scene-full .chapter + .chapter{border-top:1px solid var(--line);padding-top:1.6rem}
 .rm #scene-full .chapter{transform:none}
-#scene-full .chapter .say{font:400 1.12rem/1.7 var(--sans);color:var(--cream);margin:0 0 1rem;letter-spacing:.01em}
-#scene-full .chapter .flip{width:min(180px,48vw)}
+#scene-full .glow-divider{width:72%;height:1px;margin:.4rem auto 2rem;border:0;
+  background:linear-gradient(90deg,transparent,rgba(235,220,180,.55),transparent);
+  box-shadow:0 0 14px 1px rgba(235,220,180,.22)}
+#scene-full .chapter .say{font:400 1.14rem/1.7 var(--sans);color:var(--cream);margin:0 0 1rem;letter-spacing:.01em}
+#scene-full .chapter .flip{width:min(190px,50vw);transition:filter .8s ease}
 #scene-full .chapter .flip img{height:100%}
+/* the card being read glows softly; earlier cards rest */
+#scene-full .chapter.is-current .flip{filter:drop-shadow(0 0 18px rgba(235,220,180,.28))}
+#scene-full .chapter:not(.is-current) .flip{filter:brightness(.86)}
 #scene-full .chapter .name{font:400 1.2rem var(--serif);letter-spacing:.08em;margin-top:.8rem;min-height:1.6rem}
-#scene-full .chapter .reading{width:100%;text-align:left;margin-top:.6rem}
-#scene-full .chapter .reading .ln{font-size:.95rem;line-height:1.9;color:var(--text);margin-bottom:.35rem}
-#scene-full #btnNextCard{margin:.4rem 0 1.4rem}
-#scene-full .final{width:100%;border-top:1px solid var(--line);padding-top:1.1rem;margin-top:.3rem}
-#scene-full .final .ln{font-size:.98rem;line-height:1.95;color:var(--text);margin-bottom:.5rem}
-#scene-full .final .closing{color:var(--cream);font-family:var(--sans);font-style:normal}
-#scene-full .final .after{font-size:.86rem;color:var(--soft);margin-top:.6rem}
-#scene-full .actions{display:flex;flex-direction:column;align-items:center;gap:.7rem;margin-top:1.4rem;width:100%}
-#scene-full .actions .row{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap}
-#scene-full .share-note{font-size:.76rem;color:var(--soft);min-height:1.2rem;word-break:break-all}
+#scene-full .chapter .reading{width:100%;text-align:left;margin-top:.7rem}
+#scene-full .chapter .reading .ln{font-size:1rem;line-height:1.95;color:var(--text);margin-bottom:.55rem}
+#scene-full #btnNextCard{margin:.2rem 0 1.6rem}
+/* ending — the weightiest moment */
+#scene-full .ending{width:100%;margin-top:.4rem}
+#scene-full .ending .say{font:400 1.18rem/1.7 var(--sans);color:var(--cream);margin:0 0 1rem}
+#scene-full .ending .overview .ln{font-size:1rem;line-height:1.95;color:var(--text);margin-bottom:.55rem;text-align:left}
+#scene-full .ending .words{margin:1.2rem 0 .4rem}
+#scene-full .ending .words .ln{font-size:1.04rem;line-height:1.95;color:var(--cream)}
+#scene-full .ending .thanks{font-size:.95rem;line-height:1.9;color:var(--soft);margin-top:1.1rem}
+#scene-full .ending .return{font-size:.95rem;line-height:1.9;color:var(--soft);margin-top:.3rem}
+#scene-full .actions{display:flex;flex-direction:column;align-items:center;gap:.7rem;margin-top:1rem;width:100%}
+#scene-full .final-actions{width:100%;display:flex;flex-direction:column;align-items:center;gap:.7rem;margin-top:1.6rem;padding-top:1.6rem;border-top:1px solid var(--line)}
+#scene-full .share-note{font-size:.76rem;color:var(--soft);min-height:1.2rem;word-break:break-all;margin:0}
 #scene-full .error{font-size:.88rem;line-height:1.9;color:rgba(255,200,200,.88);margin:1rem 0}
 
 /* =========================================================
@@ -439,6 +457,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 <section class="scene" id="scene-first" hidden>
   <div class="scene-inner">
     <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
+    <h2 class="say" id="firstHeading" data-i18n="first.heading">ไพ่ใบนี้มีบางอย่างอยากบอกคุณ</h2>
     <div class="card-row">
       <img class="card-img" id="firstImage" alt="" width="780" height="1170">
       <h2 class="card-name" id="firstName"></h2>
@@ -504,10 +523,18 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
   <div class="scene-inner">
     <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
     <p class="intro" id="fullIntro" data-i18n="full.opening">พี่กำลังเปิดสามใบให้คุณนะคะ</p>
-    <!-- One card at a time: each chapter = Vera's spoken heading, the card, its name, her reading. -->
+    <!-- Cards 2–4 of the 4-card story (card 1 = scene 4), one at a time: heading, card, name, reading; glow divider between. -->
     <div class="story" id="fullStory"></div>
-    <button class="btn ln" id="btnNextCard" type="button" data-i18n="full.next" hidden>อ่านไพ่ใบถัดไป</button>
-    <div class="final" id="fullFinal" hidden></div>
+    <button class="btn ln" id="btnNextCard" type="button" data-i18n="full.next" hidden>พี่เวราเล่าต่อค่ะ</button>
+    <!-- Ending, the weightiest moment: overview (reader final) → Vera's words (reader closing) → thanks → return line. -->
+    <div class="ending" id="fullFinal" hidden>
+      <div class="glow-divider" aria-hidden="true"></div>
+      <h3 class="say ln" id="endHeading" data-i18n="full.endingHeading">เมื่อมองไพ่ทั้งสี่ใบรวมกัน</h3>
+      <div class="overview" id="endOverview"></div>
+      <div class="words" id="endWords"></div>
+      <p class="thanks ln" id="endThanks" data-i18n="full.thanks">ขอบคุณจักรวาลที่ส่งคำตอบนี้มาให้คุณนะคะ</p>
+      <p class="return ln" id="endReturn" data-i18n="full.returnLine">หากมีเรื่องที่อยากถามจักรวาล กลับมาหาพี่เวราได้เสมอ</p>
+    </div>
     <div id="fullError" hidden>
       <p class="error" id="fullErrorText"></p>
       <button class="btn btn-quiet" id="btnFullRetry" type="button" data-i18n="full.retry">ลองเปิดอีกครั้ง</button>
@@ -525,12 +552,13 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
       </div>
       <p class="rate-note" aria-live="polite"></p>
     </div>
-      <div class="row">
-        <button class="btn btn-quiet" id="btnSave" type="button" data-i18n="full.save">บันทึกคำอ่าน</button>
-        <button class="btn btn-quiet" id="btnShare" type="button" data-i18n="full.share">แชร์คำอ่าน</button>
+      <div class="final-actions" id="finalActions">
+        <!-- Future: Instagram Story share button goes here (hidden hook, no placeholder shown). -->
+        <div class="ig-story-slot" id="igStorySlot" data-slot="instagram-story" hidden></div>
+        <button class="btn" id="btnShareSite" type="button" data-i18n="full.shareSite">แชร์ Stillwater</button>
+        <p class="share-note" id="shareNote" aria-live="polite"></p>
+        <button class="btn btn-quiet" id="btnClose" type="button" data-i18n="full.close">ปิดการอ่าน</button>
       </div>
-      <p class="share-note" id="shareNote" aria-live="polite"></p>
-      <button class="btn" id="btnAgain" type="button" data-i18n="full.again">ถามพี่เวราอีกครั้ง</button>
     </div>
   </div>
 </section>
@@ -893,11 +921,14 @@ window.addEventListener('resize', resize);
 async function enter(){
   $('btnEnter').disabled = true;
   trackEvent('enter_clicked');
-  await unlockAudio();
-  setSound(true);
-  $('soundToggle').classList.add('is-on');
+  // first entry turns sound on; after "ปิดการอ่าน" the visitor's SOUND choice is kept
+  if(!$('soundToggle').classList.contains('is-on')){
+    await unlockAudio();
+    setSound(true);
+    $('soundToggle').classList.add('is-on');
+    startAmbient();
+  }
   buttonSound('enter');
-  startAmbient();
   $('portal').classList.add('is-on');
   await wait(900);
   goQuestion();
@@ -1249,7 +1280,8 @@ function resetFull(){
   $('fullIntro').hidden = false;
   $('fullStory').textContent = '';
   $('btnNextCard').hidden = true;
-  $('fullFinal').textContent = '';
+  $('endOverview').textContent = ''; $('endWords').textContent = '';
+  ['endHeading','endThanks','endReturn'].forEach((id) => $(id).classList.remove('is-in'));
   $('fullFinal').hidden = true;
   $('fullActions').hidden = true;
   $('fullError').hidden = true;
@@ -1307,7 +1339,9 @@ async function openFull(){
 function buildChapter(card, i){
   const ch = document.createElement('article');
   ch.className = 'chapter';
-  ch.dataset.step = String(i + 1);
+  ch.dataset.step = String(i + 1);   // paid card 1..3
+  ch.dataset.card = String(i + 2);   // card 2..4 of the 4-card story (card 1 = scene 4)
+  if(i > 0){ const d = document.createElement('div'); d.className = 'glow-divider'; d.setAttribute('aria-hidden', 'true'); ch.appendChild(d); }
   const say = document.createElement('h3'); say.className = 'say'; say.textContent = cardHeading(card, i, state.lang || uiLang);
   const flip = document.createElement('div'); flip.className = 'flip';
   const inner = document.createElement('div'); inner.className = 'flip-inner';
@@ -1318,11 +1352,14 @@ function buildChapter(card, i){
   const name = document.createElement('p'); name.className = 'name';
   const reading = document.createElement('div'); reading.className = 'reading';
   ch.append(say, flip, name, reading);
+  ch.setAttribute('aria-label', say.textContent);
   return { ch, flip, img, name, reading };
 }
 
 async function showChapter(card, i, { instant = false } = {}){
   const c = buildChapter(card, i);
+  $('fullStory').querySelectorAll('.chapter.is-current').forEach((n) => n.classList.remove('is-current'));
+  c.ch.classList.add('is-current');
   $('fullStory').appendChild(c.ch);
   if(instant){
     c.img.src = cardUrl(card);
@@ -1369,19 +1406,22 @@ async function revealFull(data){
       trackEvent('full_card_shown', { step: i + 1 });
     }
   }
-  await wait(reached === cards.length ? 0 : 500);
+  // Ending: overview (reader `final`) → Vera's words (reader `closing`) → thanks → return line.
+  const instant = reached === cards.length;
+  await wait(instant ? 0 : 600);
   const fin = $('fullFinal');
   fin.hidden = false;
-  await revealLines(fin, splitLines(data.final), { gap: reached === cards.length ? 0 : 800 });
-  const closing = document.createElement('div');
-  fin.appendChild(closing);
-  await revealLines(closing, splitLines(data.closing), { gap: reached === cards.length ? 0 : 800, className: 'closing' });
-  const after = document.createElement('div');
-  fin.appendChild(after);
-  const afterLines = await revealLines(after, [t('full.after')], { className: 'after' });
-  afterLines.forEach((n) => { n.dataset.i18n = 'full.after'; });
+  if(!instant){ $('fullStory').querySelectorAll('.chapter.is-current').forEach((n) => n.classList.remove('is-current')); }
+  const g = instant ? 0 : 800;
+  $('endHeading').classList.add('is-in');
+  if(!instant) fin.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  await wait(g);
+  await revealLines($('endOverview'), splitLines(data.final), { gap: g });
+  await revealLines($('endWords'), splitLines(data.closing), { gap: g, className: 'closing' });
+  $('endThanks').classList.add('is-in'); await wait(g);
+  $('endReturn').classList.add('is-in'); await wait(g);
   showRating('full');
-  showReadingId(data);
+  showReadingId(data); // kept in state only, never shown
   $('fullActions').hidden = false;
   trackEvent('full_reading_shown');
 }
@@ -1446,101 +1486,6 @@ async function rate(stage, stars){
   $('rate-' + stage).querySelectorAll('.star').forEach((b) => b.addEventListener('click', () => rate(stage, Number(b.dataset.n))));
 });
 
-/* Save: render a portrait PNG (story-sized) and download it. */
-function wrapText(c, text, maxWidth){
-  const out = [];
-  const seg = (window.Intl && Intl.Segmenter) ? new Intl.Segmenter(state.lang || uiLang, { granularity:'word' }) : null;
-  for(const para of String(text || '').split(/\n+/)){
-    const words = seg ? Array.from(seg.segment(para), (s) => s.segment) : Array.from(para);
-    let line = '';
-    for(const w of words){
-      const test = line + w;
-      if(c.measureText(test).width > maxWidth && line){ out.push(line.trim()); line = w.trimStart(); }
-      else line = test;
-    }
-    if(line.trim()) out.push(line.trim());
-  }
-  return out;
-}
-
-async function saveReading(){
-  const data = state.deeper;
-  if(!data) return;
-  buttonSound();
-  // Canvas never waits for webfonts by itself → load the exact faces first (Thai + Latin).
-  try{
-    await Promise.all([
-      document.fonts.load("300 34px 'Noto Sans Thai'", 'กขคอดีตปัจจุบัน'),
-      document.fonts.load("400 34px 'Noto Sans Thai'", 'กขคอดีตปัจจุบัน'),
-      document.fonts.load("300 52px 'Cormorant Garamond'", 'STILLWATER'),
-      document.fonts.load("400 34px 'Cormorant Garamond'", 'The Moon')
-    ]);
-    await document.fonts.ready;
-  }catch(e){}
-  const Wd = 1080, pad = 90, cardW = 280, cardH = 420, gap = 40;
-  const measure = document.createElement('canvas').getContext('2d');
-  const sans = (size, weight = 300) => `${weight} ${size}px 'Noto Sans Thai', 'Noto Sans Thai UI', 'Leelawadee UI', 'Sukhumvit Set', 'Thonburi', sans-serif`;
-  measure.font = sans(34);
-  const blocks = [];
-  const pngLang = state.lang || uiLang; // the image follows the reading's language
-  // Vera's spoken headings (no position labels), each followed by its card name.
-  (data.cards || []).forEach((card, i) => {
-    measure.font = sans(34, 400);
-    blocks.push({ gapBefore: i ? 18 : 0, font: sans(34, 400), color:'#f5f0e6', lines: wrapText(measure, cardHeading(card, i, pngLang), Wd - pad*2), lh: 52 });
-    blocks.push({ font: `400 34px 'Cormorant Garamond', 'Noto Sans Thai', serif`, color:'rgba(205,214,244,.85)', lines: [card.name || ''], lh: 52 });
-  });
-  measure.font = sans(36);
-  blocks.push({ gapBefore: 30, font: sans(36), color:'#e8ecff', lines: wrapText(measure, data.final, Wd - pad*2), lh: 60 });
-  blocks.push({ gapBefore: 24, font: sans(34), color:'#f5f0e6', lines: wrapText(measure, data.closing, Wd - pad*2), lh: 56 });
-  const textH = blocks.reduce((h, b) => h + (b.gapBefore || 0) + b.lines.length * b.lh, 0);
-  const Ht = Math.max(1920, 250 + cardH + 160 + textH + 200);
-
-  const cv = document.createElement('canvas');
-  cv.width = Wd; cv.height = Ht;
-  const c = cv.getContext('2d');
-  const g = c.createLinearGradient(0,0,0,Ht);
-  g.addColorStop(0,'#03030b'); g.addColorStop(.4,'#0d0c26'); g.addColorStop(.75,'#15123a'); g.addColorStop(1,'#050817');
-  c.fillStyle = g; c.fillRect(0,0,Wd,Ht);
-  c.textAlign = 'center';
-  c.fillStyle = 'rgba(225,230,255,.88)';
-  c.font = `300 52px 'Cormorant Garamond', serif`;
-  c.fillText(tr(pngLang, 'savePng.title'), Wd/2, 150);
-
-  const imgs = await Promise.all((data.cards || []).map((card) => new Promise((resolve) => {
-    const im = new Image(); im.onload = () => resolve(im); im.onerror = () => resolve(null); im.src = cardUrl(card);
-  })));
-  const totalW = cardW*3 + gap*2;
-  let x = (Wd - totalW)/2;
-  const y = 230;
-  imgs.forEach((im, i) => {
-    if(im) c.drawImage(im, x, y, cardW, cardH);
-    c.strokeStyle = 'rgba(245,240,230,.6)'; c.lineWidth = 2; c.strokeRect(x, y, cardW, cardH);
-    c.fillStyle = 'rgba(205,214,244,.8)'; c.font = `400 30px 'Cormorant Garamond', 'Noto Sans Thai', serif`;
-    c.fillText((data.cards[i] || {}).name || '', x + cardW/2, y + cardH + 50);
-    x += cardW + gap;
-  });
-  let ty = y + cardH + 150;
-  for(const b of blocks){
-    ty += b.gapBefore || 0;
-    c.font = b.font; c.fillStyle = b.color;
-    for(const line of b.lines){ c.fillText(line, Wd/2, ty); ty += b.lh; }
-  }
-  c.fillStyle = 'rgba(190,200,225,.5)'; c.font = sans(26);
-  c.fillText(location.host || 'Stillwater', Wd/2, Ht - 80);
-
-  cv.toBlob((blob) => {
-    if(!blob) return;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = tr(pngLang, 'savePng.filename');
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    setText($('shareNote'), 'full.saved');
-    logShare('download_image', 'completed');
-    trackEvent('reading_saved');
-  }, 'image/png');
-}
-
 /* Silent share tracking → /api/share (order token only; no UI, never awaited, errors ignored). */
 function logShare(channel, result){
   if(!state.order) return;
@@ -1550,13 +1495,13 @@ function logShare(channel, result){
   }catch(e){}
 }
 
-async function shareReading(){
+/* "แชร์ Stillwater": shares ONLY the site link — never the question, the cards or the reading. */
+async function shareSite(){
   buttonSound();
   const url = location.origin + '/';
-  const names = ((state.deeper && state.deeper.cards) || []).map((c) => c.name).join(' · ');
-  const text = names ? t('full.shareText', { names }) : t('full.shareTitle');
+  setText($('shareNote'), null);
   if(navigator.share){
-    try{ await navigator.share({ title: t('full.shareTitle'), text, url }); logShare('native', 'completed'); trackEvent('reading_shared'); return; }
+    try{ await navigator.share({ title: t('full.shareTitle'), url }); logShare('native', 'completed'); trackEvent('site_shared'); return; }
     catch(e){
       if(e && e.name === 'AbortError'){ logShare('native', 'cancelled'); return; }
       logShare('native', 'failed');
@@ -1567,17 +1512,20 @@ async function shareReading(){
     setText($('shareNote'), 'full.copied');
     logShare('copy_link', 'completed');
   }catch(e){
-    setText($('shareNote'), null);
     $('shareNote').textContent = url;
     logShare('copy_link', 'failed');
   }
-  trackEvent('reading_link_copied');
+  trackEvent('site_link_copied');
 }
 
-/* "ถามพี่เวราอีกครั้ง" — brand-new question, new free card. */
-function askAgain(){
+/* "ปิดการอ่าน": end the session cleanly and return to the landing (scene 1).
+   A new question starts from there ("พร้อมส่งคำถาม"). Silent 'close' event. */
+function closeReading(){
   buttonSound();
-  trackEvent('ask_again');
+  trackEvent('reading_closed', { step: state.fullStep || 0 });
+  if(state.order){
+    try{ fetch('/api/close', { method:'POST', keepalive:true, headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ order: state.order, step: state.fullStep || 0 }) }).catch(() => {}); }catch(e){}
+  }
   stopPolling();
   clearStore();
   resetRating('free'); resetRating('full');
@@ -1587,7 +1535,11 @@ function askAgain(){
   resetDraw();
   resetOffering();
   resetFull();
-  goQuestion();
+  hideExisting($('windowLines'));
+  $('btnEnter').disabled = false;
+  $('scene-window').scrollTop = 0;
+  showScene('window');
+  wait(500).then(() => revealExisting($('windowLines'), 520));
 }
 
 /* ================= SAFETY ================= */
@@ -1629,9 +1581,8 @@ $('slipInput').addEventListener('change', onSlipChosen);
 $('btnRetrySlip').addEventListener('click', submitSlip);
 $('btnBackFirst').addEventListener('click', () => { buttonSound(); fillFirstStatic(); showScene('first'); });
 $('btnFullRetry').addEventListener('click', () => openFull());
-$('btnSave').addEventListener('click', saveReading);
-$('btnShare').addEventListener('click', shareReading);
-$('btnAgain').addEventListener('click', askAgain);
+$('btnShareSite').addEventListener('click', shareSite);
+$('btnClose').addEventListener('click', closeReading);
 $('langToggle').addEventListener('click', () => {
   setLang(uiLang === 'th' ? 'en' : 'th');
   trackEvent('lang_switched', { lang: uiLang });

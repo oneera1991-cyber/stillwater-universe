@@ -88,6 +88,7 @@ export const STRINGS = {
       back: "กลับไปที่คำถาม"
     },
     first: {
+      heading: "ไพ่ใบนี้มีบางอย่างอยากบอกคุณ", // card 1 of the 4-card story (Palm V2)
       invite: [
         "คำตอบแรกคือสิ่งที่คุณควรรู้",
         "แต่บางครั้ง..คำตอบหนึ่งใบไม่ได้เล่าเรื่องทั้งหมด",
@@ -144,22 +145,18 @@ export const STRINGS = {
       opening: "พี่กำลังเปิดสามใบให้คุณนะคะ",
       // Scene 6 tells the story one card at a time; Vera's spoken headings replace position labels (Palm, 2026-10-09).
       headings: { past: "เรื่องนี้เริ่มต้นจากอะไร", present: "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", ahead: "ถ้าเรื่องนี้เดินต่อไป..." },
-      next: "อ่านไพ่ใบถัดไป",
-      after: "ตอนนี้คุณเห็นเรื่องราวชัดขึ้นแล้ว...ที่เหลือคือสิ่งที่คุณจะเลือกทำต่อจากนี้",
-      save: "บันทึกคำอ่าน",
-      share: "แชร์คำอ่าน",
-      again: "ถามพี่เวราอีกครั้ง",
+      next: "พี่เวราเล่าต่อค่ะ",
+      // Ending (Palm V2): overview (reader `final`) → Vera's words (reader `closing`) → thanks → return line.
+      endingHeading: "เมื่อมองไพ่ทั้งสี่ใบรวมกัน",
+      thanks: "ขอบคุณจักรวาลที่ส่งคำตอบนี้มาให้คุณนะคะ",
+      returnLine: "หากมีเรื่องที่อยากถามจักรวาล กลับมาหาพี่เวราได้เสมอ",
+      shareSite: "แชร์ Stillwater",
+      close: "ปิดการอ่าน",
       retry: "ลองเปิดอีกครั้ง",
-      saved: "บันทึกรูปคำอ่านแล้วค่ะ",
       copied: "คัดลอกลิงก์แล้วค่ะ",
       shareTitle: "Stillwater",
-      shareText: "พี่เวราเปิดไพ่ให้ฉัน: {names}",
       failed: "ยังเปิดสามใบไม่ได้",
       notPaidYet: "ยังไม่พบการชำระเงิน 59 บาท ถ้าจ่ายแล้ว ลองกดเปิดอีกครั้งนะคะ"
-    },
-    savePng: {
-      title: "S T I L L W A T E R",
-      filename: "stillwater-reading.png"
     },
     safety: {
       paragraphs: [ // must equal vera.js SAFETY_MESSAGE (checked in dev/unit.mjs)
@@ -255,6 +252,7 @@ export const STRINGS = {
       back: "Back to my question"
     },
     first: {
+      heading: "This card has something to tell you",
       invite: [ // [Palm]
         "This is what you need to know for now.",
         "But sometimes, one card doesn't tell the whole story.",
@@ -308,22 +306,17 @@ export const STRINGS = {
     full: {
       opening: "Opening three cards for you...",
       headings: { past: "Where did this begin?", present: "And now, what is happening?", ahead: "If this keeps unfolding..." },
-      next: "Read the next card",
-      after: "Now you can see the story more clearly.\nWhat happens next is yours to decide.", // [Palm]
-      save: "Save Reading", // [Palm]
-      share: "Share Reading", // [Palm]
-      again: "Ask Vera Again", // [Palm]
+      next: "Vera continues",
+      endingHeading: "Looking at all four cards together",
+      thanks: "Thank you to the universe for sending you this answer.",
+      returnLine: "Whenever there's something you'd like to ask the universe, you can always come back to Vera.",
+      shareSite: "Share Stillwater",
+      close: "Close reading",
       retry: "Try opening again",
-      saved: "Reading image saved.",
       copied: "Link copied.",
       shareTitle: "Stillwater",
-      shareText: "Vera drew these cards for me: {names}",
       failed: "The three cards couldn't be opened yet.",
       notPaidYet: "We haven't received the 59 baht payment yet. If you've paid, tap open again."
-    },
-    savePng: {
-      title: "S T I L L W A T E R",
-      filename: "stillwater-reading.png"
     },
     safety: {
       paragraphs: [ // must equal vera.js SAFETY_MESSAGE_EN (checked in dev/unit.mjs)

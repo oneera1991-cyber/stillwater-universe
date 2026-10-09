@@ -105,7 +105,7 @@ const readTimer = async (page, label) => {
   log("timing " + label + ":", JSON.stringify(timings[label]));
 };
 
-const ONLY = process.env.ONLY || ""; // "en" | "data" | "font" | "proto" | "story" → run only that suite
+const ONLY = process.env.ONLY || ""; // "en" | "data" | "font" | "proto" | "story" (V2 4-card story → 18-*) → run only that suite
 const THAI = /[\u0E00-\u0E7F]/;
 
 /* ---------- main path: all 6 scenes ---------- */
@@ -223,7 +223,7 @@ if (!ONLY) {
   assert.deepEqual(await page.$$eval("#fullStory .say", (n) => n.map((x) => x.textContent)), ["เรื่องนี้เริ่มต้นจากอะไร", "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "ถ้าเรื่องนี้เดินต่อไป..."]);
   const ids = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper.cards.map((c) => c.id));
   assert.equal(new Set(ids).size, 3); assert.ok(!ids.includes(first.card.id), "paid cards exclude card 1");
-  assert.equal((await page.textContent("#btnAgain")).trim(), "ถามพี่เวราอีกครั้ง");
+  assert.equal((await page.textContent("#btnClose")).trim(), "ปิดการอ่าน");
   await shot(page, "06a-full-cards");
   await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = s.scrollHeight / 2 - 300; });
   await page.waitForTimeout(300);
@@ -231,24 +231,27 @@ if (!ONLY) {
   await scrollScene(page, "full", "end");
   await shot(page, "06c-full-end"); log("scene 6 full reading, order อดีต/ปัจจุบัน/แนวโน้มข้างหน้า, excludes card 1");
 
-  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#btnSave")]);
-  await dl.saveAs(`${SHOTS}/06d-saved-reading.png`); log("save → PNG download", dl.suggestedFilename());
-  await page.click("#btnShare");
+  await page.click("#btnShareSite");
   await page.waitForFunction(() => document.getElementById("shareNote").textContent.length > 0);
-  log("share →", await page.textContent("#shareNote"));
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), BASE + "/", "share copies the site link only");
+  log("share Stillwater →", await page.textContent("#shareNote"));
 
-  await page.click("#btnAgain");
+  await page.click("#btnClose");
+  await active(page, "window");
+  await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
+  assert.equal(await page.evaluate(() => localStorage.getItem("stillwater.vera.v1")), null);
+  await page.waitForTimeout(900);
+  await shot(page, "07a-close-landing");
+  await page.click("#btnEnter");
   await active(page, "question");
   await page.waitForTimeout(1100);
   assert.equal(await page.inputValue("#questionInput"), "");
-  assert.equal(await page.evaluate(() => localStorage.getItem("stillwater.vera.v1")), null);
-  await shot(page, "07a-ask-again");
   await ask(page, "ความสัมพันธ์กับเพื่อนสนิทตอนนี้ควรวางตัวอย่างไร");
   await active(page, "first");
   const second = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")));
   assert.notEqual(second.order, first.order);
   await page.waitForSelector("#btnToOffer.is-in", { timeout: 20000 });
-  await shot(page, "07b-ask-again-new-free-card"); log("ask again → scene 2, new free card, no price");
+  await shot(page, "07b-new-question-new-free-card"); log("ปิดการอ่าน → landing (scene 1) → new question → new free card");
   await page.context().close();
 }
 
@@ -425,7 +428,8 @@ if (!ONLY || ONLY === "en") {
   await page.waitForTimeout(300);
   assert.deepEqual(await lines(page, "#fullStory .say"), ["Where did this begin?", "And now, what is happening?", "If this keeps unfolding..."]);
   assert.equal(await page.isVisible("#fullIntro"), false);
-  assert.equal((await page.textContent("#btnAgain")).trim(), "Ask Vera Again");
+  assert.equal((await page.textContent("#btnClose")).trim(), "Close reading");
+  assert.equal((await page.textContent("#btnShareSite")).trim(), "Share Stillwater");
   const deeper = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper);
   assert.equal(deeper.lang, "en"); assert.deepEqual(deeper.cards.map((c) => c.position_key), ["past", "present", "ahead"]);
   assert.ok(!THAI.test(await page.textContent("#fullStory")), "English reading");
@@ -435,19 +439,19 @@ if (!ONLY || ONLY === "en") {
   await shot(page, "12-en-06b-full-middle");
   await scrollScene(page, "full", "end");
   await shot(page, "12-en-06c-full-end"); log("EN full reading: Past / Present / Future");
-  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#btnSave")]);
-  await dl.saveAs(`${SHOTS}/12-en-06d-saved-reading.png`);
-  await page.waitForFunction(() => document.getElementById("shareNote").textContent === "Reading image saved.");
-  await page.click("#btnShare");
+  await page.click("#btnShareSite");
   await page.waitForFunction(() => document.getElementById("shareNote").textContent === "Link copied.");
-  log("EN save PNG + share copy");
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), BASE + "/");
+  log("EN share Stillwater → site link copied");
 
   await page.reload();
   await active(page, "full"); await readThrough(page);
   assert.equal(await page.getAttribute("html", "lang"), "en"); log("EN remembered after reload");
-  await page.click("#btnAgain");
-  await active(page, "question");
-  assert.equal((await page.textContent("#btnAsk")).trim(), "Let's begin"); log("EN ask again → scene 2");
+  await page.click("#btnClose");
+  await active(page, "window");
+  assert.equal((await page.textContent("#btnEnter")).trim(), "I'm ready to ask");
+  await page.click("#btnEnter"); await active(page, "question");
+  assert.equal((await page.textContent("#btnAsk")).trim(), "Let's begin"); log("EN close reading → landing → scene 2");
   await page.context().close();
 }
 if (!ONLY || ONLY === "en") {
@@ -538,7 +542,7 @@ if (!ONLY || ONLY === "data") {
   await page.waitForTimeout(600);
   await rateStars(page, "full", 5);
   const lastBtn = await page.$$eval("#scene-full button", (b) => b.filter((x) => x.offsetParent).at(-1).textContent.trim());
-  assert.equal(lastBtn, "ถามพี่เวราอีกครั้ง", "last button unchanged");
+  assert.equal(lastBtn, "ปิดการอ่าน", "last button = close reading");
   await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = document.getElementById("rate-full").offsetTop - 250; });
   await page.waitForTimeout(300);
   await shot(page, "13-rate-full-th");
@@ -561,9 +565,12 @@ if (!ONLY || ONLY === "data") {
   await page.reload();
   await active(page, "full"); await readThrough(page);
   assert.equal(await page.$$eval("#rate-full .star.on", (n) => n.length), 5); log("rating remembered after reload");
-  await page.click("#btnAgain");
-  await active(page, "question");
-  assert.equal(await page.$$eval(".rate .star.on", (n) => n.length), 0); log("ask again resets ratings");
+  await page.click("#btnClose");
+  await active(page, "window");
+  assert.equal(await page.$$eval(".rate .star.on", (n) => n.length), 0); log("close reading resets ratings");
+  await page.waitForTimeout(300);
+  const closeEv = (await events(page)).filter((e) => e.event === "close" && e.order_id === rf.order_id);
+  assert.equal(closeEv.length, 1); assert.equal(closeEv[0].src, "tiktok"); assert.ok(!closeEv[0].question, "close row: no text"); log("silent 'close' event logged (order/source from token)");
   await page.context().close();
 }
 if (!ONLY || ONLY === "data") {
@@ -665,7 +672,7 @@ if (!ONLY || ONLY === "font") {
   await active(page, "first");
   await page.waitForSelector("#rate-free.is-in", { timeout: 20000 });
   await page.waitForTimeout(1100);
-  await assertThaiFont(page, ["#firstLines .ln", "#firstInvite .ln", "#btnToOffer", "#rate-free .rate-title", "#rate-free .rate-q"]);
+  await assertThaiFont(page, ["#firstHeading", "#firstLines .ln", "#firstInvite .ln", "#btnToOffer", "#rate-free .rate-title", "#rate-free .rate-q"]);
   await noNotices(page); await noAI(page);
   await shot(page, "14-font-03-first-th"); log("font: scene 4");
 
@@ -681,16 +688,13 @@ if (!ONLY || ONLY === "font") {
   await active(page, "full");
   await readThrough(page);
   await page.waitForTimeout(500);
-  await assertThaiFont(page, ["#fullStory .say", "#fullStory .reading .ln", "#fullFinal .ln", "#btnSave", "#btnAgain", "#rate-full .rate-title"]);
+  await assertThaiFont(page, ["#fullStory .say", "#fullStory .reading .ln", "#fullFinal .ln", "#btnShareSite", "#btnClose", "#rate-full .rate-title"]);
   await noNotices(page); await noAI(page);
   const lastBtn = await page.$$eval("#scene-full button", (b) => b.filter((x) => x.offsetParent).at(-1).textContent.trim());
-  assert.equal(lastBtn, "ถามพี่เวราอีกครั้ง", "last button unchanged");
+  assert.equal(lastBtn, "ปิดการอ่าน", "last button = close reading");
   await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = 0; });
   await page.waitForTimeout(300);
-  await shot(page, "14-font-04-full-th"); log("scene 6: Thai font everywhere");
-  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#btnSave")]);
-  await dl.saveAs(`${SHOTS}/14-font-05-saved-reading-th.png`);
-  assert.equal(await page.evaluate(() => document.fonts.check("300 34px 'Noto Sans Thai'", "ก") && document.fonts.check("400 34px 'Noto Sans Thai'", "ก")), true); log("saved PNG drawn after Noto Sans Thai loaded");
+  await shot(page, "14-font-04-full-th"); log("scene 6: Thai font everywhere (story, ending, share/close)");
 
   // /terms and /privacy: Stillwater's final copy rendered verbatim (legal/*.md), th + en, following the toggle.
   const { readFileSync } = await import("node:fs");
@@ -727,7 +731,9 @@ if (!ONLY || ONLY === "font") {
   log("/privacy: final copy verbatim th + en");
 
   // safety screen font
-  await page.click("#btnAgain");
+  await page.click("#btnClose");
+  await active(page, "window");
+  await page.click("#btnEnter");
   await active(page, "question");
   await ask(page, "ช่วงนี้ไม่อยากมีชีวิตอยู่แล้ว");
   await active(page, "safety");
@@ -745,7 +751,7 @@ const PROTO_TH = {
   draw: ["รอพี่สักครู่...พี่จะลองขอคำตอบจากจักรวาลให้คุณนะคะ", "คำถามของคุณถูกฝากไว้แล้ว ตอนนี้ลองปล่อยให้คำตอบเดินทางมาหาคุณ"],
   invite: ["คำตอบแรกคือสิ่งที่คุณควรรู้", "แต่บางครั้ง..คำตอบหนึ่งใบไม่ได้เล่าเรื่องทั้งหมด", "พี่เวรายังสามารถถามต่อได้อีกครั้ง", "และครั้งนี้จะเปิดไพ่เพิ่ม 3 ใบ", "เพื่อดูสิ่งที่อยู่เบื้องหลังคำตอบแรก"],
   next: "ให้พี่ถามต่อ", offerTitle: "บางคำถาม... ไพ่ใบเดียวอาจยังเล่าไม่หมด", pay: "เข้าสู่การชำระเงิน",
-  small: "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ", again: "ถามพี่เวราอีกครั้ง"
+  small: "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ", close: "ปิดการอ่าน"
 };
 for (const L of ["th", "en"]) {
   if (ONLY && ONLY !== "proto") break;
@@ -796,27 +802,33 @@ for (const L of ["th", "en"]) {
   await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = s.scrollHeight / 2 - 300; }); await page.waitForTimeout(300);
   await shot(page, P("6b-full-middle"));
   await scrollScene(page, "full", "end");
-  assert.ok(await page.isVisible("#rate-full .stars") && await page.isVisible("#btnShare") && await page.isVisible("#btnSave"), "stars + save + share visible");
+  assert.ok(await page.isVisible("#rate-full .stars") && await page.isVisible("#btnShareSite") && await page.isVisible("#btnClose"), "stars + share Stillwater + close visible");
+  assert.equal(await page.$$eval("#btnSave, #btnShare, #btnAgain", (n) => n.length), 0, "no save / share-reading / ask-again buttons");
   await shot(page, P("6c-full-end-stars-share"));
   const lastBtn = await page.$$eval("#scene-full button", (b) => b.filter((x) => x.offsetParent).at(-1).textContent.trim());
-  assert.equal(lastBtn, L === "th" ? PROTO_TH.again : "Ask Vera Again", "last button");
-  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#btnSave")]);
-  await dl.saveAs(`${SHOTS}/${P("6d-saved-reading")}.png`);
-  // Silent share tracking: copy-link fallback, then navigator.share completed / cancelled (stubbed).
+  assert.equal(lastBtn, L === "th" ? PROTO_TH.close : "Close reading", "last button");
+  // Silent share tracking: copy-link fallback, then navigator.share completed / cancelled (stubbed). Site link only.
   const orderId = await page.evaluate(async () => (await (await fetch("/__mock/events")).json()).filter((e) => e.event === "read_full").at(-1).order_id);
   const uiBefore = await page.evaluate(() => document.getElementById("vera-app").innerHTML.length);
-  await page.click("#btnShare"); await page.waitForTimeout(300);
-  await page.evaluate(() => { navigator.share = async () => {}; });
-  await page.click("#btnShare"); await page.waitForTimeout(300);
+  await page.click("#btnShareSite"); await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), BASE + "/", "copied link = site only");
+  await page.evaluate(() => { window.__shared = []; navigator.share = async (d) => { window.__shared.push(d); }; });
+  await page.click("#btnShareSite"); await page.waitForTimeout(300);
+  const shared = await page.evaluate(() => window.__shared);
+  assert.equal(shared.length, 1); assert.deepEqual(Object.keys(shared[0]).sort(), ["title", "url"], "no text / files shared");
+  assert.equal(shared[0].url, BASE + "/");
+  const cardNames = await page.$$eval("#fullStory .name, #firstName", (n) => n.map((x) => x.textContent));
+  assert.ok(!cardNames.some((nm) => JSON.stringify(shared[0]).includes(nm)), "no card names / reading in the share");
   await page.evaluate(() => { navigator.share = async () => { throw new DOMException("cancel", "AbortError"); }; });
-  await page.click("#btnShare"); await page.waitForTimeout(500);
+  await page.click("#btnShareSite"); await page.waitForTimeout(500);
   const shares = (await (await page.request.get(`${BASE}/__mock/events`)).json()).filter((e) => e.event === "share" && e.order_id === orderId);
-  assert.deepEqual(shares.map((e) => e.share_channel + ":" + e.share_result), ["download_image:completed", "copy_link:completed", "native:completed", "native:cancelled"]);
+  assert.deepEqual(shares.map((e) => e.share_channel + ":" + e.share_result), ["copy_link:completed", "native:completed", "native:cancelled"]);
   assert.ok(shares.every((e) => e.lang === L && "src" in e && "first_src" in e), "share rows carry lang + source");
   assert.ok(Math.abs((await page.evaluate(() => document.getElementById("vera-app").innerHTML.length)) - uiBefore) < 80, "tracking adds no UI");
   await noNotices(page);
-  log(`16-${L}: share events logged silently (download_image, copy_link, native completed/cancelled)`);
-  await page.click("#btnAgain"); await active(page, "question");
+  log(`16-${L}: "share Stillwater" shares the site link only; events logged silently (copy_link, native completed/cancelled)`);
+  await page.click("#btnClose"); await active(page, "window");
+  await page.click("#btnEnter"); await active(page, "question");
   await ask(page, L === "th" ? "ช่วงนี้ไม่อยากมีชีวิตอยู่แล้ว" : "Lately I want to kill myself");
   await active(page, "safety"); await page.waitForTimeout(3500);
   assert.equal(await page.$$eval("#scene-safety button", (b) => b.length), 0, "no CTA on safety");
@@ -828,16 +840,25 @@ for (const L of ["th", "en"]) {
   await page.context().close();
 }
 
-/* ================= SCENE 6 STORY (Palm 2026-10-09): one card at a time → 17-* ================= */
+/* ================= V2 STORY (Palm 2026-10-09 13:39): four cards, one story → 18-* =================
+   card 1 = scene 4 (free card), cards 2–4 = scene 6 one at a time, then the ending. */
+const FIRST_HEAD = { th: "ไพ่ใบนี้มีบางอย่างอยากบอกคุณ", en: "This card has something to tell you" };
 const HEAD = {
   th: ["เรื่องนี้เริ่มต้นจากอะไร", "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "ถ้าเรื่องนี้เดินต่อไป..."],
   en: ["Where did this begin?", "And now, what is happening?", "If this keeps unfolding..."]
 };
-const NEXT = { th: "อ่านไพ่ใบถัดไป", en: "Read the next card" };
+const NEXT = { th: "พี่เวราเล่าต่อค่ะ", en: "Vera continues" };
+const ENDING = {
+  th: { head: "เมื่อมองไพ่ทั้งสี่ใบรวมกัน", thanks: "ขอบคุณจักรวาลที่ส่งคำตอบนี้มาให้คุณนะคะ", ret: "หากมีเรื่องที่อยากถามจักรวาล กลับมาหาพี่เวราได้เสมอ", share: "แชร์ Stillwater", close: "ปิดการอ่าน" },
+  en: { head: "Looking at all four cards together", thanks: "Thank you to the universe for sending you this answer.", ret: "Whenever there's something you'd like to ask the universe, you can always come back to Vera.", share: "Share Stillwater", close: "Close reading" }
+};
 const LABEL_TEXT = /อดีต|ปัจจุบัน|แนวโน้มข้างหน้า|\bPast\b|\bPresent\b|\bFuture\b/;
 async function storyState(page) {
   return page.evaluate(() => ({
     chapters: document.querySelectorAll("#fullStory .chapter").length,
+    cards: [...document.querySelectorAll("#fullStory .chapter")].map((n) => n.dataset.card),
+    current: [...document.querySelectorAll("#fullStory .chapter.is-current")].map((n) => n.dataset.card),
+    dividers: [...document.querySelectorAll("#fullStory .chapter")].map((n) => !!n.querySelector(":scope > .glow-divider")),
     flipped: document.querySelectorAll("#fullStory .flip.is-flipped").length,
     heads: [...document.querySelectorAll("#fullStory .say")].map((n) => n.textContent),
     names: [...document.querySelectorAll("#fullStory .name")].map((n) => n.textContent),
@@ -849,73 +870,171 @@ async function storyState(page) {
     text: (() => { const c = document.getElementById("scene-full").cloneNode(true); c.querySelectorAll(".reading, #fullFinal, [hidden]").forEach((n) => n.remove()); return c.textContent; })()
   }));
 }
-async function chapterShot(page, step, name) {
-  await page.evaluate((n) => { const s = document.getElementById("scene-full"); const ch = document.querySelector(`#fullStory .chapter[data-step="${n}"]`); s.scrollTop = ch.offsetTop - 70; }, step);
+async function scrollTo(page, scene, selector, offset = 70) {
+  await page.evaluate(([scene, sel, off]) => {
+    const s = document.getElementById("scene-" + scene), el = document.querySelector(sel);
+    s.scrollTop = el.getBoundingClientRect().top - s.getBoundingClientRect().top + s.scrollTop - off;
+  }, [scene, selector, offset]);
   await page.waitForTimeout(350);
-  await shot(page, name);
+}
+/* Controls (SOUND, TH/EN) must never cover headings / reading / buttons, at any scroll position. */
+async function controlsClear(page, scene) {
+  return page.evaluate(async (scene) => {
+    const s = document.getElementById("scene-" + scene), sr = s.getBoundingClientRect();
+    const ctl = [...document.querySelectorAll(".top-controls > *")].filter((n) => n.offsetParent && getComputedStyle(n).opacity !== "0").map((n) => n.getBoundingClientRect());
+    const texts = [...s.querySelectorAll("h2, h3, .say, .name, .ln, .reading p, button, .rate-title, .rate-q")].filter((n) => n.offsetParent);
+    const bad = [];
+    const max = s.scrollHeight - s.clientHeight;
+    for (let k = 0; k <= 12; k++) {
+      s.scrollTop = Math.round(max * k / 12);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      for (const el of texts) {
+        const r = el.getBoundingClientRect();
+        const top = Math.max(r.top, sr.top), bottom = Math.min(r.bottom, sr.bottom); // part actually visible in the scroller
+        if (bottom <= top) continue;
+        for (const c of ctl) if (r.left < c.right && r.right > c.left && top < c.bottom && bottom > c.top) bad.push(`${el.id || el.className}@${s.scrollTop}`);
+      }
+    }
+    return { bad: [...new Set(bad)].slice(0, 5), ctlBottom: Math.max(...ctl.map((c) => c.bottom)), sceneTop: sr.top, overflowX: s.scrollWidth > s.clientWidth + 1 };
+  }, scene);
 }
 for (const L of ["th", "en"]) {
   if (ONLY && ONLY !== "story") break;
   const page = await newPage({ locale: L === "th" ? "th-TH" : "en-US" });
-  const P = (n) => `17-${L}-${n}`;
+  const P = (n) => `18-${L}-${n}`;
   await page.goto(BASE + "/");
   await page.click("#btnEnter"); await active(page, "question");
   await ask(page, L === "th" ? "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม" : "I'm starting a new job next month. Will it go well?");
-  await active(page, "first"); await page.waitForSelector("#btnToOffer.is-in", { timeout: 20000 });
+
+  // ---- card 1 (scene 4): Vera-voice heading, no report-style heading / labels
+  await active(page, "first"); await page.waitForSelector("#btnToOffer.is-in", { timeout: 20000 }); await page.waitForTimeout(900);
+  assert.equal((await page.textContent("#firstHeading")).trim(), FIRST_HEAD[L]);
+  assert.ok(await page.isVisible("#firstHeading"));
+  const t4 = await page.evaluate(() => { const c = document.getElementById("scene-first").cloneNode(true); c.querySelectorAll("#firstLines, [hidden]").forEach((n) => n.remove()); return c.textContent; });
+  assert.ok(!LABEL_TEXT.test(t4) && !/ไพ่ใบแรก|คำตอบแรกของคุณ|Your first card|First card/i.test(t4.replace(/คำตอบแรกคือสิ่งที่คุณควรรู้/, "")), "no report-style heading / labels on scene 4");
+  assert.ok(await page.evaluate(() => { const h = document.getElementById("firstHeading").getBoundingClientRect(), i = document.getElementById("firstImage").getBoundingClientRect(); return h.bottom <= i.top + 1; }), "heading above the card");
+  await noNotices(page); await noAI(page);
+  let cc = await controlsClear(page, "first"); assert.deepEqual(cc.bad, [], "scene 4: controls never over text"); assert.ok(cc.ctlBottom <= cc.sceneTop + 0.5);
+  await page.evaluate(() => { document.getElementById("scene-first").scrollTop = 0; }); await page.waitForTimeout(300);
+  await shot(page, P("1-card1-scene4"));
+  log(`18-${L}: card 1 (scene 4) heading "${FIRST_HEAD[L]}"`);
+
   await page.click("#btnToOffer"); await active(page, "offering");
   await page.click("#btnPay"); await page.waitForSelector("#slipBox:not([hidden])");
-  await uploadSlip(page, await makeSlip("success", "story " + L));
+  await uploadSlip(page, await makeSlip("success", "v2 " + L));
   await active(page, "full");
 
-  // card 1 alone, with the button
-  await page.waitForSelector("#btnNextCard:not([hidden])", { timeout: 40000 });
-  await page.waitForTimeout(700);
+  // ---- card 2 alone, with "พี่เวราเล่าต่อค่ะ"
+  await page.waitForSelector("#btnNextCard:not([hidden])", { timeout: 40000 }); await page.waitForTimeout(700);
   let st = await storyState(page);
-  assert.equal(st.chapters, 1, "only card 1"); assert.equal(st.flipped, 1);
-  assert.deepEqual(st.heads, HEAD[L].slice(0, 1)); assert.equal(st.nextText, NEXT[L]);
-  assert.equal(st.ending, false, "no ending before card 3");
-  assert.equal(st.labels, 0, "no small position labels"); assert.ok(!LABEL_TEXT.test(st.text), "no position label text: " + (st.text.match(LABEL_TEXT) || [])[0]);
+  assert.equal(st.chapters, 1); assert.deepEqual(st.cards, ["2"]); assert.deepEqual(st.current, ["2"]); assert.deepEqual(st.dividers, [false]);
+  assert.deepEqual(st.heads, HEAD[L].slice(0, 1)); assert.equal(st.nextText, NEXT[L]); assert.equal(st.ending, false);
+  assert.equal(st.labels, 0); assert.ok(!LABEL_TEXT.test(st.text), "no position label text: " + (st.text.match(LABEL_TEXT) || [])[0]);
   const deeper = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper);
-  assert.equal(st.names[0], deeper.cards[0].name, "card name shown with the image");
-  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).fullStep), 1);
+  assert.equal(st.names[0], deeper.cards[0].name);
   await noNotices(page); await noAI(page);
-  await chapterShot(page, 1, P("1-card1-next"));
-  // mid-reading reload → card 1 shown instantly, button waiting for card 2
+  await page.evaluate(() => { const s = document.getElementById("scene-full"), b = document.getElementById("btnNextCard"); s.scrollTop = Math.max(0, b.offsetTop + b.offsetHeight + 40 - s.clientHeight); });
+  await page.waitForTimeout(350);
+  assert.ok(await page.evaluate(() => { const b = document.getElementById("btnNextCard").getBoundingClientRect(); return b.bottom <= innerHeight && b.top >= 0; }), "next button in view");
+  await shot(page, P("2-card2-next-button"));
+  // reload mid-reading → resumes at card 2 with the button
   await page.reload(); await active(page, "full");
   await page.waitForSelector("#btnNextCard:not([hidden])", { timeout: 20000 });
-  st = await storyState(page);
-  assert.equal(st.chapters, 1); assert.equal(st.ending, false); log(`17-${L}: reload mid-reading resumes at the card reached`);
+  st = await storyState(page); assert.equal(st.chapters, 1); assert.equal(st.ending, false); log(`18-${L}: card 2 + "${NEXT[L]}"; reload resumes`);
 
-  // card 2
+  // ---- card 3, glow divider between card 2 and card 3, card 3 highlighted
   await page.click("#btnNextCard");
   assert.equal(await page.isVisible("#btnNextCard"), false, "button hides while the card is told");
   await page.waitForSelector("#btnNextCard:not([hidden])", { timeout: 30000 }); await page.waitForTimeout(700);
   st = await storyState(page);
-  assert.equal(st.chapters, 2); assert.equal(st.flipped, 2); assert.deepEqual(st.heads, HEAD[L].slice(0, 2)); assert.equal(st.ending, false);
-  assert.ok(!LABEL_TEXT.test(st.text)); await noNotices(page);
-  await chapterShot(page, 2, P("2-card2"));
+  assert.deepEqual(st.cards, ["2", "3"]); assert.deepEqual(st.current, ["3"]); assert.deepEqual(st.dividers, [false, true]); assert.deepEqual(st.heads, HEAD[L].slice(0, 2));
+  const div = await page.evaluate(() => { const d = document.querySelector('#fullStory .chapter[data-card="3"] > .glow-divider'), r = d.getBoundingClientRect(), cs = getComputedStyle(d); return { h: r.height, w: r.width, bg: cs.backgroundImage, shadow: cs.boxShadow }; });
+  assert.ok(div.h >= 1 && div.w > 150 && /gradient/.test(div.bg) && div.shadow !== "none", "soft glow divider");
+  await scrollTo(page, "full", '#fullStory .chapter[data-card="3"] > .glow-divider', 260);
+  await shot(page, P("3-card3-divider"));
+  log(`18-${L}: card 3 with glow divider, current card highlighted`);
 
-  // card 3 → ending
+  // ---- card 4 → ending
   await page.click("#btnNextCard");
-  await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 }); await page.waitForTimeout(800);
+  await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 }); await page.waitForTimeout(900);
   st = await storyState(page);
-  assert.equal(st.chapters, 3); assert.equal(st.flipped, 3); assert.deepEqual(st.heads, HEAD[L]); assert.equal(st.next, false);
-  assert.deepEqual(st.names, deeper.cards.map((c) => c.name));
-  assert.ok(!LABEL_TEXT.test(st.text), "no labels at the end"); await noNotices(page); await noAI(page);
-  await chapterShot(page, 3, P("3-card3"));
+  assert.deepEqual(st.cards, ["2", "3", "4"]); assert.deepEqual(st.dividers, [false, true, true]); assert.deepEqual(st.heads, HEAD[L]); assert.equal(st.next, false);
+  assert.deepEqual(st.names, deeper.cards.map((c) => c.name)); assert.ok(!LABEL_TEXT.test(st.text)); await noNotices(page); await noAI(page);
+  await scrollTo(page, "full", '#fullStory .chapter[data-card="4"] .say', 40);
+  await shot(page, P("4-card4"));
+  // ending structure, in order
+  const E = ENDING[L];
+  const end = await page.evaluate(() => {
+    const top = (id) => document.getElementById(id).getBoundingClientRect().top;
+    const txt = (id) => document.getElementById(id).textContent.trim();
+    return {
+      head: txt("endHeading"), thanks: txt("endThanks"), ret: txt("endReturn"),
+      overview: [...document.querySelectorAll("#endOverview .ln")].map((n) => n.textContent),
+      words: [...document.querySelectorAll("#endWords .ln")].map((n) => n.textContent),
+      order: ["endHeading", "endOverview", "endWords", "endThanks", "endReturn", "rate-full", "btnShareSite", "btnClose"].map(top),
+      buttons: [...document.querySelectorAll("#fullActions button")].filter((b) => b.offsetParent && !b.classList.contains("star")).map((b) => b.textContent.trim()),
+      slot: (() => { const s = document.getElementById("igStorySlot"); return { hidden: s.hidden, h: s.getBoundingClientRect().height, text: s.textContent }; })(),
+      gone: document.querySelectorAll("#btnSave, #btnShare, #btnAgain").length,
+      visibleAll: [...document.querySelectorAll("#endHeading, #endOverview .ln, #endWords .ln, #endThanks, #endReturn")].every((n) => n.classList.contains("is-in"))
+    };
+  });
+  assert.equal(end.head, E.head); assert.equal(end.thanks, E.thanks); assert.equal(end.ret, E.ret);
+  assert.deepEqual(end.overview, deeper.final.split("\n").map((x) => x.trim()).filter(Boolean), "overview = reader final");
+  assert.deepEqual(end.words, deeper.closing.split("\n").map((x) => x.trim()).filter(Boolean), "Vera's words = reader closing");
+  assert.ok(end.order.every((y, i) => i === 0 || y > end.order[i - 1]), "overview → words → thanks → return → stars → share → close");
+  assert.deepEqual(end.buttons, [E.share, E.close], "only the two final buttons");
+  assert.deepEqual(end.slot, { hidden: true, h: 0, text: "" }, "IG story slot hidden, no placeholder");
+  assert.equal(end.gone, 0, "no save / share-reading / ask-again"); assert.ok(end.visibleAll);
+  assert.ok(!(await page.evaluate(() => document.getElementById("scene-full").innerText)).match(/บันทึกคำอ่าน|แชร์คำอ่าน|ถามพี่เวราอีกครั้ง|Save reading|Share reading|Ask Vera Again/i));
+  await scrollTo(page, "full", "#fullFinal", 10);
+  await shot(page, P("5a-ending"));
   await scrollScene(page, "full", "end");
-  assert.ok(await page.isVisible("#rate-full .stars") && await page.isVisible("#btnSave") && await page.isVisible("#btnShare"));
-  const lastBtn = await page.$$eval("#scene-full button", (b) => b.filter((x) => x.offsetParent).at(-1).textContent.trim());
-  assert.equal(lastBtn, L === "th" ? "ถามพี่เวราอีกครั้ง" : "Ask Vera Again");
-  await shot(page, P("4-closing-stars-share"));
-  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#btnSave")]);
-  await dl.saveAs(`${SHOTS}/${P("5-saved-image")}.png`);
-  log(`17-${L}: one card at a time, button advances, spoken headings, no labels/notices, ending + stars + share`);
-  // reload after the end → whole story shown at once
+  await shot(page, P("5b-ending-stars-buttons"));
+  log(`18-${L}: ending = overview → Vera's words → thanks → return line → stars → share Stillwater / close`);
+
+  // ---- mobile widths: controls never over text; no horizontal scroll; comfortable reading size
+  for (const w of [360, 390, 430]) {
+    await page.setViewportSize({ width: w, height: w === 360 ? 740 : 844 }); await page.waitForTimeout(300);
+    cc = await controlsClear(page, "full");
+    assert.deepEqual(cc.bad, [], `${w}px: controls never over text`); assert.ok(cc.ctlBottom <= cc.sceneTop + 0.5, `${w}px: controls sit above the scroller`); assert.equal(cc.overflowX, false, `${w}px: no horizontal scroll`);
+    const body = await page.$eval("#fullStory .reading .ln", (n) => { const cs = getComputedStyle(n); return { fs: parseFloat(cs.fontSize), lh: parseFloat(cs.lineHeight) / parseFloat(cs.fontSize) }; });
+    assert.ok(body.fs >= 15.9 && body.lh >= 1.85, `${w}px reading size ${JSON.stringify(body)}`);
+    const img = await page.$eval('#fullStory .chapter[data-card="2"] .flip', (n) => n.getBoundingClientRect().width);
+    assert.ok(img >= 170, `${w}px card art stays large (${img}px)`);
+    if (w === 360) {
+      await page.evaluate(() => { const s = document.getElementById("scene-full"), r = document.querySelector('#fullStory .chapter[data-card="3"] .reading'); s.scrollTop = r.getBoundingClientRect().top - s.getBoundingClientRect().top + s.scrollTop - 6; });
+      await page.waitForTimeout(350);
+      await shot(page, P("6-360-mid-scroll-controls"));
+    }
+  }
+  await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(200);
+  log(`18-${L}: 360/390/430 px — controls clear of text at every scroll position, reading ≥16px / lh ≥1.85`);
+
+  // reload after the end → whole story at once
   await page.reload(); await active(page, "full");
   await page.waitForSelector("#fullActions:not([hidden])", { timeout: 20000 });
   st = await storyState(page); assert.equal(st.chapters, 3); assert.equal(st.next, false);
-  log(`17-${L}: reload after the end shows the full story`);
+  assert.equal(await page.$$eval("#endOverview .ln", (n) => n.length) > 0, true);
+
+  // share = site link only
+  await page.evaluate(() => { window.__shared = []; navigator.share = async (d) => { window.__shared.push(d); }; });
+  await page.click("#btnShareSite"); await page.waitForTimeout(300);
+  const sh = (await page.evaluate(() => window.__shared))[0];
+  assert.deepEqual(Object.keys(sh).sort(), ["title", "url"]); assert.equal(sh.url, BASE + "/"); assert.ok(!deeper.cards.some((c) => JSON.stringify(sh).includes(c.name)), "no card names shared");
+
+  // close → landing, session cleared
+  const orderId = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).order);
+  await page.click("#btnClose");
+  await active(page, "window");
+  await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
+  assert.equal(await page.evaluate(() => localStorage.getItem("stillwater.vera.v1")), null);
+  assert.equal(await page.$$eval("#fullStory .chapter", (n) => n.length), 0);
+  await page.reload(); await active(page, "window"); // a reload after closing stays on the landing
+  const closeEv = (await (await page.request.get(`${BASE}/__mock/events`)).json()).filter((e) => e.event === "close" && e.lang === L).at(-1);
+  assert.ok(closeEv && closeEv.order_id && orderId, "silent close event");
+  await page.click("#btnEnter"); await active(page, "question");
+  assert.equal(await page.inputValue("#questionInput"), "");
+  log(`18-${L}: share = site link only; close → landing (scene 1), session cleared, silent 'close' event; new question starts from "${L === "th" ? "พร้อมส่งคำถาม" : "I'm ready to ask"}"`);
   await page.context().close();
 }
 

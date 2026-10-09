@@ -2,7 +2,7 @@
 ====================================================
 STILLWATER — SHARE TRACKING  (POST /api/share)
 ====================================================
-Silent: the page fires this after a share / save tap and never waits for it or
+Silent: the page fires this after a "แชร์ Stillwater" tap (site link only) and never waits for it or
 shows anything about it.
 
 Body:     { order, channel, result }

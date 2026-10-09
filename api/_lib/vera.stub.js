@@ -124,9 +124,10 @@ export async function generateThree({ question, context, card1, openThread, card
   return {
     ok: true, lang: L, safety: false, cards,
     guarantee_flags: [], position_label_flags: [], // INTERNAL (vera.js d91dfe1): log-only post-checks; never sent to the page
+    // Overview across ALL FOUR cards (free card + 3), without repeating each card's reading.
     final: L === "en"
-      ? `Laid after ${firstName}, these three cards begin to tell one story. One real step you can take now: choose one small move that feels true, and see where it leads.`
-      : `เมื่อวางสามใบนี้ต่อจาก ${firstName} เรื่องของคุณเริ่มเล่าเป็นเส้นเดียวกันแล้วค่ะ สิ่งที่ทำได้จริงตอนนี้คือเลือกหนึ่งก้าวเล็ก ๆ ที่ตรงกับใจ แล้วลองดูว่ามันพาไปทางไหน`,
+      ? `From ${firstName} to ${cards[2].name}, the four cards tell one story: where it began, what is moving now, and where it leans. One real step you can take now: choose one small move that feels true, and see where it leads.`
+      : `ตั้งแต่ ${firstName} จนถึง ${cards[2].name} ไพ่ทั้งสี่ใบเล่าเรื่องเดียวกันค่ะ ว่ามันเริ่มจากตรงไหน ตอนนี้อะไรกำลังเคลื่อน และมันกำลังเอนไปทางไหน สิ่งที่ทำได้จริงตอนนี้คือเลือกหนึ่งก้าวเล็ก ๆ ที่ตรงกับใจ แล้วลองดูว่ามันพาไปทางไหน`,
     closing: L === "en"
       ? "Vera will keep this question in the still water. Walk on gently."
       : "พี่เวราจะเก็บคำถามนี้ไว้ในน้ำนิ่งนะคะ ขอให้คุณเดินต่ออย่างเบาใจค่ะ",

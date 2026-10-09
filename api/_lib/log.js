@@ -9,7 +9,8 @@ Events
   payment_verified  /api/payment/verify-slip   slip verified by EasySlip
   read_full         /api/deeper       the 3-card reading was generated
   rating            /api/rate         1–5 stars, stage "free" | "full"
-  share             /api/share        share / save tap on scene 6 (channel + result), silent
+  share             /api/share        "แชร์ Stillwater" tap on scene 6 (channel + result; site link only), silent
+  close             /api/close        "ปิดการอ่าน" tap (end of reading), silent
 
 Privacy
   - No IP address, no user agent. Only a coarse `device` (mobile/tablet/desktop/bot/unknown).
@@ -35,7 +36,7 @@ Sinks (env LOG_SINK)
 
 export const COLUMNS = [
   "ts",                 // ISO time (server)
-  "event",              // read_free | payment_verified | read_full | rating | share
+  "event",              // read_free | payment_verified | read_full | rating | share | close
   "env",                // VERCEL_ENV or "dev"
   "order_id",           // from the sealed order token ("" for safety / needs_rewrite)
   "lang",               // th | en

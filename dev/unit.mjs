@@ -122,7 +122,13 @@ for (const k of keysOf(STRINGS.en)) {
   (Array.isArray(v) ? v : [v]).forEach((x) => assert.ok(!/[ก-๙]/.test(x), "no Thai in en." + k));
 }
 ok("no Thai text in English strings");
-assert.equal(t("th", "full.again"), "ถามพี่เวราอีกครั้ง"); assert.equal(t("en", "full.again"), "Ask Vera Again"); ok("last button th/en");
+assert.equal(t("th", "full.shareSite"), "แชร์ Stillwater"); assert.equal(t("en", "full.shareSite"), "Share Stillwater");
+assert.equal(t("th", "full.close"), "ปิดการอ่าน"); assert.equal(t("en", "full.close"), "Close reading");
+assert.equal(t("th", "full.thanks"), "ขอบคุณจักรวาลที่ส่งคำตอบนี้มาให้คุณนะคะ"); assert.equal(t("en", "full.thanks"), "Thank you to the universe for sending you this answer.");
+assert.equal(t("th", "full.returnLine"), "หากมีเรื่องที่อยากถามจักรวาล กลับมาหาพี่เวราได้เสมอ"); assert.equal(t("en", "full.returnLine"), "Whenever there's something you'd like to ask the universe, you can always come back to Vera.");
+for (const lg of ["th", "en"]) for (const k of ["again", "save", "share", "saved", "shareText", "after"]) assert.equal(STRINGS[lg].full[k], undefined, "removed: full." + k);
+for (const lg of ["th", "en"]) assert.equal(STRINGS[lg].savePng, undefined, "saved-image copy removed");
+ok("ending copy th/en: thanks + return lines, 'แชร์ Stillwater' + 'ปิดการอ่าน'; ask-again / save / share-reading copy removed");
 assert.deepEqual([t("en", "positions.past"), t("en", "positions.present"), t("en", "positions.ahead")], vera.POSITIONS_EN);
 assert.deepEqual([t("th", "positions.past"), t("th", "positions.present"), t("th", "positions.ahead")], vera.POSITIONS); ok("position labels = vera.js");
 assert.equal(t("th", "safety.paragraphs").join("\n\n"), vera.SAFETY_MESSAGE);
@@ -136,7 +142,7 @@ for (const [x, want] of [["en", "en"], ["EN", "en"], ["en-US", "en"], ["en_GB", 
   assert.equal(normLang(x), want); assert.equal(vera.normalizeLang(x), want);
 }
 ok("normLang == vera.normalizeLang");
-assert.equal(t("en", "full.shareText", { names: "A · B" }), "Vera drew these cards for me: A · B"); ok("{var} fill");
+assert.equal(t("en", "rate.star", { n: 3 }).includes("3"), true); ok("{var} fill");
 assert.equal(errorKey("order_bad_sig"), "errors.order_bad"); assert.equal(errorKey("nope"), "errors.read_failed");
 assert.ok(!/[ก-๙]/.test(errorText("en", "order_expired"))); ok("error codes localized");
 
@@ -332,6 +338,26 @@ assert.deepEqual(shares.map((e) => [e.share_channel, e.share_result]), [["native
 assert.ok(shares.every((e) => e.order_id === ordObj.orderId && e.lang === "en" && e.src === "tiktok" && e.first_src === "friends" && e.device === "mobile"), "share row: order/lang/source from the sealed token only");
 assert.ok(log.COLUMNS.slice(-2).join() === "share_channel,share_result" && log.COLUMNS.length === 31);
 ok("share event: channel/result validated, order_id + lang + src/first_src from the token, columns 30–31");
+const closeRoute = (await import("../api/close.js")).default;
+const CL = async (body) => { const r = fakeRes(); await closeRoute(reqUA(body), r); return r; };
+assert.equal((await CL({ order: "junk" })).statusCode, 400); assert.equal((await CL({})).statusCode, 400);
+const beforeClose = events.length;
+const cl = await CL({ order: ordTok, step: 3, question: "leak?" }); assert.equal(cl.statusCode, 200); assert.deepEqual(cl.body, { ok: true });
+await new Promise((r) => setTimeout(r, 20));
+const closes = events.slice(beforeClose).filter((e) => e.event === "close");
+assert.equal(closes.length, 1); assert.equal(closes[0].order_id, ordObj.orderId); assert.equal(closes[0].lang, "en"); assert.equal(closes[0].src, "tiktok");
+assert.ok(!closes[0].question, "close row never carries body text"); assert.equal(log.COLUMNS.length, 31, "no new column for close");
+ok("close event: silent, order/lang/source from the token, no new Sheet column");
+{ // index.html: V2 scene 4/6 structure (static)
+  const html = (await import("node:fs")).readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  for (const id of ["btnSave\"", "btnShare\"", "btnAgain", "savePng", "saveReading", "askAgain"]) assert.ok(!new RegExp(id).test(html), "removed: " + id);
+  assert.ok(/id="firstHeading" data-i18n="first.heading"/.test(html));
+  assert.ok(/<div class="ig-story-slot" id="igStorySlot" data-slot="instagram-story" hidden><\/div>/.test(html), "hidden IG story hook, empty");
+  const order = ["endHeading", "endOverview", "endWords", "endThanks", "endReturn", "rate-full", "btnShareSite", "btnClose"].map((id) => html.indexOf('id="' + id + '"'));
+  assert.ok(order.every((x, i) => x > 0 && (i === 0 || x > order[i - 1])), "ending order: heading → overview → words → thanks → return → stars → share → close");
+  assert.ok(/navigator\.share\(\{ title: t\('full\.shareTitle'\), url \}\)/.test(html), "share = site link only");
+  ok("index.html: scene 4 heading, ending order, share-site/close only, hidden IG story slot, no save/share-reading/ask-again");
+}
 log.setSink({ name: "explodes", write() { throw new Error("sheet down"); } });
 console.warn = () => {};
 const rx = fakeRes(); await readRoute(reqUA({ question: "Will my new job go well?", lang: "th" }), rx);
@@ -365,8 +391,10 @@ const splitText = (x) => String(x || "").split(/\n+/).map((y) => y.trim()).filte
 const story = await import("../lib/story.js");
 assert.deepEqual(["past", "present", "ahead"].map((k) => t("th", "full.headings." + k)), ["เรื่องนี้เริ่มต้นจากอะไร", "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "ถ้าเรื่องนี้เดินต่อไป..."]);
 assert.deepEqual(["past", "present", "ahead"].map((k) => t("en", "full.headings." + k)), ["Where did this begin?", "And now, what is happening?", "If this keeps unfolding..."]);
-assert.equal(t("th", "full.next"), "อ่านไพ่ใบถัดไป"); assert.equal(t("en", "full.next"), "Read the next card");
-for (const lg of ["th", "en"]) { assert.equal(STRINGS[lg].full.positionsLine, undefined); assert.equal(STRINGS[lg].savePng.subtitle, undefined); }
+assert.equal(t("th", "full.next"), "พี่เวราเล่าต่อค่ะ"); assert.equal(t("en", "full.next"), "Vera continues");
+assert.equal(t("th", "first.heading"), "ไพ่ใบนี้มีบางอย่างอยากบอกคุณ"); assert.equal(t("en", "first.heading"), "This card has something to tell you");
+assert.equal(t("th", "full.endingHeading"), "เมื่อมองไพ่ทั้งสี่ใบรวมกัน"); assert.equal(t("en", "full.endingHeading"), "Looking at all four cards together");
+for (const lg of ["th", "en"]) assert.equal(STRINGS[lg].full.positionsLine, undefined);
 assert.equal(story.cardHeading({ position_key: "ahead" }, 0, "en"), "If this keeps unfolding...");
 assert.equal(story.cardHeading({}, 1, "th"), "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "falls back to index order");
 assert.deepEqual(story.storyLines({ position_key: "past", label: "อดีต", name: "The Moon", text: "อดีต — The Moon\nใบนี้พูดถึงความไม่ชัด" }), ["ใบนี้พูดถึงความไม่ชัด"], "stiff heading line dropped");
@@ -380,6 +408,12 @@ for (const r of [stub3, stub3en]) for (const c of r.cards) {
 }
 assert.ok(/ไม่ใช่สิ่งที่ตายตัว/.test(stub3.cards[2].text) && /not something fixed/.test(stub3en.cards[2].text), "future = tendency");
 ok("scene 6 story: spoken headings th/en, next-card button copy, no position labels, stiff label lines dropped");
+for (const lg of ["th", "en"]) {
+  const st = await (await import("../api/_lib/vera.stub.js")).generateThree({ question: "q", lang: lg, card1: { id: 18 }, cards3: [1, 2, 3] });
+  assert.ok(st.final.includes("The Moon") && st.final.includes(st.cards[2].name), "stub overview spans card 1 → card 4");
+  assert.ok(lg === "th" ? /สี่ใบ/.test(st.final) : /four cards/.test(st.final));
+}
+ok("stub overview (final) ties all four cards");
 
 /* vera.js d91dfe1: story-style fallback (no position label) + internal position_label_flags never reach the page */
 {

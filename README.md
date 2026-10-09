@@ -30,19 +30,37 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 - `/api/read` accepts `lang` (`th`/`en`/`en-US`…, anything else → `th`) and seals it into the order token. `/api/deeper` and `/api/payment/*` use the **token's** lang, never the client's. Old tokens without lang are treated as `th`.
 - Positions: `position_key` (`past`/`present`/`ahead`) is used for ordering. Scene 6 no longer displays `position`/`label`. They appear only on the scene 5 locked cards, as in the prototype.
 
-### Scene 6: Vera tells the story one card at a time (Palm, 2026-10-09)
-- Card 1 appears with Vera's reading, then the button "อ่านไพ่ใบถัดไป" / "Read the next card" reveals card 2, then card 3.
-- After card 3 come the final and closing lines, the stars, save + share, and "ถามพี่เวราอีกครั้ง".
-- Each card has only Vera's spoken heading (`full.headings.*`), with no small position labels:
-  - past: เรื่องนี้เริ่มต้นจากอะไร / Where did this begin?
-  - present: แล้วตอนนี้ อะไรกำลังเกิดขึ้น / And now, what is happening?
-  - future: ถ้าเรื่องนี้เดินต่อไป... / If this keeps unfolding...
+### V2: four cards, one story (Palm, 2026-10-09 13:39)
+- The free card (scene 4) is card 1 of the story; scene 6 tells cards 2–4. Every card has only Vera's spoken heading, with no small labels anywhere:
+  - card 1 (scene 4, `first.heading`): ไพ่ใบนี้มีบางอย่างอยากบอกคุณ / This card has something to tell you (replaces the report-style heading)
+  - card 2, past: เรื่องนี้เริ่มต้นจากอะไร / Where did this begin?
+  - card 3, present: แล้วตอนนี้ อะไรกำลังเกิดขึ้น / And now, what is happening?
+  - card 4, future: ถ้าเรื่องนี้เดินต่อไป... / If this keeps unfolding...
+- One card at a time. Each section has the heading, the card image, the card name, then the reading. The button "พี่เวราเล่าต่อค่ะ" / "Vera continues" (`full.next`) brings in the next card with a short fade-and-rise. A soft glow divider (`.glow-divider`) sits before cards 3 and 4. The card being read glows softly (`.chapter.is-current`), and earlier cards rest slightly dimmer.
+- **Ending, after card 4** (`#fullFinal`), in order:
+  1. Heading เมื่อมองไพ่ทั้งสี่ใบรวมกัน / Looking at all four cards together (`full.endingHeading`)
+  2. Overview across all four cards = reader `final` (`#endOverview`)
+  3. Vera's final words = reader `closing` (`#endWords`)
+  4. Fixed line `full.thanks`: ขอบคุณจักรวาลที่ส่งคำตอบนี้มาให้คุณนะคะ / Thank you to the universe for sending you this answer.
+  5. Fixed line `full.returnLine`: หากมีเรื่องที่อยากถามจักรวาล กลับมาหาพี่เวราได้เสมอ / Whenever there's something you'd like to ask the universe, you can always come back to Vera.
+  6. Stars (`#rate-full`), then the final buttons below a divider:
+     - "แชร์ Stillwater" / "Share Stillwater" (`#btnShareSite`) shares **only the site link** (`navigator.share({ title, url })`, or a clipboard copy as fallback). It never includes the question, the cards or the reading.
+     - "ปิดการอ่าน" / "Close reading" (`#btnClose`) ends the session: it clears the saved reading and ratings, resets every scene and returns to scene 1 (landing). A new question starts there with "พร้อมส่งคำถาม" / "I'm ready to ask".
+- Removed: "บันทึกคำอ่าน" (the saved-image PNG), "แชร์คำอ่าน" and "ถามพี่เวราอีกครั้ง".
+- `#igStorySlot` (`data-slot="instagram-story"`, `hidden`, empty) is the hook for a future Instagram Story share button, placed in the final buttons. Nothing is shown.
 - Card names stay under the images.
 - `lib/story.js` drops a leading stiff label line from a reader's text ("อดีต — The Moon", "Past: …") if one appears.
-- The saved image shows all three cards with their names, the three headings with card names, then the final and closing lines. It has no labels.
-- Resume: `fullStep` is saved. A reload shows the cards already reached at once and continues with the button. After the end, the whole story shows at once.
-- The client analytics `full_card_shown {step}` is silent. Nothing goes to the Sheet.
+- **Mobile (360 / 390 / 430 px):** the SOUND and TH/EN controls sit in a top band (`--bar`). Every scene scrolls only below that band, and its top edge fades softly (CSS mask), so the controls never cover headings, reading text or buttons at any scroll position. The background is on `<body>`, so the band shows the same sky. Reading text is 16px with line-height 1.95, and the card art stays ≥ 180px wide. e2e checks this at 13 scroll positions per width.
+- Resume: `fullStep` is saved. A reload shows the cards already reached at once and continues with the button. After the end, the whole story shows at once. After "ปิดการอ่าน" a reload stays on the landing.
+- The client analytics `full_card_shown {step}` / `reading_closed` are silent. Nothing goes to the Sheet from them.
 - Safety: the fixed text from `vera.js` is shown as-is (Thai: 1323/1669; English: 1323 (Thai-language), 1669, embassy / local emergency services). No CTA.
+
+### V2: changes Stillwater needs to make in `vera.js` (not edited here)
+The page now shows the free card as card 1 of a 4-card story and puts reader `final` under "เมื่อมองไพ่ทั้งสี่ใบรวมกัน". So that the reading matches:
+1. `CALL_B_INSTRUCTIONS` / `_EN`, the `final` line: change "ผูก 3 ใบเป็นคำตอบเดียว…" / "tie the 3 cards into one answer…" to an overview across **all four** cards: the free card (its name and text are already passed in as `card1`) + the 3 paid cards, as one answer to the question plus one real step. Ask it **not to repeat or summarise each card's reading** one by one. 2–3 sentences.
+2. `closing`: Vera's own final words (1–2 sentences, warm, no selling). It must **not** thank the universe or invite them back, because the page adds those two fixed lines right after it.
+3. The page description in CALL_B: the cards are now card 2 / 3 / 4 of the story (card 1 = the free card under "ไพ่ใบนี้มีบางอย่างอยากบอกคุณ" / "This card has something to tell you"), and the button is "พี่เวราเล่าต่อค่ะ" / "Vera continues", not "ใบต่อไป" / "next card".
+4. Fallbacks: `fallbackFinal` "สามใบนี้เล่าเรื่องเดียวกัน…" / "These three cards tell one story…" → four cards. Optionally, `fallbackFree` EN line 1 "The card that came up for you is {name}." could use the same story voice as the TH one.
 
 ### Fonts
 - **All Thai text uses Noto Sans Thai, the loopless face the live site uses.** Never use Noto Sans Thai Looped, Sarabun or other looped/head faces.
@@ -50,12 +68,11 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 - The thai and latin files are preloaded, and `font-display: block` stops a looped system fallback from flashing.
 - Fallbacks are loopless only: Noto Sans Thai UI, Leelawadee UI, Sukhumvit Set, Thonburi, then sans-serif. There is no `system-ui`.
 - Form controls inherit the page font.
-- The saved-reading PNG loads Noto Sans Thai and Cormorant before drawing.
 - Latin display text stays in Cormorant Garamond (Google Fonts).
 
 ### Customer scenes = the prototype (Palm, 2026-10-09)
 - Scenes 1–6 (TH and EN) carry no disclaimer, privacy/data note, Reading ID, Terms/Privacy links, or any other notice, warning or consent text. They match the prototype (`04942b9`): same layout, copy, fonts and flow.
-- The star rating (scene 4 + scene 6) and the save / share buttons stay as they are.
+- The star rating (scene 4 + scene 6) stays. Since V2, scene 6 ends with "แชร์ Stillwater" + "ปิดการอ่าน" (see V2 above).
 - Source tracking, ratings, share tracking and event logging all run silently.
 - `/terms` and `/privacy` exist but are reachable only by direct URL. Nothing in the scenes links to them.
 - e2e `noNotices()` checks every scene for notice elements and notice text. Screenshots are `16-th-*` and `16-en-*`.
@@ -72,10 +89,11 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 - **Ratings**: an optional 1–5 star "ให้ดาวพี่เวรา" / "Rate Vera" widget after the free answer (`stage: "free"`) and after the full reading (`stage: "full"`).
   - `POST /api/rate { order, stage, stars, paid? }`: `stars` must be an integer 1–5. `full` requires this order's payment (same gate as `/api/deeper`).
   - There is one rating per order + stage. `rating_key = <order_id>:<stage>`; rating again adds a row with the same key, and the latest row wins. TODO(storage): upsert.
-- **Share tracking (silent):** tapping share or save on scene 6 fires `POST /api/share { order, channel, result }` without awaiting it. There's no visible change, and errors are ignored.
-  - `channel`: `native` (navigator.share; the target app is unknown), `copy_link` (clipboard fallback), `download_image` (save PNG), plus `line` / `facebook` / `x` reserved for future direct buttons.
+- **Share tracking (silent):** tapping "แชร์ Stillwater" on scene 6 fires `POST /api/share { order, channel, result }` without awaiting it. There's no visible change, and errors are ignored.
+  - `channel`: `native` (navigator.share; the target app is unknown) or `copy_link` (clipboard fallback). `download_image` (no longer used since the saved image was removed in V2) and `line` / `facebook` / `x` stay accepted for future buttons (e.g. the Instagram Story slot).
   - `result`: `completed` / `cancelled` (navigator.share AbortError) / `failed` / `unknown`.
   - `order_id`, `lang` and `src` / `first_src` come only from the sealed order token.
+- **Close (silent):** "ปิดการอ่าน" fires `POST /api/close { order }` (fire-and-forget) → one `close` event row with the token's `order_id` / `lang` / source, `device` and `card1`. It uses no new column.
 - **Privacy** (no notice in the scenes; the copy lives on `/privacy`):
   - No IP or user agent is logged, only a coarse `device` (mobile/tablet/desktop/bot/unknown).
   - Phone numbers, emails and LINE ids in the question/context are redacted to `[phone]` / `[email]` / `[line id]` before logging.
@@ -92,7 +110,7 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 | # | column | filled by | meaning |
 | --- | --- | --- | --- |
 | 1 | `ts` | all | server time (ISO, UTC) |
-| 2 | `event` | all | `read_free` / `payment_verified` / `read_full` / `rating` / `share` |
+| 2 | `event` | all | `read_free` / `payment_verified` / `read_full` / `rating` / `share` / `close` |
 | 3 | `env` | all | `production` / `preview` / `dev` |
 | 4 | `order_id` | all (empty for safety / needs_rewrite) | from the order token |
 | 5 | `lang` | all | `th` / `en` |
@@ -105,7 +123,7 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 | 17 | `device` | all | mobile / tablet / desktop / bot / unknown |
 | 18 | `reader` | read_free, read_full | `real` / `stub` |
 | 19–20 | `question`, `context` | read_free | PII-redacted; empty when `safety` = TRUE |
-| 21 | `card1` | read_free, read_full, rating, share | free card id |
+| 21 | `card1` | read_free, read_full, rating, share, close | free card id |
 | 22–23 | `safety`, `needs_rewrite` | read_free | TRUE / FALSE |
 | 24–25 | `trans_ref`, `amount_thb` | payment_verified | EasySlip transRef, 59 |
 | 26 | `cards3` | read_full | ids past,present,future, e.g. `4,17,9` |
@@ -117,7 +135,7 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 
 ### Reading ID, deletion requests, retention
 - **Reading ID** = first 8 chars of `order_id` after `ord_`, uppercased. For example `ord_KB1lpqjhlyTa…` becomes `KB1LPQJH` (`readingId()` in `api/_lib/order.js`).
-  - It is **not shown** to the customer: not on scene 6 and not on the saved PNG (Palm, 2026-10-09). `/api/read` and `/api/deeper` still return `reading_id`, and the page keeps it in state.
+  - It is **not shown** to the customer anywhere (Palm, 2026-10-09). `/api/read` and `/api/deeper` still return `reading_id`, and the page keeps it in state.
   - It is not a separate column, because it can be derived. In the Sheet, a helper column can use `=UPPER(MID(D2,5,8))` (`order_id` is column D).
   - The match ignores case, so check the matching rows before deleting.
 - **Deleting a reading on request:**
