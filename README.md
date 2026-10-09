@@ -27,7 +27,20 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 - All user-facing copy is in `i18n/strings.js` (`th` + `en`), shared by the page (ES module) and the API. Thai is unchanged. English scene copy is Palm's approved text (`prompts/scene-copy.en.md`, approved 2026-10-09, marked `[Palm]`). Status, error and payment messages are not covered by that doc.
 - Page: the TH/EN toggle next to SOUND. The default comes from `navigator.language` (`th*` → th, otherwise en) and the choice is remembered in `localStorage["stillwater.lang"]`. Switching re-renders the current scene without losing state. The reading text stays in the language it was written in.
 - `/api/read` accepts `lang` (`th`/`en`/`en-US`…, anything else → `th`) and seals it into the order token. `/api/deeper` and `/api/payment/*` use the **token's** lang, never the client's. Old tokens without lang are treated as `th`.
-- Positions: `position_key` (`past`/`present`/`ahead`) for ordering/logic, `position`/`label` for display (อดีต/ปัจจุบัน/แนวโน้มข้างหน้า, Past/Present/Future).
+- Positions: `position_key` (`past`/`present`/`ahead`) is used for ordering. Scene 6 no longer displays `position`/`label`. They appear only on the scene 5 locked cards, as in the prototype.
+
+### Scene 6: Vera tells the story one card at a time (Palm, 2026-10-09)
+- Card 1 appears with Vera's reading, then the button "อ่านไพ่ใบถัดไป" / "Read the next card" reveals card 2, then card 3.
+- After card 3 come the final and closing lines, the stars, save + share, and "ถามพี่เวราอีกครั้ง".
+- Each card has only Vera's spoken heading (`full.headings.*`), with no small position labels:
+  - past: เรื่องนี้เริ่มต้นจากอะไร / Where did this begin?
+  - present: แล้วตอนนี้ อะไรกำลังเกิดขึ้น / And now, what is happening?
+  - future: ถ้าเรื่องนี้เดินต่อไป... / If this keeps unfolding...
+- Card names stay under the images.
+- `lib/story.js` drops a leading stiff label line from a reader's text ("อดีต — The Moon", "Past: …") if one appears.
+- The saved image shows all three cards with their names, the three headings with card names, then the final and closing lines. It has no labels.
+- Resume: `fullStep` is saved. A reload shows the cards already reached at once and continues with the button. After the end, the whole story shows at once.
+- The client analytics `full_card_shown {step}` is silent. Nothing goes to the Sheet.
 - Safety: the fixed text from `vera.js` is shown as-is (Thai: 1323/1669; English: 1323 (Thai-language), 1669, embassy / local emergency services). No CTA.
 
 ### Fonts

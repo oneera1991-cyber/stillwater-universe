@@ -104,14 +104,18 @@ export async function generateThree({ question, context, card1, openThread, card
     return { ok: true, lang: L, safety: true, safety_source: "precheck", cards: [], final: "", closing: "",
       message: safetyMessage(L), ...meta() };
   }
+  // Storyteller connectives (beginning → now → what may follow); no position labels, future = tendency only.
+  const open = L === "en"
+    ? (n) => [`The card here is ${n}.`, `And now ${n} comes up.`, `Then ${n} appears.`]
+    : (n) => [`ไพ่ที่ออกมาตรงนี้คือ ${n}`, `แล้วใบที่ออกมาตอนนี้คือ ${n}`, `ต่อจากนั้น ไพ่ที่ปรากฏคือ ${n}`];
   const tail = L === "en"
-    ? ["This is what brought the story to where you stand.", "This is what's in front of you, asking to be seen clearly.", "This is where the energy is leaning if you keep walking as you are."]
-    : ["นี่คือสิ่งที่พาเรื่องนี้มาถึงจุดที่คุณยืนอยู่ค่ะ", "นี่คือสิ่งที่อยู่ตรงหน้าคุณ และกำลังขอให้คุณมองให้ชัด", "นี่คือทิศที่พลังตอนนี้เอียงไป ถ้าคุณเดินต่อแบบเดิม"];
+    ? ["This is where your story began to take shape, and what carried it to where you stand.", "This is what's in front of you right now, asking to be seen clearly.", "If you keep walking as you are, this is where things are leaning. A tendency, not something fixed."]
+    : ["เรื่องของคุณเริ่มก่อตัวจากตรงนี้ แล้วค่อย ๆ พามาถึงจุดที่คุณยืนอยู่ค่ะ", "นี่คือสิ่งที่อยู่ตรงหน้าคุณตอนนี้ และกำลังขอให้คุณมองมันให้ชัด", "ถ้ายังเดินต่อแบบนี้ พลังกำลังเอียงไปทางนี้ เป็นแนวโน้ม ไม่ใช่สิ่งที่ตายตัวนะคะ"];
   const cards = ids.map((id, i) => {
     const c = cardById(id, L);
     return {
       position: POS[i], position_key: POSITION_KEYS[i], ...publicCard(c),
-      text: [`${POS[i]} — ${c.name}`, L === "en" ? `It speaks of ${c.core}.` : `ใบนี้พูดถึง${c.core}`, tail[i]].join("\n")
+      text: [open(c.name)[i], L === "en" ? `It speaks of ${c.core}.` : `ใบนี้พูดถึง${c.core}`, tail[i]].join("\n")
     };
   });
   const firstName = free ? free.name : (c1.name || (L === "en" ? "the first card" : "ใบแรก"));

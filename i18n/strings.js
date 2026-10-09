@@ -142,7 +142,9 @@ export const STRINGS = {
     },
     full: {
       opening: "พี่กำลังเปิดสามใบให้คุณนะคะ",
-      positionsLine: "อดีต · ปัจจุบัน · แนวโน้มข้างหน้า",
+      // Scene 6 tells the story one card at a time; Vera's spoken headings replace position labels (Palm, 2026-10-09).
+      headings: { past: "เรื่องนี้เริ่มต้นจากอะไร", present: "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", ahead: "ถ้าเรื่องนี้เดินต่อไป..." },
+      next: "อ่านไพ่ใบถัดไป",
       after: "ตอนนี้คุณเห็นเรื่องราวชัดขึ้นแล้ว...ที่เหลือคือสิ่งที่คุณจะเลือกทำต่อจากนี้",
       save: "บันทึกคำอ่าน",
       share: "แชร์คำอ่าน",
@@ -157,7 +159,6 @@ export const STRINGS = {
     },
     savePng: {
       title: "S T I L L W A T E R",
-      subtitle: "อดีต · ปัจจุบัน · แนวโน้มข้างหน้า",
       filename: "stillwater-reading.png"
     },
     safety: {
@@ -306,7 +307,8 @@ export const STRINGS = {
     },
     full: {
       opening: "Opening three cards for you...",
-      positionsLine: "Past · Present · Future",
+      headings: { past: "Where did this begin?", present: "And now, what is happening?", ahead: "If this keeps unfolding..." },
+      next: "Read the next card",
       after: "Now you can see the story more clearly.\nWhat happens next is yours to decide.", // [Palm]
       save: "Save Reading", // [Palm]
       share: "Share Reading", // [Palm]
@@ -321,7 +323,6 @@ export const STRINGS = {
     },
     savePng: {
       title: "S T I L L W A T E R",
-      subtitle: "Past · Present · Future",
       filename: "stillwater-reading.png"
     },
     safety: {

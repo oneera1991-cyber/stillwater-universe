@@ -332,17 +332,18 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 #scene-full .stage{height:96px}
 #scene-full .vera{width:26px;height:60px}
 #scene-full .intro{font-size:.92rem;line-height:1.9;color:var(--soft);margin-bottom:1rem}
-#scene-full .spread{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;width:100%;margin-bottom:1.2rem}
-#scene-full .slot{opacity:0;transform:scale(.94);transition:opacity .8s ease,transform .8s ease}
-#scene-full .slot.is-in{opacity:1;transform:scale(1)}
-.rm #scene-full .slot{transform:none}
-#scene-full .slot .flip img{height:100%}
-#scene-full .slot .pos{font-size:.7rem;letter-spacing:.06em;color:var(--soft);margin-bottom:.35rem;min-height:1.1rem}
-#scene-full .slot .name{font:400 .9rem var(--serif);margin-top:.45rem;min-height:1.2rem}
-#scene-full .readings{width:100%;text-align:left}
-#scene-full .reading{margin-bottom:1.1rem}
-#scene-full .reading .ln{font-size:.92rem;line-height:1.9;color:var(--soft)}
-#scene-full .reading .ln:first-child{color:var(--text);font-weight:400}
+#scene-full .story{width:100%}
+#scene-full .chapter{display:flex;flex-direction:column;align-items:center;width:100%;margin-bottom:1.2rem;opacity:0;transform:translateY(10px);transition:opacity .9s ease,transform .9s ease}
+#scene-full .chapter.is-in{opacity:1;transform:none}
+#scene-full .chapter + .chapter{border-top:1px solid var(--line);padding-top:1.6rem}
+.rm #scene-full .chapter{transform:none}
+#scene-full .chapter .say{font:400 1.12rem/1.7 var(--sans);color:var(--cream);margin:0 0 1rem;letter-spacing:.01em}
+#scene-full .chapter .flip{width:min(180px,48vw)}
+#scene-full .chapter .flip img{height:100%}
+#scene-full .chapter .name{font:400 1.2rem var(--serif);letter-spacing:.08em;margin-top:.8rem;min-height:1.6rem}
+#scene-full .chapter .reading{width:100%;text-align:left;margin-top:.6rem}
+#scene-full .chapter .reading .ln{font-size:.95rem;line-height:1.9;color:var(--text);margin-bottom:.35rem}
+#scene-full #btnNextCard{margin:.4rem 0 1.4rem}
 #scene-full .final{width:100%;border-top:1px solid var(--line);padding-top:1.1rem;margin-top:.3rem}
 #scene-full .final .ln{font-size:.98rem;line-height:1.95;color:var(--text);margin-bottom:.5rem}
 #scene-full .final .closing{color:var(--cream);font-family:var(--sans);font-style:normal}
@@ -503,8 +504,9 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
   <div class="scene-inner">
     <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
     <p class="intro" id="fullIntro" data-i18n="full.opening">พี่กำลังเปิดสามใบให้คุณนะคะ</p>
-    <div class="spread" id="fullSpread"></div>
-    <div class="readings" id="fullReadings"></div>
+    <!-- One card at a time: each chapter = Vera's spoken heading, the card, its name, her reading. -->
+    <div class="story" id="fullStory"></div>
+    <button class="btn ln" id="btnNextCard" type="button" data-i18n="full.next" hidden>อ่านไพ่ใบถัดไป</button>
     <div class="final" id="fullFinal" hidden></div>
     <div id="fullError" hidden>
       <p class="error" id="fullErrorText"></p>
@@ -547,6 +549,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 /* All user-facing copy lives in /i18n/strings.js (shared with the API). */
 import { t as tr, normLang, errorKey, LANGS } from '/i18n/strings.js';
 import { touchFromLanding, isSignal, TRACKING_PARAMS } from '/lib/source.js';
+import { POSITION_ORDER, cardHeading, storyLines } from '/lib/story.js';
 
 (function(){
 'use strict';
@@ -700,13 +703,13 @@ async function showScene(name){
 /* ================= state ================= */
 const STORE = 'stillwater.vera.v1';
 const STORE_TTL = 24 * 60 * 60 * 1000;
-const state = { readingId:null, ratings:{}, question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null, pollTimer:null };
+const state = { fullStep:0, readingId:null, ratings:{}, question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null, pollTimer:null };
 
 function save(){
   try{
     localStorage.setItem(STORE, JSON.stringify({
       order: state.order, card: state.card, lang: state.lang, paymentId: state.paymentId,
-      paid: state.paid, deeper: state.deeper, stage: state.stage, ratings: state.ratings, readingId: state.readingId, savedAt: Date.now()
+      paid: state.paid, deeper: state.deeper, fullStep: state.fullStep || 0, stage: state.stage, ratings: state.ratings, readingId: state.readingId, savedAt: Date.now()
     }));
   }catch(e){}
 }
@@ -1243,8 +1246,9 @@ document.addEventListener('visibilitychange', () => {
 /* ================= 6. THE FULL READING ================= */
 function resetFull(){
   setText($('fullIntro'), 'full.opening');
-  $('fullSpread').textContent = '';
-  $('fullReadings').textContent = '';
+  $('fullIntro').hidden = false;
+  $('fullStory').textContent = '';
+  $('btnNextCard').hidden = true;
   $('fullFinal').textContent = '';
   $('fullFinal').hidden = true;
   $('fullActions').hidden = true;
@@ -1283,30 +1287,28 @@ async function openFull(){
     clearStore();
     return showSafety(data.message, data.lang);
   }
-  // Order by position_key (past → present → ahead); display the server's label.
-  const ORDER = ['past','present','ahead'];
+  // Order by position_key (past → present → ahead).
   if(Array.isArray(data.cards) && data.cards.every((c) => c.position_key)){
-    data.cards = data.cards.slice().sort((a, b) => ORDER.indexOf(a.position_key) - ORDER.indexOf(b.position_key));
+    data.cards = data.cards.slice().sort((a, b) => POSITION_ORDER.indexOf(a.position_key) - POSITION_ORDER.indexOf(b.position_key));
   }
+  if(state.deeper !== data) state.fullStep = state.deeper ? state.fullStep : 0;
   state.deeper = data;
   state.stage = 'full';
   save(); // same-browser reopen; TODO(storage): server-side reopen link
   await revealFull(data);
 }
 
-/* Position label for display: server label (reading language); fallback from position_key. */
-function posLabel(card){
-  return card.label || card.position || (card.position_key ? tr(state.lang || uiLang, 'positions.' + card.position_key) : '');
-}
-function positionsLine(cards){
-  const labels = (cards || []).map(posLabel).filter(Boolean);
-  return labels.length ? labels.join(' · ') : tr(state.lang || uiLang, 'full.positionsLine');
-}
-
-function buildSlot(card){
-  const slot = document.createElement('div');
-  slot.className = 'slot';
-  const pos = document.createElement('p'); pos.className = 'pos'; pos.textContent = posLabel(card);
+/* Scene 6 tells the story one card at a time (Palm, 2026-10-09).
+   No position labels anywhere: each card gets Vera's spoken heading instead
+   (full.headings.<position_key>, in the reading's language). The button
+   "อ่านไพ่ใบถัดไป" reveals the next card; after card 3 come final + closing,
+   the stars and the actions. state.fullStep (cards shown) is saved, so a
+   reload shows the cards already reached instantly and carries on from there. */
+function buildChapter(card, i){
+  const ch = document.createElement('article');
+  ch.className = 'chapter';
+  ch.dataset.step = String(i + 1);
+  const say = document.createElement('h3'); say.className = 'say'; say.textContent = cardHeading(card, i, state.lang || uiLang);
   const flip = document.createElement('div'); flip.className = 'flip';
   const inner = document.createElement('div'); inner.className = 'flip-inner';
   const back = document.createElement('div'); back.className = 'face face-back card-back';
@@ -1314,39 +1316,66 @@ function buildSlot(card){
   const img = document.createElement('img'); img.alt = card.name || ''; img.width = 780; img.height = 1170;
   front.appendChild(img); inner.append(back, front); flip.appendChild(inner);
   const name = document.createElement('p'); name.className = 'name';
-  slot.append(pos, flip, name);
-  return { slot, flip, img, name };
+  const reading = document.createElement('div'); reading.className = 'reading';
+  ch.append(say, flip, name, reading);
+  return { ch, flip, img, name, reading };
+}
+
+async function showChapter(card, i, { instant = false } = {}){
+  const c = buildChapter(card, i);
+  $('fullStory').appendChild(c.ch);
+  if(instant){
+    c.img.src = cardUrl(card);
+    c.flip.classList.add('is-flipped');
+    c.name.textContent = card.name || '';
+    storyLines(card, i).forEach((line) => { const p = document.createElement('p'); p.className = 'ln is-in'; p.textContent = line; c.reading.appendChild(p); });
+    c.ch.classList.add('is-in');
+    return;
+  }
+  await wait(60);
+  c.ch.classList.add('is-in');
+  if(i > 0) c.ch.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  await loadImage(c.img, cardUrl(card));
+  await wait(700);
+  revealSound();
+  c.flip.classList.add('is-flipped');
+  await wait(900);
+  c.name.textContent = card.name || '';
+  await revealLines(c.reading, storyLines(card, i), { gap: 650 });
+}
+
+function waitNext(){
+  const btn = $('btnNextCard');
+  btn.hidden = false;
+  btn.classList.remove('is-in');
+  requestAnimationFrame(() => btn.classList.add('is-in'));
+  return new Promise((resolve) => {
+    btn.addEventListener('click', () => { buttonSound(); btn.hidden = true; resolve(); }, { once: true });
+  });
 }
 
 async function revealFull(data){
   const cards = (data.cards || []).slice(0, 3);
-  const slots = cards.map((c) => { const s = buildSlot(c); $('fullSpread').appendChild(s.slot); return s; });
-  await wait(300);
-  slots.forEach((s) => s.slot.classList.add('is-in'));
-  await wait(900);
+  const reached = Math.min(Math.max(state.fullStep || 0, 0), cards.length);
+  await wait(reached ? 0 : 500);
   setText($('fullIntro'), null);
-  $('fullIntro').textContent = positionsLine(cards); // reading language (labels from the server)
+  $('fullIntro').hidden = true;
   for(let i = 0; i < cards.length; i++){
-    const c = cards[i], s = slots[i];
-    await loadImage(s.img, cardUrl(c));
-    revealSound();
-    s.flip.classList.add('is-flipped');
-    await wait(900);
-    s.name.textContent = c.name || '';
-    const block = document.createElement('div');
-    block.className = 'reading';
-    $('fullReadings').appendChild(block);
-    const lines = splitLines(c.text);
-    const head = posLabel(c) + ' — ' + (c.name || '');
-    await revealLines(block, lines[0] && lines[0].includes(c.name) ? lines : [head, ...lines], { gap: 650 });
-    await wait(500);
+    if(i < reached){ await showChapter(cards[i], i, { instant: true }); }
+    else{
+      if(i > 0) await waitNext();
+      await showChapter(cards[i], i);
+      state.fullStep = i + 1; save();
+      trackEvent('full_card_shown', { step: i + 1 });
+    }
   }
+  await wait(reached === cards.length ? 0 : 500);
   const fin = $('fullFinal');
   fin.hidden = false;
-  await revealLines(fin, splitLines(data.final), { gap: 800 });
+  await revealLines(fin, splitLines(data.final), { gap: reached === cards.length ? 0 : 800 });
   const closing = document.createElement('div');
   fin.appendChild(closing);
-  await revealLines(closing, splitLines(data.closing), { gap: 800, className: 'closing' });
+  await revealLines(closing, splitLines(data.closing), { gap: reached === cards.length ? 0 : 800, className: 'closing' });
   const after = document.createElement('div');
   fin.appendChild(after);
   const afterLines = await revealLines(after, [t('full.after')], { className: 'after' });
@@ -1443,7 +1472,8 @@ async function saveReading(){
     await Promise.all([
       document.fonts.load("300 34px 'Noto Sans Thai'", 'กขคอดีตปัจจุบัน'),
       document.fonts.load("400 34px 'Noto Sans Thai'", 'กขคอดีตปัจจุบัน'),
-      document.fonts.load("300 52px 'Cormorant Garamond'", 'STILLWATER')
+      document.fonts.load("300 52px 'Cormorant Garamond'", 'STILLWATER'),
+      document.fonts.load("400 34px 'Cormorant Garamond'", 'The Moon')
     ]);
     await document.fonts.ready;
   }catch(e){}
@@ -1452,12 +1482,18 @@ async function saveReading(){
   const sans = (size, weight = 300) => `${weight} ${size}px 'Noto Sans Thai', 'Noto Sans Thai UI', 'Leelawadee UI', 'Sukhumvit Set', 'Thonburi', sans-serif`;
   measure.font = sans(34);
   const blocks = [];
-  (data.cards || []).forEach((c) => blocks.push({ font: sans(34, 400), color:'#e8ecff', lines: wrapText(measure, `${posLabel(c)} — ${c.name}`, Wd - pad*2), lh: 54 }));
+  const pngLang = state.lang || uiLang; // the image follows the reading's language
+  // Vera's spoken headings (no position labels), each followed by its card name.
+  (data.cards || []).forEach((card, i) => {
+    measure.font = sans(34, 400);
+    blocks.push({ gapBefore: i ? 18 : 0, font: sans(34, 400), color:'#f5f0e6', lines: wrapText(measure, cardHeading(card, i, pngLang), Wd - pad*2), lh: 52 });
+    blocks.push({ font: `400 34px 'Cormorant Garamond', 'Noto Sans Thai', serif`, color:'rgba(205,214,244,.85)', lines: [card.name || ''], lh: 52 });
+  });
   measure.font = sans(36);
   blocks.push({ gapBefore: 30, font: sans(36), color:'#e8ecff', lines: wrapText(measure, data.final, Wd - pad*2), lh: 60 });
   blocks.push({ gapBefore: 24, font: sans(34), color:'#f5f0e6', lines: wrapText(measure, data.closing, Wd - pad*2), lh: 56 });
   const textH = blocks.reduce((h, b) => h + (b.gapBefore || 0) + b.lines.length * b.lh, 0);
-  const Ht = Math.max(1920, 300 + cardH + 160 + textH + 200);
+  const Ht = Math.max(1920, 250 + cardH + 160 + textH + 200);
 
   const cv = document.createElement('canvas');
   cv.width = Wd; cv.height = Ht;
@@ -1468,23 +1504,19 @@ async function saveReading(){
   c.textAlign = 'center';
   c.fillStyle = 'rgba(225,230,255,.88)';
   c.font = `300 52px 'Cormorant Garamond', serif`;
-  const pngLang = state.lang || uiLang; // the image follows the reading's language
   c.fillText(tr(pngLang, 'savePng.title'), Wd/2, 150);
-  c.fillStyle = 'rgba(205,214,244,.72)';
-  c.font = sans(30);
-  c.fillText((data.cards || []).length ? positionsLine(data.cards) : tr(pngLang, 'savePng.subtitle'), Wd/2, 215);
 
   const imgs = await Promise.all((data.cards || []).map((card) => new Promise((resolve) => {
     const im = new Image(); im.onload = () => resolve(im); im.onerror = () => resolve(null); im.src = cardUrl(card);
   })));
   const totalW = cardW*3 + gap*2;
   let x = (Wd - totalW)/2;
-  const y = 280;
+  const y = 230;
   imgs.forEach((im, i) => {
     if(im) c.drawImage(im, x, y, cardW, cardH);
     c.strokeStyle = 'rgba(245,240,230,.6)'; c.lineWidth = 2; c.strokeRect(x, y, cardW, cardH);
-    c.fillStyle = 'rgba(205,214,244,.8)'; c.font = sans(28);
-    c.fillText(posLabel(data.cards[i] || {}), x + cardW/2, y + cardH + 50);
+    c.fillStyle = 'rgba(205,214,244,.8)'; c.font = `400 30px 'Cormorant Garamond', 'Noto Sans Thai', serif`;
+    c.fillText((data.cards[i] || {}).name || '', x + cardW/2, y + cardH + 50);
     x += cardW + gap;
   });
   let ty = y + cardH + 150;
@@ -1549,7 +1581,7 @@ function askAgain(){
   stopPolling();
   clearStore();
   resetRating('free'); resetRating('full');
-  Object.assign(state, { readingId:null, ratings:{}, question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null });
+  Object.assign(state, { fullStep:0, readingId:null, ratings:{}, question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null });
   $('questionInput').value = '';
   $('contextInput').value = '';
   resetDraw();
@@ -1622,7 +1654,7 @@ captureSource();
     // resume an unfinished paid step in the same browser.
     const saved = load();
     if(saved && saved.order && saved.card && ['offering','paid','full'].includes(saved.stage)){
-      Object.assign(state, { order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || null, paid: saved.paid || null, deeper: saved.deeper || null, stage: saved.stage, ratings: saved.ratings || {}, readingId: saved.readingId || null });
+      Object.assign(state, { order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || null, paid: saved.paid || null, deeper: saved.deeper || null, stage: saved.stage, ratings: saved.ratings || {}, readingId: saved.readingId || null, fullStep: saved.fullStep || 0 });
       $('soundToggle').classList.add('is-on');
       fillFirstStatic();
       if(state.deeper || state.paid){ openFull(); return; }
@@ -1643,7 +1675,7 @@ captureSource();
   history.replaceState(null, '', location.pathname);
   const saved = load();
   if(!saved || !saved.order || !saved.card) return; // nothing to resume: start fresh
-  Object.assign(state, { readingId: saved.readingId || null, ratings: saved.ratings || {}, order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || pid || null, deeper: saved.deeper || null });
+  Object.assign(state, { fullStep: saved.fullStep || 0, readingId: saved.readingId || null, ratings: saved.ratings || {}, order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || pid || null, deeper: saved.deeper || null });
   if(pid && saved.paymentId && pid !== saved.paymentId) state.paymentId = pid; // server still verifies orderId binding
   $('soundToggle').classList.add('is-on');
   if(state.deeper){ openFull(); return; }

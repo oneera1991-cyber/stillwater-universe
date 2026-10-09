@@ -73,6 +73,17 @@ async function waitSlipDone(page) {
   await page.waitForTimeout(250);
 }
 const payStatus = (page) => page.textContent("#payStatus");
+/* Scene 6 is told one card at a time: tap "อ่านไพ่ใบถัดไป" until the ending (stars + actions) shows. */
+async function readThrough(page, { timeout = 60000 } = {}) {
+  const end = Date.now() + timeout;
+  while (Date.now() < end) {
+    const st = await page.evaluate(() => ({ done: !document.getElementById("fullActions").hidden, next: !document.getElementById("btnNextCard").hidden }));
+    if (st.done) return;
+    if (st.next) await page.click("#btnNextCard");
+    await page.waitForTimeout(150);
+  }
+  throw new Error("scene 6 never finished");
+}
 
 /* Timing (in-page clock, unaffected by screenshots): slip upload → verified → scene 6 → reading complete. */
 const timings = {};
@@ -82,18 +93,19 @@ const startTimer = (page) => page.evaluate(() => {
     const now = performance.now();
     if (!T.verified && document.getElementById("payStatus").classList.contains("is-ok")) T.verified = now;
     if (!T.fullScene && document.getElementById("scene-full").classList.contains("is-active")) T.fullScene = now;
-    if (!T.firstCard && document.querySelector("#fullSpread .flip.is-flipped")) T.firstCard = now;
+    if (!T.firstCard && document.querySelector("#fullStory .flip.is-flipped")) T.firstCard = now;
+    if (!T.card1Ready && !document.getElementById("btnNextCard").hidden) T.card1Ready = now;
     if (!T.done && !document.getElementById("fullActions").hidden) { T.done = now; clearInterval(iv); }
   }, 25);
 });
 const readTimer = async (page, label) => {
   const T = await page.evaluate(() => window.__slipT);
   const ms = (k) => Math.round(T[k] - T.start);
-  timings[label] = { slip_verified_ms: ms("verified"), full_scene_ms: ms("fullScene"), first_card_flipped_ms: ms("firstCard"), reading_complete_ms: ms("done") };
+  timings[label] = { slip_verified_ms: ms("verified"), full_scene_ms: ms("fullScene"), first_card_flipped_ms: ms("firstCard"), card1_read_next_button_ms: ms("card1Ready"), reading_complete_incl_next_taps_ms: ms("done") };
   log("timing " + label + ":", JSON.stringify(timings[label]));
 };
 
-const ONLY = process.env.ONLY || ""; // "en" | "data" | "font" | "proto" → run only that suite
+const ONLY = process.env.ONLY || ""; // "en" | "data" | "font" | "proto" | "story" → run only that suite
 const THAI = /[\u0E00-\u0E7F]/;
 
 /* ---------- main path: all 6 scenes ---------- */
@@ -199,7 +211,7 @@ if (!ONLY) {
   assert.ok(calls.every((c) => c.matchAmount === "59" && c.matchAccount === "true" && c.checkDuplicate === "true"), "EasySlip fields");
 
   await active(page, "full");
-  await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
+  await readThrough(page);
   await readTimer(page, "th");
   await page.waitForTimeout(500);
   await shot(page, "11l-full-after-slip");
@@ -208,8 +220,7 @@ if (!ONLY) {
   assert.match(rid, /^[A-Z0-9_-]{8}$/);
   await scrollScene(page, "full", "end");
   await noNotices(page); log("scene 6: no Reading ID / disclaimer / links (id kept internally:", rid + ")");
-  const positions = await page.$$eval("#fullSpread .pos", (n) => n.map((x) => x.textContent));
-  assert.deepEqual(positions, ["อดีต", "ปัจจุบัน", "แนวโน้มข้างหน้า"]);
+  assert.deepEqual(await page.$$eval("#fullStory .say", (n) => n.map((x) => x.textContent)), ["เรื่องนี้เริ่มต้นจากอะไร", "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "ถ้าเรื่องนี้เดินต่อไป..."]);
   const ids = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper.cards.map((c) => c.id));
   assert.equal(new Set(ids).size, 3); assert.ok(!ids.includes(first.card.id), "paid cards exclude card 1");
   assert.equal((await page.textContent("#btnAgain")).trim(), "ถามพี่เวราอีกครั้ง");
@@ -302,9 +313,9 @@ if (!ONLY) {
   assert.match(await page.textContent("#payStatus"), /เคยถูกใช้/);
   await shot(page, "11f-error-duplicate"); log("slip: duplicate (same slip, other order) rejected");
   await uploadSlip(page, await makeSlip("success", "second"));
-  await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
+  await readThrough(page);
   await page.reload();
-  await page.waitForSelector("#scene-full.is-active #fullActions:not([hidden])", { timeout: 40000 });
+  await active(page, "full"); await readThrough(page);
   log("reload after paid → cached full reading");
   await page.context().close();
 }
@@ -406,18 +417,18 @@ if (!ONLY || ONLY === "en") {
   await shot(page, "12-en-05-slip-success"); log("EN slip success");
 
   await active(page, "full");
-  await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
+  await readThrough(page);
   await readTimer(page, "en");
   await page.waitForTimeout(500);
   await noNotices(page);
   await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = 0; });
   await page.waitForTimeout(300);
-  assert.deepEqual(await lines(page, "#fullSpread .pos"), ["Past", "Present", "Future"]);
-  assert.equal((await page.textContent("#fullIntro")).trim(), "Past · Present · Future");
+  assert.deepEqual(await lines(page, "#fullStory .say"), ["Where did this begin?", "And now, what is happening?", "If this keeps unfolding..."]);
+  assert.equal(await page.isVisible("#fullIntro"), false);
   assert.equal((await page.textContent("#btnAgain")).trim(), "Ask Vera Again");
   const deeper = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper);
   assert.equal(deeper.lang, "en"); assert.deepEqual(deeper.cards.map((c) => c.position_key), ["past", "present", "ahead"]);
-  assert.ok(!THAI.test(await page.textContent("#fullReadings")), "English reading");
+  assert.ok(!THAI.test(await page.textContent("#fullStory")), "English reading");
   await shot(page, "12-en-06a-full-reading");
   await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = s.scrollHeight / 2 - 300; });
   await page.waitForTimeout(300);
@@ -432,7 +443,7 @@ if (!ONLY || ONLY === "en") {
   log("EN save PNG + share copy");
 
   await page.reload();
-  await page.waitForSelector("#scene-full.is-active #fullActions:not([hidden])", { timeout: 40000 });
+  await active(page, "full"); await readThrough(page);
   assert.equal(await page.getAttribute("html", "lang"), "en"); log("EN remembered after reload");
   await page.click("#btnAgain");
   await active(page, "question");
@@ -522,7 +533,7 @@ if (!ONLY || ONLY === "data") {
   await page.waitForSelector("#slipBox:not([hidden])");
   await uploadSlip(page, await makeSlip("success", "data"));
   await active(page, "full");
-  await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
+  await readThrough(page);
   await page.waitForSelector("#rate-full.is-in");
   await page.waitForTimeout(600);
   await rateStars(page, "full", 5);
@@ -548,7 +559,7 @@ if (!ONLY || ONLY === "data") {
   assert.ok(ev.some((e) => e.event === "rating" && e.rating_key === rf.order_id + ":full" && e.stars === 5));
   log("payment_verified (transRef, ฿59) + read_full (cards3) carry the sealed source");
   await page.reload();
-  await page.waitForSelector("#scene-full.is-active #fullActions:not([hidden])", { timeout: 40000 });
+  await active(page, "full"); await readThrough(page);
   assert.equal(await page.$$eval("#rate-full .star.on", (n) => n.length), 5); log("rating remembered after reload");
   await page.click("#btnAgain");
   await active(page, "question");
@@ -668,9 +679,9 @@ if (!ONLY || ONLY === "font") {
   await assertThaiFont(page, ["#scene-offering h2", "#scene-offering .copy", "#payStatus", "#slipPick", "#payHint", "#btnBackFirst"]);
   await uploadSlip(page, await makeSlip("success", "font"));
   await active(page, "full");
-  await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
+  await readThrough(page);
   await page.waitForTimeout(500);
-  await assertThaiFont(page, ["#fullSpread .pos", "#fullReadings .ln", "#fullFinal .ln", "#btnSave", "#btnAgain", "#rate-full .rate-title"]);
+  await assertThaiFont(page, ["#fullStory .say", "#fullStory .reading .ln", "#fullFinal .ln", "#btnSave", "#btnAgain", "#rate-full .rate-title"]);
   await noNotices(page); await noAI(page);
   const lastBtn = await page.$$eval("#scene-full button", (b) => b.filter((x) => x.offsetParent).at(-1).textContent.trim());
   assert.equal(lastBtn, "ถามพี่เวราอีกครั้ง", "last button unchanged");
@@ -780,7 +791,7 @@ for (const L of ["th", "en"]) {
   await page.waitForFunction(() => document.getElementById("payStatus").classList.contains("is-ok"), null, { timeout: 20000 });
   await page.evaluate(() => { const s = document.getElementById("scene-offering"); s.scrollTop = s.scrollHeight; }); await page.waitForTimeout(200);
   await shot(page, P("5c-slip-ok"));
-  await active(page, "full"); await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 }); await page.waitForTimeout(600);
+  await active(page, "full"); await readThrough(page); await page.waitForTimeout(600);
   await noNotices(page); await shot(page, P("6a-full"));
   await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = s.scrollHeight / 2 - 300; }); await page.waitForTimeout(300);
   await shot(page, P("6b-full-middle"));
@@ -814,6 +825,97 @@ for (const L of ["th", "en"]) {
   const ev = await (await page.request.get(`${BASE}/__mock/events`)).json();
   assert.ok(["read_free", "payment_verified", "read_full"].every((k) => ev.some((e) => e.event === k && e.lang === L)), "events logged silently");
   log(`16-${L}: every scene matches the prototype, no notices; events still logged`);
+  await page.context().close();
+}
+
+/* ================= SCENE 6 STORY (Palm 2026-10-09): one card at a time → 17-* ================= */
+const HEAD = {
+  th: ["เรื่องนี้เริ่มต้นจากอะไร", "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "ถ้าเรื่องนี้เดินต่อไป..."],
+  en: ["Where did this begin?", "And now, what is happening?", "If this keeps unfolding..."]
+};
+const NEXT = { th: "อ่านไพ่ใบถัดไป", en: "Read the next card" };
+const LABEL_TEXT = /อดีต|ปัจจุบัน|แนวโน้มข้างหน้า|\bPast\b|\bPresent\b|\bFuture\b/;
+async function storyState(page) {
+  return page.evaluate(() => ({
+    chapters: document.querySelectorAll("#fullStory .chapter").length,
+    flipped: document.querySelectorAll("#fullStory .flip.is-flipped").length,
+    heads: [...document.querySelectorAll("#fullStory .say")].map((n) => n.textContent),
+    names: [...document.querySelectorAll("#fullStory .name")].map((n) => n.textContent),
+    next: !document.getElementById("btnNextCard").hidden,
+    nextText: document.getElementById("btnNextCard").textContent.trim(),
+    ending: !document.getElementById("fullFinal").hidden || !document.getElementById("fullActions").hidden,
+    labels: document.querySelectorAll("#scene-full .pos, #scene-full .spread, #scene-full .label").length,
+    // UI text only (headings, names, buttons): the reading text itself may legitimately use these words
+    text: (() => { const c = document.getElementById("scene-full").cloneNode(true); c.querySelectorAll(".reading, #fullFinal, [hidden]").forEach((n) => n.remove()); return c.textContent; })()
+  }));
+}
+async function chapterShot(page, step, name) {
+  await page.evaluate((n) => { const s = document.getElementById("scene-full"); const ch = document.querySelector(`#fullStory .chapter[data-step="${n}"]`); s.scrollTop = ch.offsetTop - 70; }, step);
+  await page.waitForTimeout(350);
+  await shot(page, name);
+}
+for (const L of ["th", "en"]) {
+  if (ONLY && ONLY !== "story") break;
+  const page = await newPage({ locale: L === "th" ? "th-TH" : "en-US" });
+  const P = (n) => `17-${L}-${n}`;
+  await page.goto(BASE + "/");
+  await page.click("#btnEnter"); await active(page, "question");
+  await ask(page, L === "th" ? "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม" : "I'm starting a new job next month. Will it go well?");
+  await active(page, "first"); await page.waitForSelector("#btnToOffer.is-in", { timeout: 20000 });
+  await page.click("#btnToOffer"); await active(page, "offering");
+  await page.click("#btnPay"); await page.waitForSelector("#slipBox:not([hidden])");
+  await uploadSlip(page, await makeSlip("success", "story " + L));
+  await active(page, "full");
+
+  // card 1 alone, with the button
+  await page.waitForSelector("#btnNextCard:not([hidden])", { timeout: 40000 });
+  await page.waitForTimeout(700);
+  let st = await storyState(page);
+  assert.equal(st.chapters, 1, "only card 1"); assert.equal(st.flipped, 1);
+  assert.deepEqual(st.heads, HEAD[L].slice(0, 1)); assert.equal(st.nextText, NEXT[L]);
+  assert.equal(st.ending, false, "no ending before card 3");
+  assert.equal(st.labels, 0, "no small position labels"); assert.ok(!LABEL_TEXT.test(st.text), "no position label text: " + (st.text.match(LABEL_TEXT) || [])[0]);
+  const deeper = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper);
+  assert.equal(st.names[0], deeper.cards[0].name, "card name shown with the image");
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).fullStep), 1);
+  await noNotices(page); await noAI(page);
+  await chapterShot(page, 1, P("1-card1-next"));
+  // mid-reading reload → card 1 shown instantly, button waiting for card 2
+  await page.reload(); await active(page, "full");
+  await page.waitForSelector("#btnNextCard:not([hidden])", { timeout: 20000 });
+  st = await storyState(page);
+  assert.equal(st.chapters, 1); assert.equal(st.ending, false); log(`17-${L}: reload mid-reading resumes at the card reached`);
+
+  // card 2
+  await page.click("#btnNextCard");
+  assert.equal(await page.isVisible("#btnNextCard"), false, "button hides while the card is told");
+  await page.waitForSelector("#btnNextCard:not([hidden])", { timeout: 30000 }); await page.waitForTimeout(700);
+  st = await storyState(page);
+  assert.equal(st.chapters, 2); assert.equal(st.flipped, 2); assert.deepEqual(st.heads, HEAD[L].slice(0, 2)); assert.equal(st.ending, false);
+  assert.ok(!LABEL_TEXT.test(st.text)); await noNotices(page);
+  await chapterShot(page, 2, P("2-card2"));
+
+  // card 3 → ending
+  await page.click("#btnNextCard");
+  await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 }); await page.waitForTimeout(800);
+  st = await storyState(page);
+  assert.equal(st.chapters, 3); assert.equal(st.flipped, 3); assert.deepEqual(st.heads, HEAD[L]); assert.equal(st.next, false);
+  assert.deepEqual(st.names, deeper.cards.map((c) => c.name));
+  assert.ok(!LABEL_TEXT.test(st.text), "no labels at the end"); await noNotices(page); await noAI(page);
+  await chapterShot(page, 3, P("3-card3"));
+  await scrollScene(page, "full", "end");
+  assert.ok(await page.isVisible("#rate-full .stars") && await page.isVisible("#btnSave") && await page.isVisible("#btnShare"));
+  const lastBtn = await page.$$eval("#scene-full button", (b) => b.filter((x) => x.offsetParent).at(-1).textContent.trim());
+  assert.equal(lastBtn, L === "th" ? "ถามพี่เวราอีกครั้ง" : "Ask Vera Again");
+  await shot(page, P("4-closing-stars-share"));
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#btnSave")]);
+  await dl.saveAs(`${SHOTS}/${P("5-saved-image")}.png`);
+  log(`17-${L}: one card at a time, button advances, spoken headings, no labels/notices, ending + stars + share`);
+  // reload after the end → whole story shown at once
+  await page.reload(); await active(page, "full");
+  await page.waitForSelector("#fullActions:not([hidden])", { timeout: 20000 });
+  st = await storyState(page); assert.equal(st.chapters, 3); assert.equal(st.next, false);
+  log(`17-${L}: reload after the end shows the full story`);
   await page.context().close();
 }
 

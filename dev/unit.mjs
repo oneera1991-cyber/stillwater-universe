@@ -360,6 +360,27 @@ assert.deepEqual(pid.matches.map((m) => m.sheetRow), [2, 3]);
 assert.deepEqual(pid.request.requests.map((r) => r.deleteDimension.range.startIndex), [2, 1], "bottom-up");
 ok("purge plan: >90 days by ts, by Reading ID, bottom-up, CSV quoting (no network)");
 
+const splitText = (x) => String(x || "").split(/\n+/).map((y) => y.trim()).filter(Boolean);
+/* ---------------- scene 6 story: one card at a time, spoken headings, no labels ---------------- */
+const story = await import("../lib/story.js");
+assert.deepEqual(["past", "present", "ahead"].map((k) => t("th", "full.headings." + k)), ["เรื่องนี้เริ่มต้นจากอะไร", "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "ถ้าเรื่องนี้เดินต่อไป..."]);
+assert.deepEqual(["past", "present", "ahead"].map((k) => t("en", "full.headings." + k)), ["Where did this begin?", "And now, what is happening?", "If this keeps unfolding..."]);
+assert.equal(t("th", "full.next"), "อ่านไพ่ใบถัดไป"); assert.equal(t("en", "full.next"), "Read the next card");
+for (const lg of ["th", "en"]) { assert.equal(STRINGS[lg].full.positionsLine, undefined); assert.equal(STRINGS[lg].savePng.subtitle, undefined); }
+assert.equal(story.cardHeading({ position_key: "ahead" }, 0, "en"), "If this keeps unfolding...");
+assert.equal(story.cardHeading({}, 1, "th"), "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "falls back to index order");
+assert.deepEqual(story.storyLines({ position_key: "past", label: "อดีต", name: "The Moon", text: "อดีต — The Moon\nใบนี้พูดถึงความไม่ชัด" }), ["ใบนี้พูดถึงความไม่ชัด"], "stiff heading line dropped");
+assert.deepEqual(story.storyLines({ position_key: "ahead", position: "Future", name: "The Star", text: "Future: The Star, where the energy is heading. More." }), ["The Star, where the energy is heading. More."], "fallback 'Future:' prefix dropped");
+assert.deepEqual(story.storyLines({ position_key: "present", name: "The Sun", text: "Present day feels heavy.\nLine 2" }), ["Present day feels heavy.", "Line 2"], "a sentence starting with the word is kept");
+const stub3 = await stub.generateThree({ question: "งานใหม่จะดีไหม", card1: { id: 0 }, cards3: [1, 2, 3], lang: "th" });
+const stub3en = await stub.generateThree({ question: "Will my new job go well?", card1: { id: 0 }, cards3: [1, 2, 3], lang: "en" });
+for (const r of [stub3, stub3en]) for (const c of r.cards) {
+  assert.deepEqual(story.storyLines(c), splitText(c.text), "stub text has no label line");
+  assert.ok(!/^(อดีต|ปัจจุบัน|แนวโน้มข้างหน้า|Past|Present|Future)\s*(—|:)/m.test(c.text), "no position label in stub text");
+}
+assert.ok(/ไม่ใช่สิ่งที่ตายตัว/.test(stub3.cards[2].text) && /not something fixed/.test(stub3en.cards[2].text), "future = tendency");
+ok("scene 6 story: spoken headings th/en, next-card button copy, no position labels, stiff label lines dropped");
+
 /* ---------------- legal pages content ---------------- */
 const legalBuild = await import("../scripts/build-legal.mjs");
 const { readFileSync: rfs } = await import("node:fs");
