@@ -167,6 +167,15 @@ if (!ONLY) {
   await shot(page, "05b-offering-qr");
   const qrSrc = await page.getAttribute("#payQr", "src");
   assert.match(qrSrc, /^data:image\/png;base64,/);
+  { // receiving account name directly under the QR (dev server dummy PAYEE_NAME_TH), switches with TH/EN
+    assert.equal((await page.textContent("#payPayee")).trim(), "ชื่อบัญชีผู้รับ: นาย ทดสอบ ตัวอย่าง");
+    assert.equal(await page.evaluate(() => document.getElementById("payQr").nextElementSibling.id), "payPayee", "line sits directly under the QR");
+    assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById("payPayee")).fontFamily.split(",")[0].replace(/"/g, "")), "Noto Sans Thai");
+    await page.click("#langToggle"); assert.equal((await page.textContent("#payPayee")).trim(), "Account name: MR. TEST EXAMPLE");
+    await page.click("#langToggle"); assert.equal((await page.textContent("#payPayee")).trim(), "ชื่อบัญชีผู้รับ: นาย ทดสอบ ตัวอย่าง");
+    await noNotices(page);
+    log("payee line under the QR (th/en)");
+  }
   await page.evaluate(() => { const s = document.getElementById("scene-offering"); s.scrollTop = 260; });
   await page.waitForTimeout(300);
   await shot(page, "11a-offering-qr"); log("scene 5 offering + dynamic PromptPay QR + slip upload");
@@ -318,6 +327,7 @@ if (!ONLY) {
   await page.reload();
   await active(page, "offering");
   await page.waitForSelector("#slipBox:not([hidden])");
+  await page.waitForFunction(() => document.getElementById("payPayee").textContent.includes("ชื่อบัญชีผู้รับ"), null, { timeout: 10000 });
   log("tab reload during payment → resumes offering with QR");
   await uploadSlip(page, globalThis.__goodSlip); // already used for the first order
   await waitSlipDone(page);
@@ -412,6 +422,7 @@ if (!ONLY || ONLY === "en") {
   await page.evaluate(() => { document.getElementById("scene-offering").scrollTop = 260; });
   await page.waitForTimeout(300);
   await shot(page, "12-en-04-offering-qr"); log("EN offering + QR");
+  assert.equal((await page.textContent("#payPayee")).trim(), "Account name: MR. TEST EXAMPLE"); assert.equal(await page.isVisible("#payPayee"), true);
 
   const scrollPay = () => page.evaluate(() => { const s = document.getElementById("scene-offering"); s.scrollTop = s.scrollHeight; });
   await uploadSlip(page, await makeSlip("wrong_amount", "wrong amount"));

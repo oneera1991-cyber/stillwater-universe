@@ -695,6 +695,25 @@ ok("stub overview (final) ties all four cards");
   ok("vera.js a179c20: keep_question_flags internal + console-only (not in /api/read or /api/deeper responses, no Sheet row field or column); 'Stillwater' brand not flagged");
 }
 }
+/* Receiving account name under the QR: PAYEE_NAME_TH / PAYEE_NAME_EN → /api/payment/create { payee } */
+{
+  assert.deepEqual(payment.payeeNames({ PAYEE_NAME_TH: "  นาย  ทดสอบ\n ตัวอย่าง ", PAYEE_NAME_EN: "MR. TEST <b>EXAMPLE</b>" }), { th: "นาย ทดสอบ ตัวอย่าง", en: "MR. TEST bEXAMPLE/b" }, "trimmed, spaces collapsed, no tags / control chars");
+  assert.equal(payment.payeeNames({}), null, "missing → null (nothing shown)");
+  assert.deepEqual(payment.payeeNames({ PAYEE_NAME_TH: "ก" }), { th: "ก", en: null });
+  assert.equal(payment.payeeNames({ PAYEE_NAME_TH: "x".repeat(200) }).th.length, 80);
+  const env0 = { ...process.env };
+  process.env.PROMPTPAY_ID = "000-000-0000"; process.env.PAYEE_NAME_TH = "นาย ทดสอบ ตัวอย่าง"; process.env.PAYEE_NAME_EN = "MR. TEST EXAMPLE";
+  const create = (await import("../api/payment/create.js")).default;
+  const c1 = fakeRes(); await create(req({ order: signOrder({ question: "q", card1: 2, lang: "en" }).token }), c1);
+  assert.equal(c1.statusCode, 200); assert.deepEqual(c1.body.payee, { th: "นาย ทดสอบ ตัวอย่าง", en: "MR. TEST EXAMPLE" });
+  delete process.env.PAYEE_NAME_TH; delete process.env.PAYEE_NAME_EN;
+  const c2 = fakeRes(); await create(req({ order: signOrder({ question: "q", card1: 2 }).token }), c2);
+  assert.equal(c2.statusCode, 200); assert.equal(c2.body.payee, null, "no env → payee null");
+  for (const k of Object.keys(process.env)) if (!(k in env0)) delete process.env[k];
+  Object.assign(process.env, env0);
+  assert.equal(t("th", "offering.payee", { name: "ก ข" }), "ชื่อบัญชีผู้รับ: ก ข"); assert.equal(t("en", "offering.payee", { name: "A B" }), "Account name: A B");
+  ok("payee name: PAYEE_NAME_TH/_EN sanitized → /api/payment/create payee {th,en}; missing → null; strings th/en");
+}
 /* vera.js 5c79b3e: internal card_name_flags (log only) never reach the page or the Sheet */
 {
   const hits = vera.findLeadingCardNames(["Death งานใหม่เริ่มจากการตัดของเดิม", "งานนี้ไปได้", "The Tower shows a shake-up."]);

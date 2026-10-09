@@ -320,6 +320,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 #scene-offering .status.is-error{color:rgba(255,190,190,.88)}
 #scene-offering .small{font-size:.7rem;line-height:1.7;color:rgba(190,200,225,.55);margin-top:.6rem}
 #scene-offering .btn-quiet{margin-top:1rem}
+#scene-offering .payee{font-size:.82rem;line-height:1.7;color:var(--soft);margin-top:.7rem}
 #scene-offering .hint{font-size:.82rem;line-height:1.85;color:var(--soft);margin-top:.9rem}
 #scene-offering .qr-actions{display:flex;justify-content:center;margin-top:.2rem}
 #scene-offering .qr-actions .btn-quiet{margin-top:.6rem;text-decoration:none;display:inline-block}
@@ -499,6 +500,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
       <div class="price" data-i18n="offering.price">฿59</div>
       <button class="btn" id="btnPay" type="button" data-i18n="offering.pay">เข้าสู่การชำระเงิน</button>
       <img class="qr" id="payQr" alt="QR พร้อมเพย์ 59 บาท" data-i18n-alt="offering.qrAlt" hidden>
+      <p class="payee" id="payPayee" hidden></p>
       <code class="qr-payload" id="payQrPayload" hidden></code>
       <p class="hint" id="payHint" data-i18n="offering.hint" hidden>สแกน QR นี้ หรือบันทึกรูปไปเปิดในแอปธนาคาร
 โอน 59 บาท แล้วแนบสลิปด้านล่างนะคะ</p>
@@ -640,6 +642,7 @@ function applyLang(){
   document.querySelectorAll('#langToggle [data-l]').forEach((el) => el.classList.toggle('on', el.dataset.l === uiLang));
   $('langToggle').setAttribute('aria-pressed', uiLang === 'en' ? 'true' : 'false');
   if(currentScene === 'safety') renderSafety(true);
+  try{ renderPayee(); }catch(e){} // state may not exist yet on the first call
   document.documentElement.classList.remove('lang-pending');
 }
 function setLang(lang){
@@ -1055,6 +1058,7 @@ function resetOffering(){
   $('payQr').hidden = true;
   $('payQr').removeAttribute('src');
   $('payQrPayload').hidden = true;
+  state.payee = null; renderPayee();
   $('payHint').hidden = true;
   $('payQrActions').hidden = true;
   $('slipBox').hidden = true;
@@ -1104,6 +1108,8 @@ async function createPayment(){
     if(!res.ok) throw new Error(data.code ? errorKey(data.code) : 'pay.createFailed');
     if(!data.qr && !data.qrPayload) throw new Error('pay.noQr');
     showQr(data);
+    state.payee = data.flow === 'slip' && data.payee ? data.payee : null;
+    renderPayee();
     if(data.flow === 'slip'){
       // PromptPay to Stillwater's own account → customer attaches the slip.
       $('payHint').hidden = false;
@@ -1192,6 +1198,13 @@ async function submitSlip(){
     setText($('slipPick'), 'offering.attachAgain');
   }
   if(/order_/.test(data.reason || '')){ $('slipBox').hidden = true; }
+}
+
+/* Receiving account name under the QR (from the server, PAYEE_NAME_TH / _EN); nothing when missing. */
+function renderPayee(){
+  const el = $('payPayee'), p = state.payee, name = p && !$('payQr').hidden ? (uiLang === 'en' ? p.en : p.th) : null;
+  el.textContent = name ? t('offering.payee', { name }) : '';
+  el.hidden = !name;
 }
 
 function showQr(data){

@@ -72,6 +72,13 @@ export function paymentTestMode(env = process.env) {
 export const DEMO_QR_TEXT = "STILLWATER TEST QR - NOT A PAYMENT / QR ทดสอบ ไม่ใช่การชำระเงินจริง";
 const promptpayIdValid = (env = process.env) => /^(\d{10}|\d{13}|\d{15})$/.test(String(env.PROMPTPAY_ID || "").replace(/[\s-]/g, ""));
 
+/** Receiving account name(s) shown under the QR (PAYEE_NAME_TH / PAYEE_NAME_EN). Missing → null (nothing shown). */
+export function payeeNames(env = process.env) {
+  const clean = (v) => { const s = String(v || "").replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 80); return s || null; };
+  const th = clean(env.PAYEE_NAME_TH), en = clean(env.PAYEE_NAME_EN);
+  return th || en ? { th, en } : null;
+}
+
 export function providerInfo() {
   return { name: providerName(), flow: adapter().FLOW };
 }

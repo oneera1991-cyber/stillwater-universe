@@ -230,6 +230,7 @@ Full launch checklist (order of steps, real ฿59 test, rollback): **LAUNCH.md**
 | `GOOGLE_SHEETS_ID` | later | Intended value: `1IlhWkJJBKTs3UTtbAPcQLreHouSCRF04QFqfsS93W58` (spreadsheet id, not a secret). Header row has the first 29 columns; add `share_channel` (AD1) and `share_result` (AE1) for the 31-column schema. |
 | `GOOGLE_SHEETS_TAB` | later | `events` (default; `events_preview` recommended for Preview). |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | later | Service-account key file JSON (raw or base64) for the Sheets sink (secret). Alternative: `GOOGLE_SERVICE_ACCOUNT_EMAIL` + `GOOGLE_PRIVATE_KEY`. Share the sheet with the service-account email as Editor. Setup: LAUNCH.md §3. |
+| `PAYEE_NAME_TH` / `PAYEE_NAME_EN` | recommended | Receiving account name shown directly under the QR (`ชื่อบัญชีผู้รับ: …` / `Account name: …`), sent with the `/api/payment/create` response (`payee`). Use the names of the PromptPay account registered in EasySlip. If unset, no line is shown. |
 | `PAYMENT_TEST_MODE` | no (Preview only) | `1` = any uploaded JPG/PNG passes slip verification (no EasySlip call, `trans_ref` `TEST-…`). The page looks the same as the real flow. If `PROMPTPAY_ID` is not a valid ID, the QR is a non-payable demo QR (plain text, not a payment). **Ignored whenever `VERCEL_ENV=production`** (hard guard, unit-tested). Never set it for Production. |
 | `VERA_READER` | no | `stub` or `real` to force a reader. Leave it unset in production. |
 | `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` | no | Only for `PAYMENT_PROVIDER=omise`. |

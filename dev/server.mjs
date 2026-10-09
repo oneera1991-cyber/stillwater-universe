@@ -37,6 +37,8 @@ if (process.env.PAYMENT_PROVIDER === "omise") {
 }
 process.env.ORDER_SIGNING_KEY ||= crypto.randomBytes(32).toString("hex");
 process.env.PROMPTPAY_ID ||= "0000000000"; // obviously-fake mock PromptPay ID
+if (!("PAYEE_NAME_TH" in process.env)) process.env.PAYEE_NAME_TH = "นาย ทดสอบ ตัวอย่าง"; // dummy receiving account name (set PAYEE_NAME_TH= to test "missing")
+if (!("PAYEE_NAME_EN" in process.env)) process.env.PAYEE_NAME_EN = "MR. TEST EXAMPLE";
 process.env.EASYSLIP_API_KEY ||= "mock-easyslip-key";
 process.env.EASYSLIP_MOCK = "1";
 // PAYMENT_QR_MODE=maemanee node dev/server.mjs → Mae Manee bill-payment QR + Mae Manee-shaped mock slips
