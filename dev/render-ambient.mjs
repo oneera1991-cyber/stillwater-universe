@@ -1,13 +1,13 @@
 /* Offline render of the ambient (new = lib/ambient.js, old = the previous inline ambient) for listening + loudness.
    node dev/server.mjs 3123 &  then  PLAYWRIGHT=… node dev/render-ambient.mjs [seconds] [outdir]
-   Writes ambient-new.wav / ambient-old.wav (48 kHz stereo float → 16-bit). */
+   VARIANT=A|B selects the lib/ambient.js preset. Writes ambient-<VARIANT|new>.wav / ambient-old.wav (48 kHz stereo float → 16-bit). */
 import { writeFile } from "node:fs/promises";
 const { chromium } = await import(process.env.PLAYWRIGHT || "playwright");
 const BASE = process.env.BASE || "http://localhost:3123";
-const SECONDS = Number(process.argv[2] || 40), OUT = process.argv[3] || "/tmp";
+const SECONDS = Number(process.argv[2] || 40), OUT = process.argv[3] || "/tmp", VARIANT = process.env.VARIANT || "";
 const browser = await chromium.launch(); const page = await browser.newPage();
 await page.goto(BASE + "/terms");
-const res = await page.evaluate(async (S) => {
+const res = await page.evaluate(async ([S, V]) => {
   const SR = 48000;
   const enc = (buf) => { const L = buf.getChannelData(0), R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L; const i16 = new Int16Array(L.length * 2); let peak = 0;
     for (let i = 0; i < L.length; i++) { peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i])); i16[2 * i] = Math.max(-1, Math.min(1, L[i])) * 32767; i16[2 * i + 1] = Math.max(-1, Math.min(1, R[i])) * 32767; }
@@ -15,7 +15,7 @@ const res = await page.evaluate(async (S) => {
   // new
   let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const { createSound } = await import("/lib/ambient.js");
-  const c1 = new OfflineAudioContext(2, SR * S, SR); const snd = createSound(c1, { random: rnd });
+  const c1 = new OfflineAudioContext(2, SR * S, SR); const snd = createSound(c1, V ? { random: rnd, variant: V } : { random: rnd });
   snd.master.gain.setValueAtTime(0, 0); snd.master.gain.linearRampToValueAtTime(snd.LEVEL, 0.7);
   snd.start(0); snd.schedule(S);
   const nb = await c1.startRendering();
@@ -27,10 +27,10 @@ const res = await page.evaluate(async (S) => {
   wg.gain.setValueAtTime(0, 0); wg.gain.linearRampToValueAtTime(.022, 3); w.connect(wf); wf.connect(wg); wg.connect(m); w.start(0);
   const ob = await c2.startRendering();
   return { neu: enc(nb), old: enc(ob) };
-}, SECONDS);
+}, [SECONDS, VARIANT]);
 const wav = (b64) => { const pcm = Buffer.from(b64, "base64"); const h = Buffer.alloc(44);
   h.write("RIFF", 0); h.writeUInt32LE(36 + pcm.length, 4); h.write("WAVEfmt ", 8); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(2, 22);
   h.writeUInt32LE(48000, 24); h.writeUInt32LE(48000 * 4, 28); h.writeUInt16LE(4, 32); h.writeUInt16LE(16, 34); h.write("data", 36); h.writeUInt32LE(pcm.length, 40); return Buffer.concat([h, pcm]); };
-await writeFile(`${OUT}/ambient-new.wav`, wav(res.neu.b64)); await writeFile(`${OUT}/ambient-old.wav`, wav(res.old.b64));
+await writeFile(`${OUT}/ambient-${VARIANT || "new"}.wav`, wav(res.neu.b64)); await writeFile(`${OUT}/ambient-old.wav`, wav(res.old.b64));
 console.log(JSON.stringify({ peak_new: res.neu.peak, peak_old: res.old.peak }));
 await browser.close();

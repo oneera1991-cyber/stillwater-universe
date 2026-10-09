@@ -65,10 +65,22 @@ Stillwater's `2ed3ca4` covers the V2 asks:
 
 `a179c20` adds a rule that Vera never says she keeps or holds the question, plus an internal, log-only `keep_question_flags` post-check. Like `guarantee_flags` / `position_label_flags`, it is never sent to the page (the API builds responses field by field) and never written to the Sheet (no column). The stub reader mirrors the fallback closing and returns `keep_question_flags: []`. Unit + e2e check that the thanks / come-back lines appear exactly once and that the ending never contains the old "น้ำนิ่ง" closing sentence (removed, Palm 2026-10-09).
 
-### Sound ("music + cosmos", Palm 2026-10-09)
-- `lib/ambient.js` (Web Audio, synthesized, no audio files): a warm pad of 4 slow chords (Dmaj9 → Bm9 → Gmaj7 → Asus2, 10 s each, 3.5 s crossfades; detuned saw + triangle through a lowpass with a slow LFO sweep), an octave-up shimmer with slow tremolo, sparse D-major-pentatonic bell chimes every ~2.5–7 s, faint band-passed "cosmic air" noise, a generated 5 s convolution reverb and a stereo ping-pong delay → highpass 120 Hz → master (0.6) → compressor → makeup.
-- Button sounds are soft chimes from the same scale. Sound still starts only on a user gesture (the entry button / SOUND toggle). SOUND OFF fades out, stops every source and suspends the AudioContext; hiding the page does the same, and coming back resumes if SOUND is on. 24 persistent sources (reused across chords) + 2 per chime.
-- Loudness (40 s offline render): about -14 LUFS integrated, peak -4.6 dBFS (the old ambient was -31 LUFS with almost nothing above 200 Hz). `node dev/render-ambient.mjs 40 /tmp` re-renders `ambient-new.wav` / `ambient-old.wav`.
+### Sound ("music + cosmos", Palm 2026-10-09; v2 after "only 13–20 s is good")
+- `lib/ambient.js` is Web Audio, fully synthesized, with no audio files.
+- **v2** holds the character of 13–20 s of the v1 render for the whole time:
+  - one sustained Bm9 colour (F#3 A3 C#4 D4, root F#2) with no chord changes;
+  - a warm lowpass breathing around ~1 kHz;
+  - an octave-up shimmer (A4 C#5 D5) with slow tremolo;
+  - a sparse low pentatonic bell every ~5–8 s;
+  - low "cosmic air" noise;
+  - a generated 5 s convolution reverb and a stereo ping-pong delay → highpass 120 Hz → master (0.6) → compressor → makeup.
+- `export const VARIANT = "A" | "B"` is the single switch. A (default) holds the voicing still. B lets single notes glide slowly between Bm9-mode voicings and breathes a little more.
+- The analysis and numbers are in `dev/AMBIENT.md`. Loudness is about −13.6 LUFS steady state with peaks around −4.5 dBFS; the old v0 ambient was −31 LUFS.
+- Button sounds are soft chimes from the same scale.
+- Sound still starts only on a user gesture.
+- SOUND OFF fades out, stops every source and suspends the AudioContext. Hiding the page does the same, and coming back resumes if SOUND is on.
+- There are 16 persistent sources, plus 2 per bell.
+- Render: `VARIANT=A node dev/render-ambient.mjs 40 /tmp`.
 
 ### Fonts
 - **All Thai text uses Noto Sans Thai, the loopless face the live site uses.** Never use Noto Sans Thai Looped, Sarabun or other looped/head faces.

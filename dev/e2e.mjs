@@ -122,7 +122,7 @@ if (!ONLY) {
   { // sound: "music + cosmos" ambient starts on the entry gesture; SOUND OFF stops every source; ON restarts
     await page.waitForFunction(() => window.__stillwaterAudio().playing && window.__stillwaterAudio().state === "running", null, { timeout: 5000 });
     const on = await page.evaluate(() => window.__stillwaterAudio());
-    assert.ok(on.enabled && on.voices > 10 && on.voices <= 24, "ambient voices bounded: " + on.voices);
+    assert.ok(on.enabled && on.voices >= 12 && on.voices <= 24, "ambient voices bounded: " + on.voices);
     await page.click("#soundToggle"); await page.waitForTimeout(1900);
     const off = await page.evaluate(() => window.__stillwaterAudio());
     assert.deepEqual([off.enabled, off.playing, off.state], [false, false, "suspended"], "SOUND OFF stops + suspends");
