@@ -4,96 +4,96 @@ STILLWATER — PAID 3-CARD READING  (POST /api/deeper)
 ====================================================
 Body:     { order, paid }     // slip flow (active): paid = token from /api/payment/verify-slip
        or { order, charge }   // poll flow (Omise, inactive): charge = paymentId
-Response: { ok, safety, cards: [{ position, id, name, file, image, text } x3],
+Response: { ok, safety, lang,
+            cards: [{ position_key, position, label (=position), id, name, file, image, text } x3],
             final, closing, message }
 
 Gate (api/_lib/order.js → verifyPaidOrder):
-  1. order token signature + expiry (question / context / card 1 come ONLY from it)
+  1. order token signature + expiry (question / context / card 1 / lang come ONLY from it)
   2. payment: a signed paid token bound to the same orderId (slip verified by
-     EasySlip server-side), or — poll flow — a server-side provider check:
-     paid, amount 5900, THB, orderId === order.orderId
-Then 3 cards are drawn server-side (crypto.randomInt, no card 1, no repeats).
+     EasySlip server-side), or — poll flow — a server-side provider check
+Then 3 cards are drawn HERE (drawThree → crypto.randomInt, no card 1, no
+repeats) and passed to the generator as cards3 (ids, past/present/ahead).
+The generator never draws and rejects duplicates / card 1 / bad ids.
+Language = the order token's lang; the client's lang is ignored here.
 
 TODO(storage): one-time use / idempotency — today a replay of the same
 (order, payment) redraws. See the TODO block in api/_lib/order.js.
 */
 
-import { POSITIONS, cardById, drawThree, publicCard } from "./_lib/cards.js";
-import { OrderError, parseBody, verifyPaidOrder } from "./_lib/order.js";
+// Vera comes ONLY through api/_lib/reader.js (real vera.js with an OpenAI key, else the stub).
+import { POSITION_KEYS, cardById, drawThree, generateThree } from "./_lib/reader.js";
+import { OrderError, parseBody, verifyOrder, verifyPaidOrder } from "./_lib/order.js";
 import { PaymentError } from "./_lib/payment.js";
+import { errorText, normLang, t } from "../i18n/strings.js";
 
-/* ==================================================
-   // STUB until Stillwater's vera-3card lands
-   Replace stubReadThree() with `readThree` from api/_lib/vera.js and pass it
-   { question, context, freeCard, openThread } from the VERIFIED order.
-   Note: Stillwater's readThree() draws its own 3 cards with the same rule
-   (drawThree(freeCard.id)); either let it accept `drawn` below or drop the
-   drawThree() call here — but keep exactly one server-side draw.
-================================================== */
-async function stubReadThree({ freeCard, drawn }) {
-  const cards = drawn.map((card, i) => ({
-    position: POSITIONS[i],
-    ...publicCard(card),
-    text: [
-      `${POSITIONS[i]} — ${card.name}`,
-      `ใบนี้พูดถึง${card.core}`,
-      i === 0
-        ? "นี่คือสิ่งที่พาเรื่องนี้มาถึงจุดที่คุณยืนอยู่ค่ะ"
-        : i === 1
-          ? "นี่คือสิ่งที่อยู่ตรงหน้าคุณ และกำลังขอให้คุณมองให้ชัด"
-          : "นี่คือทิศที่พลังตอนนี้เอียงไป ถ้าคุณเดินต่อแบบเดิม"
-    ].join("\n")
-  }));
-  return {
-    safety: false,
-    cards,
-    final: `เมื่อวางสามใบนี้ต่อจาก ${freeCard ? freeCard.name : "ใบแรก"} เรื่องของคุณเริ่มเล่าเป็นเส้นเดียวกันแล้วค่ะ สิ่งที่ทำได้จริงตอนนี้คือเลือกหนึ่งก้าวเล็ก ๆ ที่ตรงกับใจ แล้วลองดูว่ามันพาไปทางไหน`,
-    closing: "พี่เวราจะเก็บคำถามนี้ไว้ในน้ำนิ่งนะคะ ขอให้คุณเดินต่ออย่างเบาใจค่ะ",
-    message: null
-  };
-}
-/* ================= END STUB ================= */
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+  let lang = "th"; // until the order token is verified
   try {
     const body = parseBody(req);
+    // Language for error messages = the order token's lang, even if payment fails.
+    try { lang = normLang(verifyOrder(body.order).lang); } catch { /* verifyPaidOrder reports it */ }
     const { order } = await verifyPaidOrder({
       orderToken: body.order,
       paidToken: typeof body.paid === "string" && body.paid ? body.paid : null,
       paymentId: String(body.charge || body.payment || "")
     });
+    lang = normLang(order.lang); // old tokens without lang → "th"
 
-    const freeCard = cardById(order.card1);
-    const drawn = drawThree(order.card1);
+    const cards3 = drawThree(order.card1).map((c) => c.id); // the ONLY paid draw (crypto.randomInt)
 
-    const result = await stubReadThree({
+    const result = await generateThree({
       question: order.question,
       context: order.context,
-      freeCard: freeCard ? { id: freeCard.id, name: freeCard.name, text: order.card1Text } : null,
+      card1: { id: order.card1, name: order.card1Name || cardById(order.card1, lang)?.name, text: order.card1Text },
       openThread: order.open_thread,
-      drawn
+      cards3,
+      lang
     });
+    if (result.usage) console.log("Stillwater /api/deeper usage:", JSON.stringify({ lang, fallback: result.fallback, attempts: result.attempts, usage: result.usage }));
 
     if (result.safety) {
-      return res.status(200).json({ ok: true, safety: true, cards: [], final: "", closing: "", message: result.message });
+      const message = (typeof result.message === "string" && result.message.trim()) || t(lang, "safety.paragraphs").join("\n\n");
+      return res.status(200).json({ ok: true, safety: true, lang, cards: [], final: "", closing: "", message });
     }
+
+    // Order by position_key (logic); display the reader's `position` label (reading language).
+    // Every id must be exactly the card we drew for that position.
+    const byKey = new Map((result.cards || []).map((c) => [c.position_key, c]));
+    const cards = POSITION_KEYS.map((key, i) => {
+      const c = byKey.get(key);
+      if (!c || Number(c.id) !== cards3[i]) {
+        const err = new Error("reader returned cards that differ from the server draw");
+        err.code = "deeper_failed";
+        throw err;
+      }
+      const label = (typeof c.position === "string" && c.position) || t(lang, "positions." + key);
+      return {
+        position_key: key,
+        position: label,
+        label,
+        id: c.id,
+        name: c.name,
+        file: c.file,
+        image: c.image,
+        text: String(c.text || "")
+      };
+    });
+
     return res.status(200).json({
-      ok: true,
-      safety: false,
-      cards: result.cards,
-      final: result.final,
-      closing: result.closing,
-      message: null
+      ok: true, safety: false, lang, cards,
+      final: String(result.final || ""), closing: String(result.closing || ""), message: null
     });
   } catch (error) {
     const known = error instanceof OrderError || error instanceof PaymentError;
-    if (!known) console.error("Stillwater /api/deeper error:", error);
+    if (!known) console.error("Stillwater /api/deeper error:", error?.code || error);
     return res.status(known ? error.status : 500).json({
-      error: known ? error.message : "เปิดไพ่เพิ่มไม่สำเร็จ",
-      code: error.code || "error"
+      error: errorText(lang, known ? error.code : "deeper_failed"),
+      code: known ? error.code : "deeper_failed"
     });
   }
 }

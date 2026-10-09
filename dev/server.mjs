@@ -38,6 +38,7 @@ process.env.PROMPTPAY_ID ||= "0000000000"; // obviously-fake mock PromptPay ID
 process.env.EASYSLIP_API_KEY ||= "mock-easyslip-key";
 process.env.EASYSLIP_MOCK = "1";
 delete process.env.OPENAI_API_KEY;
+process.env.VERA_READER = "stub"; // never call OpenAI locally / in tests (see api/_lib/reader.js)
 
 /* ---------------- mock EasySlip v2 ---------------- */
 const seenTransRefs = new Set();
@@ -102,6 +103,7 @@ const QR_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(
 );
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init = {}) => {
+  if (/openai\.com/i.test(String(input?.url || input))) throw new Error("dev/server.mjs: OpenAI calls are blocked in local tests");
   const url = new URL(typeof input === "string" ? input : input.url);
   if (url.hostname === "api.easyslip.com") return mockEasySlip(url, init);
   if (url.hostname !== "api.omise.co") return realFetch(input, init);

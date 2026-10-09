@@ -10,6 +10,17 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Noto+Sans+Thai:wght@300;400;500&display=swap" rel="stylesheet">
 
+<script>
+/* Avoid a flash of Thai copy for English visitors before the module applies strings. */
+(function(){
+  var l = null;
+  try{ l = localStorage.getItem('stillwater.lang'); }catch(e){}
+  if(l !== 'th' && l !== 'en') l = /^th/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'th' : 'en';
+  document.documentElement.lang = l;
+  if(l !== 'th') document.documentElement.classList.add('lang-pending');
+})();
+</script>
+
 <!-- Vercel Analytics -->
 <script>
 window.va = window.va || function () {
@@ -67,9 +78,21 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
   100%{opacity:0;transform:scale(1)}
 }
 
-.sound-toggle{
-  position:fixed;z-index:100;
+.top-controls{
+  position:fixed;z-index:100;display:flex;gap:.5rem;align-items:center;
   top:max(1rem,env(safe-area-inset-top));right:max(1rem,env(safe-area-inset-right));
+}
+.lang-toggle{
+  border:1px solid var(--line);border-radius:999px;
+  background:rgba(10,12,30,.48);backdrop-filter:blur(10px);
+  color:rgba(205,214,244,.45);font:400 .68rem var(--sans);letter-spacing:.1em;
+  padding:.5rem .75rem;cursor:pointer;
+}
+.lang-toggle .on{color:var(--text)}
+.lang-toggle .sep{margin:0 .3rem;opacity:.5}
+.lang-toggle:focus-visible{outline:none;border-color:rgba(215,220,255,.55)}
+[data-i18n]{white-space:pre-line}
+.sound-toggle{
   border:1px solid var(--line);border-radius:999px;
   background:rgba(10,12,30,.48);backdrop-filter:blur(10px);
   color:var(--soft);font:400 .68rem var(--sans);letter-spacing:.1em;
@@ -91,6 +114,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 .btn-quiet{font-size:.74rem;padding:.65rem 1.2rem;opacity:.75}
 
 [hidden]{display:none!important}
+.lang-pending #vera-app,.lang-pending .top-controls{visibility:hidden}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* ---------- scene frame (one page, one scene visible at a time) ---------- */
@@ -228,6 +252,8 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 #scene-offering .vera{width:30px;height:70px}
 #scene-offering h2{font:400 1.2rem var(--sans);line-height:1.7;margin:.3rem 0 .7rem}
 #scene-offering .copy{font-size:.9rem;line-height:1.95;color:var(--soft)}
+#scene-offering .sub{font-size:.82rem;line-height:1.8;color:var(--soft);margin:-.4rem 0 1rem}
+#scene-offering .sub:empty{display:none}
 #scene-offering .ppf{font:400 .95rem var(--serif);letter-spacing:.2em;color:var(--soft);margin:.6rem 0 1rem}
 #scene-offering .locked{display:flex;gap:.7rem;justify-content:center;margin-bottom:1rem}
 #scene-offering .locked figure{width:min(84px,24vw)}
@@ -304,7 +330,10 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 <div class="fog"></div>
 <div class="portal" id="portal"></div>
 
-<button class="sound-toggle" id="soundToggle" type="button" aria-pressed="false">SOUND OFF</button>
+<div class="top-controls">
+  <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="false" data-i18n="ui.soundOff">SOUND OFF</button>
+  <button class="lang-toggle" id="langToggle" type="button" data-i18n-aria-label="ui.langToggleLabel" aria-label="เปลี่ยนภาษา / Change language"><span data-l="th">TH</span><span class="sep">/</span><span data-l="en">EN</span></button>
+</div>
 
 <!-- The ONE locked Vera figure (same artwork as the live page). Every scene <use>s it. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -324,14 +353,8 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
   <div class="scene-inner">
     <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
     <h1 class="title">Stillwater</h1>
-    <div class="lead" id="windowLines">
-      <p class="ln">กำลังรออยู่เลย มาสิ</p>
-      <p class="ln">หากมีคำถามที่อยากให้จักรวาลช่วยตอบ</p>
-      <p class="ln">พี่จะช่วยรับคำถามไว้</p>
-      <p class="ln">แล้วขอให้พลังงานของจักรวาล</p>
-      <p class="ln">นำคำตอบที่เหมาะสมกับคุณกลับมา</p>
-    </div>
-    <button class="btn" id="btnEnter" type="button">พร้อมส่งคำถาม</button>
+    <div class="lead" id="windowLines" data-i18n-lines="window.lines"></div>
+    <button class="btn" id="btnEnter" type="button" data-i18n="window.enter">พร้อมส่งคำถาม</button>
   </div>
 </section>
 
@@ -340,14 +363,15 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
   <div class="scene-inner">
     <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
     <form id="questionForm" autocomplete="off" novalidate>
-      <h2 id="questionTitle">มีเรื่องอะไรที่ยังค้างอยู่ในใจ?</h2>
+      <h2 id="questionTitle" data-i18n="question.title">มีเรื่องอะไรที่ยังค้างอยู่ในใจ?</h2>
       <p class="note" id="rewriteNote" role="alert" hidden></p>
-      <label class="sr-only" for="questionInput">คำถามของคุณ</label>
-      <textarea class="input" id="questionInput" maxlength="500" rows="3" placeholder="พิมพ์คำถามที่คุณอยากรู้ที่สุด..." required></textarea>
-      <label class="label" for="contextInput">เล่าเพิ่มอีกนิด (ไม่ต้องก็ได้)</label>
-      <textarea class="input" id="contextInput" maxlength="1200" rows="2" placeholder="เช่น เรื่องนี้เริ่มเมื่อไร ตอนนี้รู้สึกอย่างไร"></textarea>
-      <p class="rule">พี่เวรายังไม่รับคำถามเรื่องสุขภาพ กฎหมาย<br>และเรื่องเงินก้อนใหญ่นะคะ</p>
-      <button class="btn" id="btnAsk" type="submit">พร้อมรับคำตอบ</button>
+      <label class="sr-only" for="questionInput" data-i18n="question.label">คำถามของคุณ</label>
+      <textarea class="input" id="questionInput" maxlength="500" rows="3" placeholder="พิมพ์คำถามที่คุณอยากรู้ที่สุด..." data-i18n-placeholder="question.placeholder" required></textarea>
+      <label class="label" for="contextInput" data-i18n="question.contextLabel">เล่าเพิ่มอีกนิด (ไม่ต้องก็ได้)</label>
+      <textarea class="input" id="contextInput" maxlength="1200" rows="2" placeholder="เช่น เรื่องนี้เริ่มเมื่อไร ตอนนี้รู้สึกอย่างไร" data-i18n-placeholder="question.contextPlaceholder"></textarea>
+      <p class="rule" data-i18n="question.rule">พี่เวรายังไม่รับคำถามเรื่องสุขภาพ กฎหมาย
+และเรื่องเงินก้อนใหญ่นะคะ</p>
+      <button class="btn" id="btnAsk" type="submit" data-i18n="question.submit">พร้อมรับคำตอบ</button>
     </form>
   </div>
 </section>
@@ -356,10 +380,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 <section class="scene" id="scene-draw" aria-live="polite" hidden>
   <div class="scene-inner">
     <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
-    <div class="wait" id="drawLines">
-      <p class="ln">รอพี่สักครู่...พี่จะลองขอคำตอบจากจักรวาลให้คุณนะคะ</p>
-      <p class="ln">คำถามของคุณถูกฝากไว้แล้ว ตอนนี้ลองปล่อยให้คำตอบเดินทางมาหาคุณ</p>
-    </div>
+    <div class="wait" id="drawLines" data-i18n-lines="draw.lines"></div>
     <div class="flip" id="drawFlip">
       <div class="flip-inner">
         <div class="face face-back card-back"></div>
@@ -369,7 +390,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
     <p class="card-name" id="drawName"></p>
     <div id="drawError" hidden>
       <p class="error" id="drawErrorText"></p>
-      <button class="btn btn-quiet" id="btnDrawBack" type="button">กลับไปที่คำถาม</button>
+      <button class="btn btn-quiet" id="btnDrawBack" type="button" data-i18n="draw.back">กลับไปที่คำถาม</button>
     </div>
   </div>
 </section>
@@ -384,12 +405,8 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
     </div>
     <div class="answer" id="firstLines"></div>
     <div class="invite" id="firstInvite">
-      <p class="ln">คำตอบแรกคือสิ่งที่คุณควรรู้</p>
-      <p class="ln">แต่บางครั้ง..คำตอบหนึ่งใบไม่ได้เล่าเรื่องทั้งหมด</p>
-      <p class="ln">พี่เวรายังสามารถถามต่อได้อีกครั้ง</p>
-      <p class="ln">และครั้งนี้จะเปิดไพ่เพิ่ม 3 ใบ</p>
-      <p class="ln">เพื่อดูสิ่งที่อยู่เบื้องหลังคำตอบแรก</p>
-      <button class="btn ln" id="btnToOffer" type="button">ให้พี่ถามต่อ</button>
+      <div data-i18n-lines="first.invite"></div>
+      <button class="btn ln" id="btnToOffer" type="button" data-i18n="first.next">ให้พี่ถามต่อ</button>
     </div>
   </div>
 </section>
@@ -398,33 +415,35 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 <section class="scene" id="scene-offering" hidden>
   <div class="scene-inner">
     <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
-    <h2>บางคำถาม... ไพ่ใบเดียวอาจยังเล่าไม่หมด</h2>
-    <p class="copy">ให้พี่เปิดไพ่เพิ่มอีกสามใบ เพื่อดูเรื่องราวตั้งแต่อดีต ปัจจุบัน และแนวโน้มข้างหน้า</p>
-    <p class="ppf">Past · Present · Future</p>
+    <h2 data-i18n="offering.title">บางคำถาม... ไพ่ใบเดียวอาจยังเล่าไม่หมด</h2>
+    <p class="copy" data-i18n="offering.copy">ให้พี่เปิดไพ่เพิ่มอีกสามใบ เพื่อดูเรื่องราวตั้งแต่อดีต ปัจจุบัน และแนวโน้มข้างหน้า</p>
+    <p class="ppf" data-i18n="offering.ppf">Past · Present · Future</p>
+    <p class="sub" data-i18n="offering.sub"></p>
     <div class="locked" aria-hidden="true">
-      <figure><div class="card-back"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(235,240,255,.9)" stroke-width="1.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><figcaption>อดีต</figcaption></figure>
-      <figure><div class="card-back"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(235,240,255,.9)" stroke-width="1.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><figcaption>ปัจจุบัน</figcaption></figure>
-      <figure><div class="card-back"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(235,240,255,.9)" stroke-width="1.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><figcaption>แนวโน้มข้างหน้า</figcaption></figure>
+      <figure><div class="card-back"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(235,240,255,.9)" stroke-width="1.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><figcaption data-i18n="positions.past">อดีต</figcaption></figure>
+      <figure><div class="card-back"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(235,240,255,.9)" stroke-width="1.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><figcaption data-i18n="positions.present">ปัจจุบัน</figcaption></figure>
+      <figure><div class="card-back"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(235,240,255,.9)" stroke-width="1.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><figcaption data-i18n="positions.ahead">แนวโน้มข้างหน้า</figcaption></figure>
     </div>
     <div class="pay-card">
-      <div class="price">฿59</div>
-      <button class="btn" id="btnPay" type="button">เข้าสู่การชำระเงิน</button>
-      <img class="qr" id="payQr" alt="QR พร้อมเพย์ 59 บาท" hidden>
+      <div class="price" data-i18n="offering.price">฿59</div>
+      <button class="btn" id="btnPay" type="button" data-i18n="offering.pay">เข้าสู่การชำระเงิน</button>
+      <img class="qr" id="payQr" alt="QR พร้อมเพย์ 59 บาท" data-i18n-alt="offering.qrAlt" hidden>
       <code class="qr-payload" id="payQrPayload" hidden></code>
-      <p class="hint" id="payHint" hidden>สแกน QR นี้ หรือบันทึกรูปไปเปิดในแอปธนาคาร<br>โอน 59 บาท แล้วแนบสลิปด้านล่างนะคะ</p>
+      <p class="hint" id="payHint" data-i18n="offering.hint" hidden>สแกน QR นี้ หรือบันทึกรูปไปเปิดในแอปธนาคาร
+โอน 59 บาท แล้วแนบสลิปด้านล่างนะคะ</p>
       <div class="qr-actions" id="payQrActions" hidden>
-        <a class="btn btn-quiet" id="btnSaveQr" download="stillwater-promptpay-59.png" href="#">บันทึกรูป QR</a>
+        <a class="btn btn-quiet" id="btnSaveQr" download="stillwater-promptpay-59.png" href="#" data-i18n="offering.saveQr">บันทึกรูป QR</a>
       </div>
       <div class="slip" id="slipBox" hidden>
         <input class="slip-input" type="file" id="slipInput" accept="image/jpeg,image/png">
-        <label class="btn slip-pick" id="slipPick" for="slipInput">แนบสลิป</label>
-        <img class="slip-preview" id="slipPreview" alt="สลิปที่แนบ" hidden>
-        <button class="btn btn-quiet" id="btnRetrySlip" type="button" hidden>ตรวจสลิปอีกครั้ง</button>
+        <label class="btn slip-pick" id="slipPick" for="slipInput" data-i18n="offering.attach">แนบสลิป</label>
+        <img class="slip-preview" id="slipPreview" alt="สลิปที่แนบ" data-i18n-alt="offering.slipAlt" hidden>
+        <button class="btn btn-quiet" id="btnRetrySlip" type="button" data-i18n="offering.retry" hidden>ตรวจสลิปอีกครั้ง</button>
       </div>
       <p class="status" id="payStatus" aria-live="polite"></p>
-      <p class="small">เมื่อตรวจสลิปผ่าน พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ</p>
+      <p class="small" data-i18n="offering.small">เมื่อตรวจสลิปผ่าน พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ</p>
     </div>
-    <button class="btn btn-quiet" id="btnBackFirst" type="button">กลับไปดูคำตอบเดิม</button>
+    <button class="btn btn-quiet" id="btnBackFirst" type="button" data-i18n="offering.back">กลับไปดูคำตอบเดิม</button>
   </div>
 </section>
 
@@ -432,21 +451,21 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 <section class="scene" id="scene-full" hidden>
   <div class="scene-inner">
     <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
-    <p class="intro" id="fullIntro">พี่กำลังเปิดสามใบให้คุณนะคะ</p>
+    <p class="intro" id="fullIntro" data-i18n="full.opening">พี่กำลังเปิดสามใบให้คุณนะคะ</p>
     <div class="spread" id="fullSpread"></div>
     <div class="readings" id="fullReadings"></div>
     <div class="final" id="fullFinal" hidden></div>
     <div id="fullError" hidden>
       <p class="error" id="fullErrorText"></p>
-      <button class="btn btn-quiet" id="btnFullRetry" type="button">ลองเปิดอีกครั้ง</button>
+      <button class="btn btn-quiet" id="btnFullRetry" type="button" data-i18n="full.retry">ลองเปิดอีกครั้ง</button>
     </div>
     <div class="actions" id="fullActions" hidden>
       <div class="row">
-        <button class="btn btn-quiet" id="btnSave" type="button">บันทึกคำอ่าน</button>
-        <button class="btn btn-quiet" id="btnShare" type="button">แชร์คำอ่าน</button>
+        <button class="btn btn-quiet" id="btnSave" type="button" data-i18n="full.save">บันทึกคำอ่าน</button>
+        <button class="btn btn-quiet" id="btnShare" type="button" data-i18n="full.share">แชร์คำอ่าน</button>
       </div>
       <p class="share-note" id="shareNote" aria-live="polite"></p>
-      <button class="btn" id="btnAgain" type="button">ถามพี่เวราอีกครั้ง</button>
+      <button class="btn" id="btnAgain" type="button" data-i18n="full.again">ถามพี่เวราอีกครั้ง</button>
     </div>
   </div>
 </section>
@@ -461,12 +480,73 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 
 </main>
 
-<script>
+<script type="module">
+/* All user-facing copy lives in /i18n/strings.js (shared with the API). */
+import { t as tr, normLang, errorKey, LANGS } from '/i18n/strings.js';
+
 (function(){
 'use strict';
 
 /* ================= helpers ================= */
 const $ = (id) => document.getElementById(id);
+
+/* ================= language (UI) =================
+   uiLang drives every static/status string and is sent to /api/read.
+   A reading's own text (card text, final, closing, position labels) stays in
+   the language it was generated in (state.lang, sealed in the order token). */
+const LANG_STORE = 'stillwater.lang';
+function initialLang(){
+  try{ const v = localStorage.getItem(LANG_STORE); if(LANGS.includes(v)) return v; }catch(e){}
+  const nav = String((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase();
+  return nav.startsWith('th') ? 'th' : 'en';
+}
+let uiLang = initialLang();
+const t = (key, vars) => tr(uiLang, key, vars);
+
+/* Bind an element to a strings key (re-rendered on language switch). */
+function setText(el, key, vars){
+  if(!key){ delete el.dataset.i18n; delete el.dataset.i18nVars; el.textContent = ''; return; }
+  el.dataset.i18n = key;
+  if(vars) el.dataset.i18nVars = JSON.stringify(vars); else delete el.dataset.i18nVars;
+  el.textContent = t(key, vars);
+}
+/* Line lists (arrays in strings, length may differ per language). Keeps the
+   revealed state so switching language mid-scene doesn't replay or hide lines. */
+function renderLineLists(){
+  document.querySelectorAll('[data-i18n-lines]').forEach((box) => {
+    const shown = !!box.querySelector('.ln.is-in');
+    const lines = t(box.dataset.i18nLines);
+    box.textContent = '';
+    (Array.isArray(lines) ? lines : [String(lines)]).forEach((line) => {
+      const p = document.createElement('p');
+      p.className = 'ln' + (shown ? ' is-in' : '');
+      p.textContent = line;
+      box.appendChild(p);
+    });
+  });
+}
+function applyLang(){
+  document.documentElement.lang = uiLang;
+  renderLineLists();
+  document.title = t('meta.title');
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    let vars;
+    try{ vars = el.dataset.i18nVars ? JSON.parse(el.dataset.i18nVars) : undefined; }catch(e){}
+    el.textContent = t(el.dataset.i18n, vars);
+  });
+  for(const attr of ['placeholder','alt','aria-label']){
+    document.querySelectorAll('[data-i18n-' + attr + ']').forEach((el) => el.setAttribute(attr, t(el.getAttribute('data-i18n-' + attr))));
+  }
+  document.querySelectorAll('#langToggle [data-l]').forEach((el) => el.classList.toggle('on', el.dataset.l === uiLang));
+  $('langToggle').setAttribute('aria-pressed', uiLang === 'en' ? 'true' : 'false');
+  if(currentScene === 'safety') renderSafety(true);
+  document.documentElement.classList.remove('lang-pending');
+}
+function setLang(lang){
+  uiLang = normLang(lang);
+  try{ localStorage.setItem(LANG_STORE, uiLang); }catch(e){}
+  applyLang();
+}
 const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
 let reduceMotion = mq.matches;
 function applyMotionPref(){
@@ -552,12 +632,12 @@ async function showScene(name){
 /* ================= state ================= */
 const STORE = 'stillwater.vera.v1';
 const STORE_TTL = 24 * 60 * 60 * 1000;
-const state = { question:'', context:'', order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null, pollTimer:null };
+const state = { question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null, pollTimer:null };
 
 function save(){
   try{
     localStorage.setItem(STORE, JSON.stringify({
-      order: state.order, card: state.card, paymentId: state.paymentId,
+      order: state.order, card: state.card, lang: state.lang, paymentId: state.paymentId,
       paid: state.paid, deeper: state.deeper, stage: state.stage, savedAt: Date.now()
     }));
   }catch(e){}
@@ -588,7 +668,7 @@ async function unlockAudio(){
 }
 function setSound(on){
   soundEnabled = on;
-  $('soundToggle').textContent = on ? 'SOUND ON' : 'SOUND OFF';
+  setText($('soundToggle'), on ? 'ui.soundOn' : 'ui.soundOff');
   $('soundToggle').setAttribute('aria-pressed', on ? 'true' : 'false');
   if(!master) return;
   const now = audioCtx.currentTime;
@@ -729,9 +809,12 @@ async function enter(){
 }
 
 /* ================= 2. THE QUESTION ================= */
-function goQuestion({ note } = {}){
+/* note: a strings key (re-rendered on language switch); noteText: raw text from the generator */
+function goQuestion({ note, noteText } = {}){
   const n = $('rewriteNote');
-  if(note){ n.textContent = note; n.hidden = false; } else { n.textContent = ''; n.hidden = true; }
+  if(note){ setText(n, note); n.hidden = false; }
+  else if(noteText){ setText(n, null); n.textContent = noteText; n.hidden = false; }
+  else { setText(n, null); n.hidden = true; }
   $('btnAsk').disabled = false;
   $('questionInput').disabled = false;
   $('contextInput').disabled = false;
@@ -743,7 +826,7 @@ async function submitQuestion(event){
   const question = $('questionInput').value.trim();
   const context = $('contextInput').value.trim();
   if(!question){
-    $('rewriteNote').textContent = 'พิมพ์คำถามสักนิดก่อนนะคะ';
+    setText($('rewriteNote'), 'question.empty');
     $('rewriteNote').hidden = false;
     $('questionInput').focus();
     return;
@@ -777,7 +860,7 @@ async function startDraw(){
   try{
     const res = await fetch('/api/read', {
       method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ question: state.question, context: state.context || undefined })
+      body: JSON.stringify({ question: state.question, context: state.context || undefined, lang: uiLang })
     });
     status = res.status;
     data = await res.json().catch(() => ({}));
@@ -786,8 +869,10 @@ async function startDraw(){
   await Promise.all([linesShown, minWait]);
 
   if(!ok){
-    $('drawErrorText').textContent = (data && data.error) ||
-      (status === 429 ? 'ถามมาหลายครั้งแล้ว พักสักครู่แล้วค่อยกลับมานะคะ' : 'ขออภัยนะคะ ตอนนี้ยังขอคำตอบไม่ได้ ลองใหม่อีกครั้งนะคะ');
+    const code = data && data.code;
+    setText($('drawErrorText'),
+      status === 429 || code === 'rate_limited' ? 'draw.rateLimited' :
+      code === 'question_required' ? 'errors.question_required' : 'draw.failed');
     $('drawError').hidden = false;
     return;
   }
@@ -795,15 +880,18 @@ async function startDraw(){
   if(data.safety && !data.card){
     trackEvent('safety_shown');
     clearStore();
-    return showSafety(data.message || data.reading);
+    return showSafety(data.message, data.lang);
   }
   if(data.needs_rewrite || !data.card){
     trackEvent('needs_rewrite');
-    return goQuestion({ note: data.message || data.reading || 'ลองเล่าเป็นคำถามอีกครั้งนะคะ' });
+    // Copy comes from strings by reason so it follows the language toggle.
+    // Vera's own rewrite prompt (in the language asked), shown as-is.
+    return data.message ? goQuestion({ noteText: data.message }) : goQuestion({ note: 'rewrite.fallback' });
   }
 
   state.card = data.card;
   state.order = data.order || null;
+  state.lang = normLang(data.lang || uiLang);
   state.paymentId = null;
   state.paid = null;
   state.deeper = null;
@@ -869,7 +957,7 @@ function resetOffering(){
 function resetSlip(){
   state.slipFile = null;
   $('slipInput').value = '';
-  $('slipPick').textContent = 'แนบสลิป';
+  setText($('slipPick'), 'offering.attach');
   $('slipPick').classList.remove('is-busy');
   $('slipPreview').hidden = true;
   $('slipPreview').classList.remove('is-checking');
@@ -884,19 +972,19 @@ function goOffering(){
   showScene('offering');
 }
 
-/* tone: '' | 'error' | 'calm' | 'ok' */
-function setPayStatus(text, tone){
+/* key: strings key ('' clears); tone: '' | 'error' | 'calm' | 'ok' */
+function setPayStatus(key, tone){
   const el = $('payStatus');
-  el.textContent = text;
+  setText(el, key || null);
   el.classList.toggle('is-error', tone === 'error' || tone === true);
   el.classList.toggle('is-calm', tone === 'calm');
   el.classList.toggle('is-ok', tone === 'ok');
 }
 
 async function createPayment(){
-  if(!state.order){ setPayStatus('ไม่พบคำถามของรายการนี้ กรุณาเริ่มถามใหม่อีกครั้ง', true); return; }
+  if(!state.order){ setPayStatus('pay.noOrder', true); return; }
   $('btnPay').disabled = true;
-  setPayStatus('กำลังเปิดช่องทางชำระเงิน…');
+  setPayStatus('pay.opening');
   buttonSound('pay');
   trackEvent('payment_started');
   try{
@@ -905,39 +993,40 @@ async function createPayment(){
       body: JSON.stringify({ order: state.order })
     });
     const data = await res.json().catch(() => ({}));
-    if(!res.ok) throw new Error(data.error || 'ยังไม่สามารถเปิดช่องทางชำระเงินได้');
-    if(!data.qr && !data.qrPayload) throw new Error('ยังไม่ได้รับ QR สำหรับชำระเงิน');
+    if(!res.ok) throw new Error(data.code ? errorKey(data.code) : 'pay.createFailed');
+    if(!data.qr && !data.qrPayload) throw new Error('pay.noQr');
     showQr(data);
     if(data.flow === 'slip'){
       // PromptPay to Stillwater's own account → customer attaches the slip.
       $('payHint').hidden = false;
       if(data.qr){ $('btnSaveQr').href = data.qr; $('payQrActions').hidden = false; }
       $('slipBox').hidden = false;
-      setPayStatus(data.mode === 'test' ? 'โหมดเทส: ระบบตรวจสลิปเป็นแบบจำลอง' : '');
+      setPayStatus(data.mode === 'test' ? 'pay.testSlip' : '');
     }else{
       const paymentId = data.paymentId || data.chargeId;
-      if(!paymentId) throw new Error('ยังไม่ได้รับ QR สำหรับชำระเงิน');
+      if(!paymentId) throw new Error('pay.noQr');
       state.paymentId = paymentId;
       save();
-      setPayStatus(data.mode === 'test' ? 'โหมดเทส สแกน QR แล้วยืนยันการจ่าย' : 'สแกน QR พร้อมเพย์ 59 บาท');
+      setPayStatus(data.mode === 'test' ? 'pay.testPoll' : 'pay.scanPoll');
       startPolling();
     }
   }catch(error){
     $('btnPay').disabled = false;
-    setPayStatus(error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+    // error.message is a strings key (network errors fall back to createFailed)
+    setPayStatus(/^[a-z]+\.[A-Za-z_]+$/.test(error.message || '') ? error.message : 'pay.createFailed', 'error');
   }
 }
 
 /* ---------- slip upload (PromptPay + EasySlip) ---------- */
 const SLIP_MAX = 4 * 1024 * 1024;
-const SLIP_BAD_FILE = 'รูปสลิปต้องเป็น JPG หรือ PNG ขนาดไม่เกิน 4MB ค่ะ';
+const SLIP_REASONS = ['pending','wrong_amount','wrong_account','duplicate','old_slip','unreadable','bad_file','quota','service'];
 
 function onSlipChosen(){
   const file = $('slipInput').files && $('slipInput').files[0];
   if(!file) return;
   if(!/^image\/(jpeg|png)$/.test(file.type) || file.size > SLIP_MAX || file.size === 0){
     resetSlip();
-    setPayStatus(SLIP_BAD_FILE, 'error');
+    setPayStatus('slip.bad_file', 'error');
     return;
   }
   state.slipFile = file;
@@ -955,7 +1044,7 @@ async function submitSlip(){
   $('btnRetrySlip').hidden = true;
   $('slipPick').classList.add('is-busy');
   $('slipPreview').classList.add('is-checking');
-  setPayStatus('พี่กำลังตรวจสลิปให้นะคะ…', 'calm');
+  setPayStatus('pay.checkingSlip', 'calm');
   let data = {}, ok = false;
   try{
     const form = new FormData();
@@ -974,24 +1063,25 @@ async function submitSlip(){
     save();
     trackEvent('payment_paid', { method:'slip' });
     $('slipPick').hidden = true;
-    setPayStatus('ได้รับแล้วค่ะ ขอบคุณนะคะ พี่กำลังเปิดไพ่ให้', 'ok');
+    setPayStatus('pay.slipOk', 'ok');
     await wait(1400);
     $('slipPick').hidden = false;
     openFull();
     return;
   }
   trackEvent('slip_failed', { reason: data.reason || 'unknown' });
-  const msg = data.error || 'ระบบตรวจสลิปยังไม่พร้อมค่ะ ลองใหม่อีกครั้งในอีกสักครู่นะคะ';
-  if(data.reason === 'pending' || data.reason === 'quota' || data.reason === 'service'){
+  const reason = data.reason || 'service';
+  const msgKey = SLIP_REASONS.includes(reason) ? 'slip.' + reason : errorKey(reason);
+  if(reason === 'pending' || reason === 'quota' || reason === 'service'){
     // Same slip may pass later (Bangkok Bank ~5 min) → keep it and offer a retry.
-    setPayStatus(msg, 'calm');
+    setPayStatus(msgKey, 'calm');
     $('btnRetrySlip').hidden = false;
-    $('slipPick').textContent = 'แนบสลิปใหม่';
+    setText($('slipPick'), 'offering.attachAgain');
   }else{
-    setPayStatus(msg, 'error');
+    setPayStatus(msgKey, 'error');
     state.slipFile = null;
     $('slipInput').value = '';
-    $('slipPick').textContent = 'แนบสลิปใหม่';
+    setText($('slipPick'), 'offering.attachAgain');
   }
   if(/order_/.test(data.reason || '')){ $('slipBox').hidden = true; }
 }
@@ -1020,7 +1110,7 @@ function startPolling(){
     if(busy || !state.paymentId) return;
     if(Date.now() - started > 20 * 60 * 1000){
       stopPolling();
-      setPayStatus('QR นี้หมดเวลาแล้ว กดเข้าสู่การชำระเงินอีกครั้งได้เลยค่ะ', true);
+      setPayStatus('pay.qrExpired', true);
       state.paymentId = null; save();
       $('btnPay').hidden = false; $('btnPay').disabled = false; $('payQr').hidden = true;
       return;
@@ -1031,14 +1121,14 @@ function startPolling(){
       const data = await res.json().catch(() => ({}));
       if(data.paid){
         stopPolling();
-        setPayStatus('ได้รับแล้วค่ะ พี่กำลังเปิดไพ่ให้นะคะ');
+        setPayStatus('pay.pollOk');
         trackEvent('payment_paid');
         await wait(700);
         openFull();
       }else if(['failed','expired','reversed'].includes(data.status)){
         stopPolling();
         state.paymentId = null; save();
-        setPayStatus('รายการนี้ไม่สำเร็จ ลองเข้าสู่การชำระเงินอีกครั้งได้เลยค่ะ', true);
+        setPayStatus('pay.failed', true);
         $('btnPay').hidden = false; $('btnPay').disabled = false; $('payQr').hidden = true;
       }
     }catch(e){}
@@ -1053,14 +1143,14 @@ document.addEventListener('visibilitychange', () => {
 
 /* ================= 6. THE FULL READING ================= */
 function resetFull(){
-  $('fullIntro').textContent = 'พี่กำลังเปิดสามใบให้คุณนะคะ';
+  setText($('fullIntro'), 'full.opening');
   $('fullSpread').textContent = '';
   $('fullReadings').textContent = '';
   $('fullFinal').textContent = '';
   $('fullFinal').hidden = true;
   $('fullActions').hidden = true;
   $('fullError').hidden = true;
-  $('shareNote').textContent = '';
+  setText($('shareNote'), null);
 }
 
 async function fetchDeeper(){
@@ -1071,10 +1161,10 @@ async function fetchDeeper(){
     });
     const data = await res.json().catch(() => ({}));
     if(res.ok) return data;
-    if(res.status !== 402) throw new Error(data.error || 'ยังเปิดสามใบไม่ได้');
+    if(res.status !== 402) throw new Error(data.code ? errorKey(data.code) : 'full.failed');
     await wait(2500); // provider may lag a moment behind the status poll
   }
-  throw new Error('ยังไม่พบการชำระเงิน 59 บาท ถ้าจ่ายแล้ว ลองกดเปิดอีกครั้งนะคะ');
+  throw new Error('full.notPaidYet');
 }
 
 async function openFull(){
@@ -1085,14 +1175,19 @@ async function openFull(){
     try{
       data = await fetchDeeper();
     }catch(error){
-      $('fullErrorText').textContent = error.message;
+      setText($('fullErrorText'), /^[a-z]+\.[A-Za-z_]+$/.test(error.message || '') ? error.message : 'full.failed');
       $('fullError').hidden = false;
       return;
     }
   }
   if(data.safety){
     clearStore();
-    return showSafety(data.message);
+    return showSafety(data.message, data.lang);
+  }
+  // Order by position_key (past → present → ahead); display the server's label.
+  const ORDER = ['past','present','ahead'];
+  if(Array.isArray(data.cards) && data.cards.every((c) => c.position_key)){
+    data.cards = data.cards.slice().sort((a, b) => ORDER.indexOf(a.position_key) - ORDER.indexOf(b.position_key));
   }
   state.deeper = data;
   state.stage = 'full';
@@ -1100,10 +1195,19 @@ async function openFull(){
   await revealFull(data);
 }
 
+/* Position label for display: server label (reading language); fallback from position_key. */
+function posLabel(card){
+  return card.label || card.position || (card.position_key ? tr(state.lang || uiLang, 'positions.' + card.position_key) : '');
+}
+function positionsLine(cards){
+  const labels = (cards || []).map(posLabel).filter(Boolean);
+  return labels.length ? labels.join(' · ') : tr(state.lang || uiLang, 'full.positionsLine');
+}
+
 function buildSlot(card){
   const slot = document.createElement('div');
   slot.className = 'slot';
-  const pos = document.createElement('p'); pos.className = 'pos'; pos.textContent = card.position || '';
+  const pos = document.createElement('p'); pos.className = 'pos'; pos.textContent = posLabel(card);
   const flip = document.createElement('div'); flip.className = 'flip';
   const inner = document.createElement('div'); inner.className = 'flip-inner';
   const back = document.createElement('div'); back.className = 'face face-back card-back';
@@ -1121,7 +1225,8 @@ async function revealFull(data){
   await wait(300);
   slots.forEach((s) => s.slot.classList.add('is-in'));
   await wait(900);
-  $('fullIntro').textContent = 'อดีต · ปัจจุบัน · แนวโน้มข้างหน้า';
+  setText($('fullIntro'), null);
+  $('fullIntro').textContent = positionsLine(cards); // reading language (labels from the server)
   for(let i = 0; i < cards.length; i++){
     const c = cards[i], s = slots[i];
     await loadImage(s.img, cardUrl(c));
@@ -1133,7 +1238,7 @@ async function revealFull(data){
     block.className = 'reading';
     $('fullReadings').appendChild(block);
     const lines = splitLines(c.text);
-    const head = (c.position || '') + ' — ' + (c.name || '');
+    const head = posLabel(c) + ' — ' + (c.name || '');
     await revealLines(block, lines[0] && lines[0].includes(c.name) ? lines : [head, ...lines], { gap: 650 });
     await wait(500);
   }
@@ -1145,7 +1250,8 @@ async function revealFull(data){
   await revealLines(closing, splitLines(data.closing), { gap: 800, className: 'closing' });
   const after = document.createElement('div');
   fin.appendChild(after);
-  await revealLines(after, ['ตอนนี้คุณเห็นเรื่องราวชัดขึ้นแล้ว...ที่เหลือคือสิ่งที่คุณจะเลือกทำต่อจากนี้'], { className: 'after' });
+  const afterLines = await revealLines(after, [t('full.after')], { className: 'after' });
+  afterLines.forEach((n) => { n.dataset.i18n = 'full.after'; });
   $('fullActions').hidden = false;
   trackEvent('full_reading_shown');
 }
@@ -1153,7 +1259,7 @@ async function revealFull(data){
 /* Save: render a portrait PNG (story-sized) and download it. */
 function wrapText(c, text, maxWidth){
   const out = [];
-  const seg = (window.Intl && Intl.Segmenter) ? new Intl.Segmenter('th', { granularity:'word' }) : null;
+  const seg = (window.Intl && Intl.Segmenter) ? new Intl.Segmenter(state.lang || uiLang, { granularity:'word' }) : null;
   for(const para of String(text || '').split(/\n+/)){
     const words = seg ? Array.from(seg.segment(para), (s) => s.segment) : Array.from(para);
     let line = '';
@@ -1177,7 +1283,7 @@ async function saveReading(){
   const sans = (size, weight = 300) => `${weight} ${size}px 'Noto Sans Thai', sans-serif`;
   measure.font = sans(34);
   const blocks = [];
-  (data.cards || []).forEach((c) => blocks.push({ font: sans(34, 400), color:'#e8ecff', lines: wrapText(measure, `${c.position} — ${c.name}`, Wd - pad*2), lh: 54 }));
+  (data.cards || []).forEach((c) => blocks.push({ font: sans(34, 400), color:'#e8ecff', lines: wrapText(measure, `${posLabel(c)} — ${c.name}`, Wd - pad*2), lh: 54 }));
   measure.font = sans(36);
   blocks.push({ gapBefore: 30, font: sans(36), color:'#e8ecff', lines: wrapText(measure, data.final, Wd - pad*2), lh: 60 });
   blocks.push({ gapBefore: 24, font: sans(34), color:'#f5f0e6', lines: wrapText(measure, data.closing, Wd - pad*2), lh: 56 });
@@ -1193,10 +1299,11 @@ async function saveReading(){
   c.textAlign = 'center';
   c.fillStyle = 'rgba(225,230,255,.88)';
   c.font = `300 52px 'Cormorant Garamond', serif`;
-  c.fillText('S T I L L W A T E R', Wd/2, 150);
+  const pngLang = state.lang || uiLang; // the image follows the reading's language
+  c.fillText(tr(pngLang, 'savePng.title'), Wd/2, 150);
   c.fillStyle = 'rgba(205,214,244,.72)';
   c.font = sans(30);
-  c.fillText('อดีต · ปัจจุบัน · แนวโน้มข้างหน้า', Wd/2, 215);
+  c.fillText((data.cards || []).length ? positionsLine(data.cards) : tr(pngLang, 'savePng.subtitle'), Wd/2, 215);
 
   const imgs = await Promise.all((data.cards || []).map((card) => new Promise((resolve) => {
     const im = new Image(); im.onload = () => resolve(im); im.onerror = () => resolve(null); im.src = cardUrl(card);
@@ -1208,7 +1315,7 @@ async function saveReading(){
     if(im) c.drawImage(im, x, y, cardW, cardH);
     c.strokeStyle = 'rgba(245,240,230,.6)'; c.lineWidth = 2; c.strokeRect(x, y, cardW, cardH);
     c.fillStyle = 'rgba(205,214,244,.8)'; c.font = sans(28);
-    c.fillText((data.cards[i] || {}).position || '', x + cardW/2, y + cardH + 50);
+    c.fillText(posLabel(data.cards[i] || {}), x + cardW/2, y + cardH + 50);
     x += cardW + gap;
   });
   let ty = y + cardH + 150;
@@ -1224,10 +1331,10 @@ async function saveReading(){
     if(!blob) return;
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'stillwater-reading.png';
+    a.download = tr(pngLang, 'savePng.filename');
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    $('shareNote').textContent = 'บันทึกรูปคำอ่านแล้วค่ะ';
+    setText($('shareNote'), 'full.saved');
     trackEvent('reading_saved');
   }, 'image/png');
 }
@@ -1236,15 +1343,16 @@ async function shareReading(){
   buttonSound();
   const url = location.origin + '/';
   const names = ((state.deeper && state.deeper.cards) || []).map((c) => c.name).join(' · ');
-  const text = names ? `พี่เวราเปิดไพ่ให้ฉัน: ${names}` : 'Stillwater';
+  const text = names ? t('full.shareText', { names }) : t('full.shareTitle');
   if(navigator.share){
-    try{ await navigator.share({ title:'Stillwater', text, url }); trackEvent('reading_shared'); return; }
+    try{ await navigator.share({ title: t('full.shareTitle'), text, url }); trackEvent('reading_shared'); return; }
     catch(e){ if(e && e.name === 'AbortError') return; }
   }
   try{
     await navigator.clipboard.writeText(url);
-    $('shareNote').textContent = 'คัดลอกลิงก์แล้วค่ะ';
+    setText($('shareNote'), 'full.copied');
   }catch(e){
+    setText($('shareNote'), null);
     $('shareNote').textContent = url;
   }
   trackEvent('reading_link_copied');
@@ -1256,7 +1364,7 @@ function askAgain(){
   trackEvent('ask_again');
   stopPolling();
   clearStore();
-  Object.assign(state, { question:'', context:'', order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null });
+  Object.assign(state, { question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null });
   $('questionInput').value = '';
   $('contextInput').value = '';
   resetDraw();
@@ -1266,15 +1374,19 @@ function askAgain(){
 }
 
 /* ================= SAFETY ================= */
-function showSafety(message){
-  stopPolling();
+/* The server's fixed safety message is shown as-is (Stillwater's text, same as
+   strings safety.paragraphs). After a language switch the strings for the new
+   language are shown. Always contains 1323 (tel: link). No CTA. */
+let safetyShown = null; // { text, lang }
+function renderSafety(revealed){
   const box = $('safetyMsg');
   box.textContent = '';
-  const paras = String(message || '').split(/\n{2,}/).filter(Boolean);
-  if(!paras.some((p) => p.includes('1323'))) paras.push('โทรสายด่วนสุขภาพจิต 1323 ได้ตลอด 24 ชั่วโมงนะคะ');
+  const fromServer = safetyShown && safetyShown.text && safetyShown.lang === uiLang;
+  const paras = fromServer ? String(safetyShown.text).split(/\n{2,}/).filter(Boolean) : t('safety.paragraphs').slice();
+  if(!paras.some((p) => p.includes('1323'))) paras.push(t('safety.paragraphs')[2]);
   paras.forEach((text) => {
     const p = document.createElement('p');
-    p.className = 'ln';
+    p.className = 'ln' + (revealed ? ' is-in' : '');
     text.split(/(1323|1669)/).forEach((part) => {
       if(part === '1323' || part === '1669'){
         const a = document.createElement('a'); a.href = 'tel:' + part; a.textContent = part; p.appendChild(a);
@@ -1282,7 +1394,12 @@ function showSafety(message){
     });
     box.appendChild(p);
   });
-  showScene('safety').then(() => revealExisting(box, 900));
+}
+function showSafety(message, lang){
+  stopPolling();
+  safetyShown = { text: message || '', lang: normLang(lang || uiLang) };
+  renderSafety(false);
+  showScene('safety').then(() => revealExisting($('safetyMsg'), 900));
 }
 
 /* ================= events ================= */
@@ -1298,6 +1415,10 @@ $('btnFullRetry').addEventListener('click', () => openFull());
 $('btnSave').addEventListener('click', saveReading);
 $('btnShare').addEventListener('click', shareReading);
 $('btnAgain').addEventListener('click', askAgain);
+$('langToggle').addEventListener('click', () => {
+  setLang(uiLang === 'th' ? 'en' : 'th');
+  trackEvent('lang_switched', { lang: uiLang });
+});
 $('soundToggle').addEventListener('click', async () => {
   await unlockAudio();
   const next = !soundEnabled;
@@ -1306,6 +1427,8 @@ $('soundToggle').addEventListener('click', async () => {
 });
 
 /* ================= payment return / same-browser resume ================= */
+applyLang();
+
 (function resume(){
   const params = new URLSearchParams(location.search);
   if(!params.get('payment')){
@@ -1313,7 +1436,7 @@ $('soundToggle').addEventListener('click', async () => {
     // resume an unfinished paid step in the same browser.
     const saved = load();
     if(saved && saved.order && saved.card && ['offering','paid','full'].includes(saved.stage)){
-      Object.assign(state, { order: saved.order, card: saved.card, paymentId: saved.paymentId || null, paid: saved.paid || null, deeper: saved.deeper || null, stage: saved.stage });
+      Object.assign(state, { order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || null, paid: saved.paid || null, deeper: saved.deeper || null, stage: saved.stage });
       $('soundToggle').classList.add('is-on');
       fillFirstStatic();
       if(state.deeper || state.paid){ openFull(); return; }
@@ -1321,7 +1444,7 @@ $('soundToggle').addEventListener('click', async () => {
       showScene('offering');
       if(!state.paymentId){ createPayment(); return; }
       $('btnPay').hidden = true;
-      setPayStatus('กำลังตรวจการชำระเงิน…');
+      setPayStatus('pay.checking');
       startPolling();
       state.pollTick && state.pollTick();
       return;
@@ -1334,14 +1457,14 @@ $('soundToggle').addEventListener('click', async () => {
   history.replaceState(null, '', location.pathname);
   const saved = load();
   if(!saved || !saved.order || !saved.card) return; // nothing to resume: start fresh
-  Object.assign(state, { order: saved.order, card: saved.card, paymentId: saved.paymentId || pid || null, deeper: saved.deeper || null });
+  Object.assign(state, { order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || pid || null, deeper: saved.deeper || null });
   if(pid && saved.paymentId && pid !== saved.paymentId) state.paymentId = pid; // server still verifies orderId binding
   $('soundToggle').classList.add('is-on');
   if(state.deeper){ openFull(); return; }
   if(state.paymentId){
     resetOffering();
     $('btnPay').hidden = true;
-    setPayStatus('กำลังตรวจการชำระเงิน…');
+    setPayStatus('pay.checking');
     showScene('offering');
     startPolling();
     state.pollTick && state.pollTick();

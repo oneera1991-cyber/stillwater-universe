@@ -65,8 +65,11 @@ async function waitSlipDone(page) {
 }
 const payStatus = (page) => page.textContent("#payStatus");
 
+const ONLY = process.env.ONLY || ""; // "en" → English suite only
+const THAI = /[\u0E00-\u0E7F]/;
+
 /* ---------- main path: all 6 scenes ---------- */
-{
+if (ONLY !== "en") {
   const page = await newPage();
   await page.goto(BASE + "/");
   await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
@@ -201,7 +204,7 @@ const payStatus = (page) => page.textContent("#payStatus");
 }
 
 /* ---------- safety path ---------- */
-{
+if (ONLY !== "en") {
   const page = await newPage();
   await page.goto(BASE + "/");
   await page.click("#btnEnter");
@@ -218,7 +221,7 @@ const payStatus = (page) => page.textContent("#payStatus");
 }
 
 /* ---------- needs_rewrite path ---------- */
-{
+if (ONLY !== "en") {
   const page = await newPage();
   await page.goto(BASE + "/");
   await page.click("#btnEnter");
@@ -237,7 +240,7 @@ const payStatus = (page) => page.textContent("#payStatus");
 }
 
 /* ---------- duplicate slip on another order + tab reload during payment ---------- */
-{
+if (ONLY !== "en") {
   const page = await newPage();
   await page.goto(BASE + "/");
   await page.click("#btnEnter");
@@ -269,7 +272,7 @@ const payStatus = (page) => page.textContent("#payStatus");
 }
 
 /* ---------- reduced motion ---------- */
-{
+if (ONLY !== "en") {
   const page = await newPage({ reducedMotion: "reduce" });
   await page.goto(BASE + "/");
   assert.ok(await page.evaluate(() => document.documentElement.classList.contains("rm")));
@@ -279,6 +282,143 @@ const payStatus = (page) => page.textContent("#payStatus");
   await active(page, "first");
   await page.waitForSelector("#btnToOffer.is-in", { timeout: 10000 });
   await shot(page, "10-reduced-motion-first"); log("prefers-reduced-motion path");
+  await page.context().close();
+}
+
+/* ================= ENGLISH (navigator.language en-US) ================= */
+const lines = (page, sel) => page.$$eval(sel, (n) => n.map((x) => x.textContent));
+{
+  const page = await newPage({ locale: "en-US" });
+  await page.goto(BASE + "/");
+  await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
+  await page.waitForTimeout(1100);
+  assert.equal(await page.getAttribute("html", "lang"), "en");
+  assert.equal((await page.textContent("#btnEnter")).trim(), "I'm ready to ask");
+  assert.ok(!THAI.test(await page.textContent("#scene-window")), "no Thai on the English window");
+  await shot(page, "12-en-01-window"); log("EN window (default from navigator.language)");
+
+  await page.click("#btnEnter");
+  await active(page, "question");
+  await page.waitForTimeout(1500);
+  assert.equal(await page.getAttribute("#questionInput", "placeholder"), "Type the question you most want answered...");
+  await page.fill("#questionInput", "I'm starting a new job next month. Will it go well?");
+  await page.fill("#contextInput", "I just left my old company and I'm still a bit anxious.");
+  await shot(page, "12-en-02-question"); log("EN question");
+
+  await page.click("#btnAsk");
+  await active(page, "first");
+  await page.waitForSelector("#btnToOffer.is-in", { timeout: 20000 });
+  await page.waitForTimeout(1100);
+  const firstEn = await lines(page, "#firstLines .ln");
+  assert.equal(firstEn.length, 4); assert.ok(!firstEn.some((l) => THAI.test(l)), "English reading text");
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")));
+  assert.equal(saved.lang, "en");
+  await shot(page, "12-en-03-first-answer");
+  await scrollScene(page, "first", "end");
+  await shot(page, "12-en-03b-first-answer-cta"); log("EN first answer (4 English lines)");
+
+  // Toggle mid-scene: UI copy switches, state and the reading stay.
+  await page.click("#langToggle");
+  await page.waitForTimeout(400);
+  assert.equal(await page.getAttribute("html", "lang"), "th");
+  assert.equal(await page.evaluate(() => localStorage.getItem("stillwater.lang")), "th");
+  assert.ok(await page.isVisible("#scene-first.is-active"), "still on scene 4");
+  assert.deepEqual(await lines(page, "#firstLines .ln"), firstEn, "reading text unchanged");
+  assert.equal((await page.textContent("#btnToOffer")).trim(), "ให้พี่ถามต่อ");
+  assert.ok((await page.$$eval("#firstInvite .ln", (n) => n.every((x) => x.classList.contains("is-in")))), "revealed lines stay revealed");
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).order), saved.order, "order kept");
+  await page.evaluate(() => { document.getElementById("scene-first").scrollTop = 0; });
+  await page.waitForTimeout(300);
+  await shot(page, "12-en-00-toggle-th"); log("toggle EN→TH keeps scene, state and reading");
+  await page.click("#langToggle");
+  await page.waitForTimeout(400);
+  assert.equal(await page.getAttribute("html", "lang"), "en");
+  assert.equal((await page.textContent("#btnToOffer")).trim(), "Reveal the rest");
+  await page.evaluate(() => { document.getElementById("scene-first").scrollTop = 0; });
+  await page.waitForTimeout(300);
+  await shot(page, "12-en-00-toggle-en"); log("toggle TH→EN");
+
+  await page.click("#btnToOffer");
+  await active(page, "offering");
+  await page.waitForTimeout(1100);
+  assert.deepEqual(await lines(page, "#scene-offering .locked figcaption"), ["Past", "Present", "Future"]);
+  assert.equal((await page.textContent("#btnPay")).trim(), "Pay with PromptPay QR");
+  await page.click("#btnPay");
+  await page.waitForSelector("#slipBox:not([hidden])");
+  await page.waitForTimeout(600);
+  await page.evaluate(() => { document.getElementById("scene-offering").scrollTop = 260; });
+  await page.waitForTimeout(300);
+  await shot(page, "12-en-04-offering-qr"); log("EN offering + QR");
+
+  const scrollPay = () => page.evaluate(() => { const s = document.getElementById("scene-offering"); s.scrollTop = s.scrollHeight; });
+  await uploadSlip(page, await makeSlip("wrong_amount", "wrong amount"));
+  await waitSlipDone(page);
+  assert.equal((await payStatus(page)).trim(), "The amount on this slip isn't 59 baht. Please check the slip again.");
+  await page.click("#langToggle"); await page.waitForTimeout(300);
+  assert.match(await payStatus(page), /59 บาท/, "status re-rendered in Thai");
+  await page.click("#langToggle"); await page.waitForTimeout(300);
+  assert.match(await payStatus(page), /isn't 59 baht/); log("EN slip error (localized by order lang) + re-render on toggle");
+
+  await uploadSlip(page, await makeSlip("success", "success en"));
+  await page.waitForFunction(() => document.getElementById("payStatus").classList.contains("is-ok"), null, { timeout: 20000 });
+  await scrollPay(); await page.waitForTimeout(200);
+  assert.equal((await payStatus(page)).trim(), "Received — thank you. Opening your cards now.");
+  await shot(page, "12-en-05-slip-success"); log("EN slip success");
+
+  await active(page, "full");
+  await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
+  await page.waitForTimeout(500);
+  assert.deepEqual(await lines(page, "#fullSpread .pos"), ["Past", "Present", "Future"]);
+  assert.equal((await page.textContent("#fullIntro")).trim(), "Past · Present · Future");
+  assert.equal((await page.textContent("#btnAgain")).trim(), "Ask Vera Again");
+  const deeper = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper);
+  assert.equal(deeper.lang, "en"); assert.deepEqual(deeper.cards.map((c) => c.position_key), ["past", "present", "ahead"]);
+  assert.ok(!THAI.test(await page.textContent("#fullReadings")), "English reading");
+  await shot(page, "12-en-06a-full-reading");
+  await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = s.scrollHeight / 2 - 300; });
+  await page.waitForTimeout(300);
+  await shot(page, "12-en-06b-full-middle");
+  await scrollScene(page, "full", "end");
+  await shot(page, "12-en-06c-full-end"); log("EN full reading: Past / Present / Future");
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#btnSave")]);
+  await dl.saveAs(`${SHOTS}/12-en-06d-saved-reading.png`);
+  await page.waitForFunction(() => document.getElementById("shareNote").textContent === "Reading image saved.");
+  await page.click("#btnShare");
+  await page.waitForFunction(() => document.getElementById("shareNote").textContent === "Link copied.");
+  log("EN save PNG + share copy");
+
+  await page.reload();
+  await page.waitForSelector("#scene-full.is-active #fullActions:not([hidden])", { timeout: 40000 });
+  assert.equal(await page.getAttribute("html", "lang"), "en"); log("EN remembered after reload");
+  await page.click("#btnAgain");
+  await active(page, "question");
+  assert.equal((await page.textContent("#btnAsk")).trim(), "Let's begin"); log("EN ask again → scene 2");
+  await page.context().close();
+}
+{
+  // Thai browser, but the visitor chose English earlier → remembered
+  const page = await newPage({ locale: "th-TH" });
+  await page.goto(BASE + "/");
+  assert.equal(await page.getAttribute("html", "lang"), "th");
+  await page.evaluate(() => localStorage.setItem("stillwater.lang", "en"));
+  await page.reload();
+  assert.equal(await page.getAttribute("html", "lang"), "en");
+  assert.equal((await page.textContent("#btnEnter")).trim(), "I'm ready to ask"); log("stored choice beats navigator.language");
+  await page.click("#btnEnter");
+  await active(page, "question");
+  await ask(page, "Should I see a doctor about my cancer test?");
+  await page.waitForFunction(() => /health/.test(document.getElementById("rewriteNote").textContent) && document.getElementById("scene-question").classList.contains("is-active"), null, { timeout: 20000 });
+  log("EN not-accepted message");
+  await ask(page, "Lately I want to kill myself");
+  await active(page, "safety");
+  await page.waitForTimeout(3500);
+  const text = await page.textContent("#scene-safety");
+  assert.ok(text.includes("1323") && text.includes("1669") && /embassy/.test(text));
+  assert.equal(await page.$$eval("#scene-safety a[href='tel:1323']", (a) => a.length), 1);
+  assert.equal(await page.$$eval("#scene-safety button", (b) => b.length), 0, "no CTA on safety");
+  await shot(page, "12-en-07-safety"); log("EN safety: 1323 (Thai-language), 1669, embassy; no CTA");
+  await page.click("#langToggle"); await page.waitForTimeout(300);
+  assert.match(await page.textContent("#scene-safety"), /สายด่วนสุขภาพจิต 1323/); log("safety re-renders on toggle");
   await page.context().close();
 }
 

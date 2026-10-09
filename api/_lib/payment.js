@@ -11,7 +11,7 @@ routes (/api/payment/*) and /api/deeper depend ONLY on this interface:
       (data: URL for PromptPay), `qrPayload` the raw EMVCo string.
   verifySlip(order, {bytes, mime})   (flow "slip")
       -> { ok: true, ref, amount, currency, slipDate }
-       | { ok: false, reason, message }        reason ∈ SLIP_REASONS
+       | { ok: false, reason }                 reason ∈ SLIP_REASONS (copy: i18n strings slip.<reason>)
   getPaymentStatus(paymentId)        (flow "poll")
       -> { paid, status, amount, currency, orderId }
   isPaymentId(id)               -> boolean
@@ -43,19 +43,8 @@ export class PaymentError extends Error {
   }
 }
 
-/* Customer-facing Thai copy for slip outcomes (short, calm). */
-export const SLIP_MESSAGES = {
-  pending: "สลิปจากธนาคารกรุงเทพอาจใช้เวลาราว 5 นาทีก่อนตรวจได้ค่ะ พักสักครู่ แล้วกดตรวจอีกครั้งนะคะ",
-  wrong_amount: "ยอดในสลิปยังไม่ตรงกับ 59 บาทค่ะ ลองดูสลิปอีกครั้งนะคะ",
-  wrong_account: "บัญชีผู้รับในสลิปไม่ใช่บัญชีของ Stillwater ค่ะ ลองสแกน QR ด้านบนอีกครั้งนะคะ",
-  duplicate: "สลิปนี้เคยถูกใช้ไปแล้วค่ะ ลองแนบสลิปของการโอนครั้งนี้นะคะ",
-  old_slip: "สลิปนี้เป็นรายการก่อนเริ่มคำถามนี้ค่ะ ลองแนบสลิปของการโอนครั้งนี้นะคะ",
-  unreadable: "พี่อ่าน QR ในสลิปไม่ได้ค่ะ ลองแนบรูปสลิปที่ชัด ๆ ไม่ครอป QR ออกนะคะ",
-  bad_file: "รูปสลิปต้องเป็น JPG หรือ PNG ขนาดไม่เกิน 4MB ค่ะ",
-  quota: "ระบบตรวจสลิปไม่ว่างชั่วคราวค่ะ ลองใหม่อีกครั้งในอีกสักครู่นะคะ",
-  service: "ระบบตรวจสลิปยังไม่พร้อมค่ะ ลองใหม่อีกครั้งในอีกสักครู่นะคะ"
-};
-export const SLIP_REASONS = Object.keys(SLIP_MESSAGES);
+/* Slip outcome reasons. Customer-facing copy: i18n/strings.js → slip.<reason>. */
+export const SLIP_REASONS = ["pending", "wrong_amount", "wrong_account", "duplicate", "old_slip", "unreadable", "bad_file", "quota", "service"];
 
 function providerName() {
   return String(process.env.PAYMENT_PROVIDER || DEFAULT_PROVIDER).toLowerCase();
@@ -65,7 +54,7 @@ function adapter() {
   if (!impl) throw new PaymentError("ยังไม่ได้ตั้งค่าช่องทางชำระเงิน", 500, "provider_unknown");
   return impl;
 }
-const ctx = () => ({ PRICE_SATANG, PRICE_THB, CURRENCY, PRODUCT, PaymentError, SLIP_MESSAGES });
+const ctx = () => ({ PRICE_SATANG, PRICE_THB, CURRENCY, PRODUCT, PaymentError });
 
 export function providerInfo() {
   return { name: providerName(), flow: adapter().FLOW };
@@ -89,8 +78,7 @@ export async function verifySlip(order, file) {
   if (impl.FLOW !== "slip") throw new PaymentError("ช่องทางนี้ไม่ใช้สลิป", 400, "not_supported");
   const r = await impl.verifySlip(order, file, ctx());
   if (r.ok) return r;
-  const reason = SLIP_REASONS.includes(r.reason) ? r.reason : "service";
-  return { ok: false, reason, message: SLIP_MESSAGES[reason] };
+  return { ok: false, reason: SLIP_REASONS.includes(r.reason) ? r.reason : "service" };
 }
 
 export async function getPaymentStatus(paymentId) {

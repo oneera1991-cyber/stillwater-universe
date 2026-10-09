@@ -2,19 +2,23 @@
 POST /api/payment/create   Body: { order }   (order = signed token from /api/read)
 Response: { ok, flow: "slip"|"poll", paymentId, chargeId (legacy alias),
             orderId, qr, qrPayload, amount, mode }
+Errors:   { error (localized by the ORDER's lang), code }
 
 Verifies the order token, then asks the active payment provider
 (api/_lib/payment.js) for a ฿59 PromptPay QR. No provider code here.
 */
 import { OrderError, parseBody, verifyOrder } from "../_lib/order.js";
 import { PaymentError, createPayment } from "../_lib/payment.js";
+import { errorText } from "../../i18n/strings.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+  let lang = "th"; // until the order token is verified
   try {
     const order = verifyOrder(parseBody(req).order);
+    lang = order.lang;
     const p = await createPayment(order);
     return res.status(200).json({
       ok: true,
@@ -30,8 +34,7 @@ export default async function handler(req, res) {
   } catch (error) {
     const known = error instanceof OrderError || error instanceof PaymentError;
     if (!known || error.status >= 500) console.error("Stillwater /api/payment/create error:", error.code || error);
-    return res.status(known ? error.status : 500).json({
-      error: known && error.status < 500 ? error.message : "ยังเปิดช่องทางชำระเงินไม่ได้ ลองใหม่อีกครั้งนะคะ"
-    });
+    const code = known && error.status < 500 ? error.code : "payment_create_failed";
+    return res.status(known ? error.status : 500).json({ error: errorText(lang, code), code });
   }
 }

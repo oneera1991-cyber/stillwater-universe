@@ -6,7 +6,10 @@ There is no database yet, so state lives in tokens the server hands to the
 browser and verifies when they come back.
 
   order token  — issued by /api/read after a free reading
-                 { orderId, question, context, card1, card1Text, open_thread, issuedAt }
+                 { orderId, question, context, card1, card1Name, card1Text, open_thread, lang, issuedAt }
+                 lang ("th" | "en") is the reading language; payment + deeper
+                 use THIS value, never a lang sent by the client. Tokens issued
+                 before lang existed verify as "th".
   paid token   — issued by /api/payment/verify-slip after EasySlip confirms
                  the slip: { orderId, method, ref (transRef), amount, currency,
                  slipDate, issuedAt }. Bound to exactly one orderId.
@@ -50,6 +53,7 @@ TODO(storage — needs a database once Vercel access exists):
 ----------------------------------------------------
 */
 import crypto from "node:crypto";
+import { normLang } from "../../i18n/strings.js";
 import { CURRENCY, PRICE_SATANG, getPaymentStatus, isPaymentId, paymentProblem } from "./payment.js";
 
 export const ORDER_TTL_MS = 24 * 60 * 60 * 1000; // pay + open within 24h
@@ -62,6 +66,8 @@ const KINDS = {
   paid: { mac: "stillwater/paid-token/v1/hmac", enc: "stillwater/paid-token/v1/aes-gcm" }
 };
 
+// Messages below are Thai defaults for logs; routes show errorText(order.lang, error.code)
+// from i18n/strings.js to customers.
 export class OrderError extends Error {
   constructor(message, status = 400, code = "order_invalid") {
     super(message);
@@ -151,12 +157,14 @@ export function newOrderId() {
   return "ord_" + crypto.randomBytes(12).toString("base64url");
 }
 
-export function signOrder({ orderId, question, context, card1, card1Text, openThread }) {
+export function signOrder({ orderId, question, context, card1, card1Name, card1Text, openThread, lang }) {
   const order = {
+    lang: normLang(lang),
     orderId: orderId || newOrderId(),
     question: String(question || ""),
     context: String(context || ""),
     card1: Number(card1),
+    card1Name: card1Name ? String(card1Name) : null,
     card1Text: String(card1Text || ""),
     open_thread: openThread ? String(openThread) : null,
     issuedAt: Date.now()
@@ -174,6 +182,7 @@ export function verifyOrder(token, { now = Date.now(), ttlMs = ORDER_TTL_MS } = 
   if (typeof p.question !== "string" || !Number.isInteger(p.card1)) {
     throw new OrderError("รายการนี้ไม่ถูกต้อง กรุณาเริ่มใหม่อีกครั้ง", 400, "order_bad_payload");
   }
+  p.lang = normLang(p.lang);
   return p;
 }
 

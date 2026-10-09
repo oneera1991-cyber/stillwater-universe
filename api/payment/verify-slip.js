@@ -3,7 +3,10 @@ POST /api/payment/verify-slip      multipart/form-data: order=<order token>, sli
 Response 200: { ok: true, paid: <signed paid token> }
 Otherwise:    { ok: false, reason, error }   reason ∈ pending | wrong_amount |
               wrong_account | duplicate | old_slip | unreadable | bad_file |
-              quota | service
+              quota | service | order_* (token problems)
+`error` is localized with the ORDER token's lang (never a client-sent lang);
+before the token is verified it falls back to Thai, and the page maps `reason`
+to its own strings anyway.
 
 The slip is checked by the active provider (api/_lib/payment.js → EasySlip).
 On success the verified transRef is bound to the orderId inside a sealed,
@@ -11,8 +14,9 @@ signed "paid" token (api/_lib/order.js). /api/deeper accepts only that.
 Vercel's request body limit is 4.5 MB, so a 4 MB slip + form fields fits.
 */
 import { OrderError, signPaid, verifyOrder } from "../_lib/order.js";
-import { PaymentError, SLIP_MESSAGES, providerInfo, verifySlip } from "../_lib/payment.js";
+import { PaymentError, providerInfo, verifySlip } from "../_lib/payment.js";
 import { clientIp, rateLimit } from "../_lib/rate-limit.js";
+import { errorText, t } from "../../i18n/strings.js";
 
 const MAX_BODY = 4.5 * 1024 * 1024;
 const MAX_SLIP = 4 * 1024 * 1024;
@@ -24,51 +28,55 @@ async function readRaw(req) {
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_BODY) throw new PaymentError(SLIP_MESSAGES.bad_file, 413, "too_large");
+    if (size > MAX_BODY) throw new PaymentError("too large", 413, "too_large");
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
 }
 
-const fail = (res, reason, extra = {}) =>
-  res.status(STATUS[reason] || 400).json({ ok: false, reason, error: SLIP_MESSAGES[reason] || SLIP_MESSAGES.service, ...extra });
+const fail = (res, lang, reason) =>
+  res.status(STATUS[reason] || 400).json({ ok: false, reason, error: t(lang, "slip." + reason) });
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+  let lang = "th"; // until the order token is verified
+
   // Each check may cost EasySlip quota → best-effort per-IP limit.
   const limited = rateLimit("slip:" + clientIp(req), { limit: 10, windowMs: 10 * 60 * 1000 });
   if (!limited.ok) {
     res.setHeader("Retry-After", String(limited.retryAfter));
-    return fail(res, "quota");
+    return fail(res, lang, "quota");
   }
 
   try {
     if (providerInfo().flow !== "slip") {
-      return res.status(400).json({ ok: false, reason: "not_supported", error: "ช่องทางนี้ไม่ใช้สลิป" });
+      return res.status(400).json({ ok: false, reason: "not_supported", error: errorText(lang, "not_supported") });
     }
     const type = String(req.headers["content-type"] || "");
-    if (!type.startsWith("multipart/form-data")) return fail(res, "bad_file");
-    if (Number(req.headers["content-length"] || 0) > MAX_BODY) return fail(res, "bad_file");
+    if (!type.startsWith("multipart/form-data")) return fail(res, lang, "bad_file");
+    if (Number(req.headers["content-length"] || 0) > MAX_BODY) return fail(res, lang, "bad_file");
 
     const raw = await readRaw(req);
     let form;
     try {
       form = await new Response(raw, { headers: { "content-type": type } }).formData();
     } catch {
-      return fail(res, "bad_file");
+      return fail(res, lang, "bad_file");
     }
 
     const order = verifyOrder(String(form.get("order") || ""));
+    lang = order.lang;
+
     const slip = form.get("slip");
     if (!slip || typeof slip.arrayBuffer !== "function" || slip.size === 0 || slip.size > MAX_SLIP) {
-      return fail(res, "bad_file");
+      return fail(res, lang, "bad_file");
     }
     const bytes = Buffer.from(await slip.arrayBuffer());
 
     const result = await verifySlip(order, { bytes, mime: slip.type });
-    if (!result.ok) return fail(res, result.reason);
+    if (!result.ok) return fail(res, lang, result.reason);
 
     const paid = signPaid({
       orderId: order.orderId,
@@ -81,10 +89,10 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, paid });
   } catch (error) {
     if (error instanceof OrderError) {
-      return res.status(error.status).json({ ok: false, reason: error.code, error: error.message });
+      return res.status(error.status).json({ ok: false, reason: error.code, error: errorText(lang, error.code) });
     }
-    if (error instanceof PaymentError && error.code === "too_large") return fail(res, "bad_file");
+    if (error instanceof PaymentError && error.code === "too_large") return fail(res, lang, "bad_file");
     console.error("Stillwater /api/payment/verify-slip error:", error?.code || error);
-    return fail(res, "service");
+    return fail(res, lang, "service");
   }
 }
