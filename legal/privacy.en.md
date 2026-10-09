@@ -1,6 +1,6 @@
 # Privacy Notice
 
-Last updated: 1 November 2026
+Effective: from the day Stillwater opens to the public
 
 ## Who we are
 
@@ -8,7 +8,7 @@ Stillwater is the data controller for the personal data you give us when you use
 
 ## What data we collect
 
-- **Service log:** your question, any optional context you add, the cards drawn, your payment reference, your Reading ID, and your star rating (if you give one). Phone numbers, emails and LINE IDs are automatically removed from your question and context.
+- **Service log:** your question, any optional context you add, the cards drawn, your payment reference, an internal order reference, your star rating (if you give one), and which sharing option you tapped (if any). Phone numbers, emails and LINE IDs are automatically removed from your question and context.
 - **Questions about self-harm:** these are not stored.
 - **Transfer slip data:** used to verify your payment.
 - **Visit data:** how you reached us (for example, the link or website that brought you), your general device type (mobile, tablet or desktop), and the language you use on the site.
@@ -47,13 +47,13 @@ Some providers may process data outside Thailand, with appropriate safeguards in
 - Data tied to a complaint or refund that hasn't been resolved yet is kept until it is resolved.
 - Hosting platform technical logs are kept short-term.
 
-You can ask us to delete your data sooner by giving us your Reading ID.
+You can ask us to delete your data sooner by giving us your payment reference or slip and the approximate time of your reading.
 
 ## Your rights under the PDPA
 
 You have the right to access and get a copy of your data, to correct it, delete it, object to its use, restrict its use, move it to another service, and withdraw consent where we rely on consent. You can also complain to the Office of the Personal Data Protection Committee (PDPC).
 
-How to make a request: email oneera1991@gmail.com with your Reading ID, payment reference, or the time of your reading. We'll respond within 30 days.
+How to make a request: email oneera1991@gmail.com with your slip or payment reference and the approximate time of your reading. We'll respond within 30 days.
 
 ## A tip
 

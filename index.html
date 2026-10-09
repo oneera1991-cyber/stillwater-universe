@@ -213,18 +213,6 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 .rate .rate-note{font-size:.74rem;color:var(--soft);min-height:1.1rem;margin-top:.35rem}
 .rm .rate{transition:opacity .2s}
 
-/* ---------- legal footer: disclaimer line (scenes 4 + 6 only), Terms · Privacy links (4/5/6),
-   reading id (6). Never on landing/draw. ---------- */
-.legal{margin-top:1.6rem;font-size:.66rem;letter-spacing:.04em;line-height:1.7;color:rgba(190,200,225,.5)}
-.legal-links{margin-top:.35rem}
-.legal-links a,.reading-id{color:rgba(190,200,225,.42);text-decoration:none}
-.legal-links a:hover,.legal-links a:focus-visible{color:var(--soft);outline:none;text-decoration:underline}
-.pay-links{font-size:.66rem;margin-top:.5rem}
-.reading-id{margin-bottom:.45rem;letter-spacing:.06em}
-.reading-id code{font-family:var(--sans);letter-spacing:.14em;color:rgba(205,214,244,.6)}
-.disclaimer{font-size:.66rem;letter-spacing:.04em;line-height:1.6}
-.disclaimer a{color:rgba(190,200,225,.5);text-decoration:none;border-bottom:1px solid rgba(190,200,225,.18);padding-bottom:1px;transition:color .3s}
-.disclaimer a:hover,.disclaimer a:focus-visible{color:var(--soft);outline:none}
 
 /* Reduced motion: JS sets html.rm from prefers-reduced-motion */
 .rm .scene,.rm .scene.is-active,.rm .scene.is-leaving{transform:none;transition:opacity .25s,visibility .25s}
@@ -264,7 +252,6 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 #scene-question #questionInput{min-height:6rem}
 #scene-question #contextInput{min-height:4rem;font-size:.92rem}
 #scene-question .label{display:block;text-align:left;font-size:.78rem;color:var(--soft);margin:1rem 0 .45rem}
-#scene-question .privacy{font-size:.7rem;line-height:1.75;color:rgba(190,200,225,.6);margin-top:1.1rem}
 #scene-question .rule{font-size:.76rem;line-height:1.8;color:var(--soft);margin:1rem 0 .2rem}
 #scene-question .btn{margin-top:1rem}
 
@@ -306,8 +293,6 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 #scene-offering .vera{width:30px;height:70px}
 #scene-offering h2{font:400 1.2rem var(--sans);line-height:1.7;margin:.3rem 0 .7rem}
 #scene-offering .copy{font-size:.9rem;line-height:1.95;color:var(--soft)}
-#scene-offering .sub{font-size:.82rem;line-height:1.8;color:var(--soft);margin:-.4rem 0 1rem}
-#scene-offering .sub:empty{display:none}
 #scene-offering .ppf{font:400 .95rem var(--serif);letter-spacing:.2em;color:var(--soft);margin:.6rem 0 1rem}
 #scene-offering .locked{display:flex;gap:.7rem;justify-content:center;margin-bottom:1rem}
 #scene-offering .locked figure{width:min(84px,24vw)}
@@ -320,7 +305,6 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
   width:100%;border:1px solid var(--line);border-radius:18px;
   background:rgba(10,13,32,.5);backdrop-filter:blur(10px);padding:1.3rem 1rem;
 }
-#scene-offering .scope{font-size:.8rem;line-height:1.75;color:var(--soft);margin:-.2rem 0 1rem}
 #scene-offering .price{font:400 2rem var(--sans);color:var(--cream);margin-bottom:.6rem}
 #scene-offering .qr{display:block;width:220px;max-width:70vw;margin:1rem auto 0;background:#fff;padding:8px;border-radius:8px}
 #scene-offering .qr-payload{display:block;margin:1rem auto 0;font-size:.62rem;word-break:break-all;color:var(--soft)}
@@ -427,8 +411,6 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
       <p class="rule" data-i18n="question.rule">พี่เวรายังไม่รับคำถามเรื่องสุขภาพ กฎหมาย
 และเรื่องเงินก้อนใหญ่นะคะ</p>
       <button class="btn" id="btnAsk" type="submit" data-i18n="question.submit">พร้อมรับคำตอบ</button>
-      <p class="privacy" data-i18n="question.privacy">พี่เวราเก็บคำถามไว้แบบไม่ระบุตัวตน เพื่อพัฒนาคำอ่านให้ดีขึ้น
-อย่าใส่ชื่อหรือเบอร์โทรนะคะ</p>
     </form>
   </div>
 </section>
@@ -465,7 +447,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
       <div data-i18n-lines="first.invite"></div>
       <button class="btn ln" id="btnToOffer" type="button" data-i18n="first.next">ให้พี่ถามต่อ</button>
     </div>
-    <!-- optional free-stage rating (gentle, below the CTA); disclaimer footer after it -->
+    <!-- optional free-stage rating (gentle, below the CTA) -->
     <div class="rate" id="rate-free" data-stage="free">
       <p class="rate-title" data-i18n="rate.title">ให้ดาวพี่เวรา</p>
       <p class="rate-q" id="rate-free-q" data-i18n="rate.free"></p>
@@ -478,10 +460,6 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
       </div>
       <p class="rate-note" aria-live="polite"></p>
     </div>
-    <footer class="legal">
-      <p class="disclaimer" id="disclaimerFirst"><a class="terms-link" data-legal="terms" href="/terms" target="_blank" rel="noopener" data-i18n="disclaimer.line">เพื่อความบันเทิงและการสำรวจตัวเอง</a></p>
-      <p class="legal-links"><a data-legal="terms" href="/terms" target="_blank" rel="noopener" data-i18n="legal.terms">ข้อกำหนดการใช้งาน</a><span aria-hidden="true"> · </span><a data-legal="privacy" href="/privacy" target="_blank" rel="noopener" data-i18n="legal.privacy">ประกาศความเป็นส่วนตัว</a></p>
-    </footer>
   </div>
 </section>
 
@@ -492,7 +470,6 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
     <h2 data-i18n="offering.title">บางคำถาม... ไพ่ใบเดียวอาจยังเล่าไม่หมด</h2>
     <p class="copy" data-i18n="offering.copy">ให้พี่เปิดไพ่เพิ่มอีกสามใบ เพื่อดูเรื่องราวตั้งแต่อดีต ปัจจุบัน และแนวโน้มข้างหน้า</p>
     <p class="ppf" data-i18n="offering.ppf">Past · Present · Future</p>
-    <p class="sub" data-i18n="offering.sub"></p>
     <div class="locked" aria-hidden="true">
       <figure><div class="card-back"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(235,240,255,.9)" stroke-width="1.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><figcaption data-i18n="positions.past">อดีต</figcaption></figure>
       <figure><div class="card-back"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(235,240,255,.9)" stroke-width="1.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><figcaption data-i18n="positions.present">ปัจจุบัน</figcaption></figure>
@@ -500,7 +477,6 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
     </div>
     <div class="pay-card">
       <div class="price" data-i18n="offering.price">฿59</div>
-      <p class="scope" data-i18n="offering.scope">ไพ่ใหม่ 3 ใบ สำหรับคำถามเดิม — อดีต / ปัจจุบัน / แนวโน้มข้างหน้า</p>
       <button class="btn" id="btnPay" type="button" data-i18n="offering.pay">เข้าสู่การชำระเงิน</button>
       <img class="qr" id="payQr" alt="QR พร้อมเพย์ 59 บาท" data-i18n-alt="offering.qrAlt" hidden>
       <code class="qr-payload" id="payQrPayload" hidden></code>
@@ -517,12 +493,8 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
       </div>
       <p class="status" id="payStatus" aria-live="polite"></p>
       <p class="small" data-i18n="offering.small">เมื่อตรวจสลิปผ่าน พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ</p>
-      <p class="legal-links pay-links"><a data-legal="terms" href="/terms" target="_blank" rel="noopener" data-i18n="legal.terms">ข้อกำหนดการใช้งาน</a><span aria-hidden="true"> · </span><a data-legal="privacy" href="/privacy" target="_blank" rel="noopener" data-i18n="legal.privacy">ประกาศความเป็นส่วนตัว</a></p>
     </div>
     <button class="btn btn-quiet" id="btnBackFirst" type="button" data-i18n="offering.back">กลับไปดูคำตอบเดิม</button>
-    <footer class="legal">
-      <p class="legal-links"><a data-legal="terms" href="/terms" target="_blank" rel="noopener" data-i18n="legal.terms">ข้อกำหนดการใช้งาน</a><span aria-hidden="true"> · </span><a data-legal="privacy" href="/privacy" target="_blank" rel="noopener" data-i18n="legal.privacy">ประกาศความเป็นส่วนตัว</a></p>
-    </footer>
   </div>
 </section>
 
@@ -557,11 +529,6 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
       </div>
       <p class="share-note" id="shareNote" aria-live="polite"></p>
       <button class="btn" id="btnAgain" type="button" data-i18n="full.again">ถามพี่เวราอีกครั้ง</button>
-      <footer class="legal">
-        <p class="reading-id" id="readingIdLine" hidden><span data-i18n="legal.readingId">รหัสการอ่าน</span> <code id="readingIdValue"></code></p>
-        <p class="disclaimer" id="disclaimerFull"><a class="terms-link" data-legal="terms" href="/terms" target="_blank" rel="noopener" data-i18n="disclaimer.line">เพื่อความบันเทิงและการสำรวจตัวเอง</a></p>
-        <p class="legal-links"><a data-legal="terms" href="/terms" target="_blank" rel="noopener" data-i18n="legal.terms">ข้อกำหนดการใช้งาน</a><span aria-hidden="true"> · </span><a data-legal="privacy" href="/privacy" target="_blank" rel="noopener" data-i18n="legal.privacy">ประกาศความเป็นส่วนตัว</a></p>
-      </footer>
     </div>
   </div>
 </section>
@@ -638,8 +605,6 @@ function applyLang(){
       el.setAttribute(attr, t(el.getAttribute('data-i18n-' + attr), vars));
     });
   }
-  document.querySelectorAll('a[data-legal]').forEach((a) => { a.href = '/' + a.dataset.legal + '?lang=' + uiLang; });
-  const rid = $('readingIdLine'); if(rid) rid.title = t('legal.readingIdHint');
   document.querySelectorAll('#langToggle [data-l]').forEach((el) => el.classList.toggle('on', el.dataset.l === uiLang));
   $('langToggle').setAttribute('aria-pressed', uiLang === 'en' ? 'true' : 'false');
   if(currentScene === 'safety') renderSafety(true);
@@ -1392,12 +1357,11 @@ async function revealFull(data){
   trackEvent('full_reading_shown');
 }
 
-/* Reading ID (short, from the server; derived from order_id) — for deletion requests. */
+/* Reading ID (short, from the server; derived from order_id): kept in state only, never shown
+   to the customer (Palm: zero notices). Support can still look it up from the order. */
 function showReadingId(data){
   const id = (data && data.reading_id) || state.readingId || '';
   if(id && !state.readingId){ state.readingId = id; save(); }
-  $('readingIdValue').textContent = id;
-  $('readingIdLine').hidden = !id;
 }
 
 /* ================= STAR RATING (stage 'free' | 'full') =================
@@ -1531,11 +1495,6 @@ async function saveReading(){
   }
   c.fillStyle = 'rgba(190,200,225,.5)'; c.font = sans(26);
   c.fillText(location.host || 'Stillwater', Wd/2, Ht - 80);
-  const rid = data.reading_id || state.readingId;
-  if(rid){
-    c.fillStyle = 'rgba(190,200,225,.38)'; c.font = sans(22);
-    c.fillText(tr(pngLang, 'legal.readingId') + ' ' + rid, Wd/2, Ht - 40);
-  }
 
   cv.toBlob((blob) => {
     if(!blob) return;
@@ -1545,8 +1504,18 @@ async function saveReading(){
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     setText($('shareNote'), 'full.saved');
+    logShare('download_image', 'completed');
     trackEvent('reading_saved');
   }, 'image/png');
+}
+
+/* Silent share tracking → /api/share (order token only; no UI, never awaited, errors ignored). */
+function logShare(channel, result){
+  if(!state.order) return;
+  try{
+    fetch('/api/share', { method:'POST', keepalive:true, headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ order: state.order, channel, result }) }).catch(() => {});
+  }catch(e){}
 }
 
 async function shareReading(){
@@ -1555,15 +1524,20 @@ async function shareReading(){
   const names = ((state.deeper && state.deeper.cards) || []).map((c) => c.name).join(' · ');
   const text = names ? t('full.shareText', { names }) : t('full.shareTitle');
   if(navigator.share){
-    try{ await navigator.share({ title: t('full.shareTitle'), text, url }); trackEvent('reading_shared'); return; }
-    catch(e){ if(e && e.name === 'AbortError') return; }
+    try{ await navigator.share({ title: t('full.shareTitle'), text, url }); logShare('native', 'completed'); trackEvent('reading_shared'); return; }
+    catch(e){
+      if(e && e.name === 'AbortError'){ logShare('native', 'cancelled'); return; }
+      logShare('native', 'failed');
+    }
   }
   try{
     await navigator.clipboard.writeText(url);
     setText($('shareNote'), 'full.copied');
+    logShare('copy_link', 'completed');
   }catch(e){
     setText($('shareNote'), null);
     $('shareNote').textContent = url;
+    logShare('copy_link', 'failed');
   }
   trackEvent('reading_link_copied');
 }

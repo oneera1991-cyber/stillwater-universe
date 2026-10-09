@@ -130,8 +130,8 @@ assert.equal(t("en", "safety.paragraphs").join("\n\n"), vera.SAFETY_MESSAGE_EN);
 assert.ok(!/พี่เวรา|Pee Vera|P'Vera/i.test(JSON.stringify(STRINGS.en))); ok("English says just 'Vera'");
 assert.ok(!/\bA\.?I\b|ปัญญาประดิษฐ์|artificial intelligence/i.test(JSON.stringify(STRINGS)), "no 'AI' in any page copy");
 assert.ok(!/รับประกัน|แม่นยำ 100|guarantee|100% accurate/i.test(JSON.stringify(STRINGS)), "no guarantee claims"); ok("copy: no 'AI', no guarantees");
-assert.equal(t("en", "disclaimer.line"), "For Entertainment & Self-Reflection"); assert.equal(t("th", "disclaimer.line"), "เพื่อความบันเทิงและการสำรวจตัวเอง");
-assert.equal(t("en", "disclaimer.title"), "A Moment for Reflection"); ok("approved disclaimer copy");
+for (const lg of ["th", "en"]) for (const k of ["disclaimer.line", "question.privacy", "legal.readingId", "offering.scope"]) assert.equal(STRINGS[lg][k.split(".")[0]][k.split(".")[1]], undefined, "no in-scene notice string " + k);
+assert.equal(t("th", "offering.small"), "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ"); ok("no notice/disclaimer strings for the scenes; prototype scene-5 line");
 for (const [x, want] of [["en", "en"], ["EN", "en"], ["en-US", "en"], ["en_GB", "en"], ["th", "th"], ["fr", "th"], [undefined, "th"], ["english", "th"], [{}, "th"]]) {
   assert.equal(normLang(x), want); assert.equal(vera.normalizeLang(x), want);
 }
@@ -315,6 +315,23 @@ const ratings = events.filter((e) => e.event === "rating");
 const latest = Object.fromEntries(ratings.map((e) => [e.rating_key, e.stars]));
 assert.deepEqual(latest, { [ordObj.orderId + ":free"]: 5, [ordObj.orderId + ":full"]: 4 }); assert.equal(ratings.at(-1).lang, "en");
 ok("one rating per order+stage (latest row per rating_key wins)");
+const shareRoute = (await import("../api/share.js")).default;
+const SH = async (body) => { const r = fakeRes(); await shareRoute(reqUA(body), r); return r; };
+assert.equal((await SH({ order: ordTok, channel: "telegram", result: "completed" })).statusCode, 400, "unknown channel");
+assert.equal((await SH({ order: ordTok })).statusCode, 400, "channel required");
+assert.equal((await SH({ order: "junk", channel: "native" })).statusCode, 400, "bad order");
+assert.equal((await SH({ channel: "native" })).statusCode, 400, "order required");
+const before = events.length;
+for (const [channel, result] of [["native", "completed"], ["native", "cancelled"], ["copy_link", "completed"], ["download_image", "completed"], ["line", "weird"]]) {
+  const r = await SH({ order: ordTok, channel, result, order_id: "ord_FORGED", lang: "th", source: { last: { src: "fb" } } });
+  assert.equal(r.statusCode, 200); assert.equal(r.body.channel, channel);
+}
+await new Promise((r) => setTimeout(r, 20));
+const shares = events.slice(before).filter((e) => e.event === "share");
+assert.deepEqual(shares.map((e) => [e.share_channel, e.share_result]), [["native", "completed"], ["native", "cancelled"], ["copy_link", "completed"], ["download_image", "completed"], ["line", "unknown"]]);
+assert.ok(shares.every((e) => e.order_id === ordObj.orderId && e.lang === "en" && e.src === "tiktok" && e.first_src === "friends" && e.device === "mobile"), "share row: order/lang/source from the sealed token only");
+assert.ok(log.COLUMNS.slice(-2).join() === "share_channel,share_result" && log.COLUMNS.length === 31);
+ok("share event: channel/result validated, order_id + lang + src/first_src from the token, columns 30–31");
 log.setSink({ name: "explodes", write() { throw new Error("sheet down"); } });
 console.warn = () => {};
 const rx = fakeRes(); await readRoute(reqUA({ question: "Will my new job go well?", lang: "th" }), rx);

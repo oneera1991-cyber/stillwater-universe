@@ -9,6 +9,7 @@ Events
   payment_verified  /api/payment/verify-slip   slip verified by EasySlip
   read_full         /api/deeper       the 3-card reading was generated
   rating            /api/rate         1–5 stars, stage "free" | "full"
+  share             /api/share        share / save tap on scene 6 (channel + result), silent
 
 Privacy
   - No IP address, no user agent. Only a coarse `device` (mobile/tablet/desktop/bot/unknown).
@@ -34,7 +35,7 @@ Sinks (env LOG_SINK)
 
 export const COLUMNS = [
   "ts",                 // ISO time (server)
-  "event",              // read_free | payment_verified | read_full | rating
+  "event",              // read_free | payment_verified | read_full | rating | share
   "env",                // VERCEL_ENV or "dev"
   "order_id",           // from the sealed order token ("" for safety / needs_rewrite)
   "lang",               // th | en
@@ -61,7 +62,9 @@ export const COLUMNS = [
   "cards3",             // read_full: "past,present,future" ids, e.g. "4,17,9"
   "stage",              // rating: free | full
   "stars",              // rating: 1–5
-  "rating_key"          // rating: "<order_id>:<stage>" — latest row per key wins (overwrite)
+  "rating_key",         // rating: "<order_id>:<stage>" — latest row per key wins (overwrite)
+  "share_channel",      // share: native | copy_link | download_image | line | facebook | x
+  "share_result"        // share: completed | cancelled | failed | unknown
 ];
 
 /* ---------------- helpers ---------------- */

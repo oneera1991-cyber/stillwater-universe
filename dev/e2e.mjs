@@ -38,6 +38,15 @@ async function ask(page, q, ctx) {
   await page.click("#btnAsk");
 }
 const log = (...a) => console.log("✓", ...a);
+/* Palm (2026-10-09): customer scenes match the prototype, zero interruptions — no disclaimer,
+   no privacy/data note, no Reading ID, no Terms/Privacy links, no other notice. */
+const NOTICE_TEXT = /เพื่อความบันเทิง|Entertainment|Self-Reflection|รหัสการอ่าน|Reading ID|ไม่ระบุตัวตน|anonymous|ข้อกำหนด|ประกาศความเป็นส่วนตัว|\bTerms\b|\bPrivacy\b|Thai bank accounts\) only|ไพ่ใหม่ 3 ใบ สำหรับคำถามเดิม|for the same question/i;
+async function noNotices(page) {
+  const found = await page.evaluate(() => document.querySelectorAll('#vera-app a[href*="terms"], #vera-app a[href*="privacy"], #vera-app .disclaimer, #vera-app .legal, #vera-app .legal-links, #vera-app .reading-id, #readingIdLine, #readingIdValue, #vera-app .privacy, #vera-app .scope').length);
+  assert.equal(found, 0, "no notice elements in the scenes");
+  const text = await page.evaluate(() => document.getElementById("vera-app").innerText);
+  assert.ok(!NOTICE_TEXT.test(text), "no notice text in the scenes: " + (text.match(NOTICE_TEXT) || [])[0]);
+}
 
 /* Fake slip images: rendered HTML "bank slip" + mock marker after PNG IEND
    (dev/server.mjs mock EasySlip reads "MOCK:<scenario>#"). */
@@ -84,7 +93,7 @@ const readTimer = async (page, label) => {
   log("timing " + label + ":", JSON.stringify(timings[label]));
 };
 
-const ONLY = process.env.ONLY || ""; // "en" | "data" | "font" → run only that suite
+const ONLY = process.env.ONLY || ""; // "en" | "data" | "font" | "proto" → run only that suite
 const THAI = /[\u0E00-\u0E7F]/;
 
 /* ---------- main path: all 6 scenes ---------- */
@@ -127,13 +136,8 @@ if (!ONLY) {
   await page.waitForTimeout(1100);
   await shot(page, "05a-offering-locked");
   assert.equal((await page.textContent("#scene-offering .price")).trim(), "฿59");
-  assert.equal((await page.textContent("#scene-offering .scope")).trim(), "ไพ่ใหม่ 3 ใบ สำหรับคำถามเดิม — อดีต / ปัจจุบัน / แนวโน้มข้างหน้า");
-  assert.ok(await page.isVisible("#scene-offering .scope"), "scope visible before payment");
-  assert.deepEqual(await page.$$eval("#scene-offering .pay-links a", (a) => a.map((x) => x.getAttribute("href"))), ["/terms?lang=th", "/privacy?lang=th"]);
-  assert.equal(await page.$$eval("#scene-offering footer.legal a", (a) => a.length), 2);
-  await page.evaluate(() => { const s = document.getElementById("scene-offering"); s.scrollTop = document.querySelector("#scene-offering .pay-card").offsetTop - 120; });
-  await page.waitForTimeout(300);
-  await shot(page, "15-offering-th"); log("scene 5 (th): ฿59 + scope + Terms/Privacy links before payment");
+  assert.equal((await page.textContent("#scene-offering .small")).trim(), "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ");
+  await noNotices(page); log("scene 5 (th): prototype copy, no scope line / legal links");
   await page.click("#btnPay");
   await page.waitForSelector("#payQr:not([hidden])");
   await page.waitForSelector("#slipBox:not([hidden])");
@@ -199,14 +203,11 @@ if (!ONLY) {
   await readTimer(page, "th");
   await page.waitForTimeout(500);
   await shot(page, "11l-full-after-slip");
-  // Reading ID (scene 6)
-  const rid = await page.textContent("#readingIdValue");
+  // Reading ID: kept silently (state/log), never shown
+  const rid = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).readingId);
   assert.match(rid, /^[A-Z0-9_-]{8}$/);
-  assert.equal(rid, await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).readingId));
-  assert.equal((await page.textContent("#readingIdLine span")).trim(), "รหัสการอ่าน");
-  assert.equal(await page.getAttribute("#scene-full .legal-links a[data-legal=privacy]", "href"), "/privacy?lang=th");
   await scrollScene(page, "full", "end");
-  await shot(page, "15-full-reading-id-th"); log("scene 6 Reading ID", rid);
+  await noNotices(page); log("scene 6: no Reading ID / disclaimer / links (id kept internally:", rid + ")");
   const positions = await page.$$eval("#fullSpread .pos", (n) => n.map((x) => x.textContent));
   assert.deepEqual(positions, ["อดีต", "ปัจจุบัน", "แนวโน้มข้างหน้า"]);
   const ids = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper.cards.map((c) => c.id));
@@ -380,11 +381,7 @@ if (!ONLY || ONLY === "en") {
   await page.waitForTimeout(1100);
   assert.deepEqual(await lines(page, "#scene-offering .locked figcaption"), ["Past", "Present", "Future"]);
   assert.equal((await page.textContent("#btnPay")).trim(), "Pay with PromptPay QR");
-  assert.equal((await page.textContent("#scene-offering .scope")).trim(), "3 new cards for the same question — past / present / future");
-  assert.deepEqual(await page.$$eval("#scene-offering .pay-links a", (a) => a.map((x) => x.textContent)), ["Terms", "Privacy Notice"]);
-  await page.evaluate(() => { const s = document.getElementById("scene-offering"); s.scrollTop = document.querySelector("#scene-offering .pay-card").offsetTop - 120; });
-  await page.waitForTimeout(300);
-  await shot(page, "15-offering-en"); log("scene 5 (en): ฿59 + scope + links");
+  await noNotices(page); log("scene 5 (en): no scope line / legal links");
   await page.click("#btnPay");
   await page.waitForSelector("#slipBox:not([hidden])");
   await page.waitForTimeout(600);
@@ -412,10 +409,7 @@ if (!ONLY || ONLY === "en") {
   await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
   await readTimer(page, "en");
   await page.waitForTimeout(500);
-  assert.equal((await page.textContent("#readingIdLine span")).trim(), "Reading ID");
-  await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = s.scrollHeight; });
-  await page.waitForTimeout(300);
-  await shot(page, "15-full-reading-id-en");
+  await noNotices(page);
   await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = 0; });
   await page.waitForTimeout(300);
   assert.deepEqual(await lines(page, "#fullSpread .pos"), ["Past", "Present", "Future"]);
@@ -500,10 +494,9 @@ if (!ONLY || ONLY === "data") {
   await page.click("#btnEnter");
   await active(page, "question");
   await page.waitForTimeout(1500);
-  assert.match(await page.textContent("#scene-question .privacy"), /ไม่ระบุตัวตน/);
+  await noNotices(page);
   await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มจะไปได้ดีไหม ติดต่อ 081-234-5678");
-  await scrollScene(page, "question", "end");
-  await shot(page, "13-question-privacy-th"); log("question privacy line (th)");
+  log("question scene (th): no privacy line");
 
   await page.click("#btnAsk");
   await active(page, "first");
@@ -571,10 +564,9 @@ if (!ONLY || ONLY === "data") {
   await page.click("#btnEnter");
   await active(page, "question");
   await page.waitForTimeout(1500);
-  assert.equal((await page.textContent("#scene-question .privacy")).trim(), "We keep questions anonymously to improve readings.\nPlease don't include names or phone numbers.");
+  await noNotices(page);
   await page.fill("#questionInput", "I'm starting a new job next month. Will it go well?");
-  await scrollScene(page, "question", "end");
-  await shot(page, "13-question-privacy-en"); log("question privacy line (en)");
+  log("question scene (en): no privacy line");
   await page.click("#btnAsk");
   await active(page, "first");
   await page.waitForSelector("#rate-free.is-in", { timeout: 20000 });
@@ -623,7 +615,6 @@ async function assertThaiFont(page, selectors) {
   }
 }
 const noAI = async (page) => assert.ok(!/\bA\.?I\b/.test(await page.evaluate(() => document.body.innerText)), "no 'AI' on the page");
-const disclaimerVisible = (page) => page.evaluate(() => [...document.querySelectorAll(".disclaimer")].some((d) => d.offsetParent && getComputedStyle(d.closest(".scene")).visibility === "visible" && d.closest(".scene").classList.contains("is-active")));
 if (!ONLY || ONLY === "font") {
   const page = await newPage({ locale: "th-TH" });
   await page.goto(BASE + "/");
@@ -636,19 +627,19 @@ if (!ONLY || ONLY === "font") {
   assert.ok(loaded.includes("Noto Sans Thai") && !loaded.some((f) => BAD_FONT.test(f)), "loaded faces: " + loaded.join(","));
   await page.waitForTimeout(900);
   await assertThaiFont(page, ["#windowLines .ln", "#btnEnter", "#langToggle"]);
-  assert.equal(await disclaimerVisible(page), false, "no disclaimer on landing"); await noAI(page);
-  await shot(page, "14-font-01-window-th"); log("font: window (Noto Sans Thai rendered, fonts.check true), no disclaimer");
+  await noNotices(page); await noAI(page);
+  await shot(page, "14-font-01-window-th"); log("font: window (Noto Sans Thai rendered, fonts.check true)");
 
   await page.click("#btnEnter");
   await active(page, "question");
   await page.waitForTimeout(1500);
   const ph = await page.$eval("#questionInput", (el) => getComputedStyle(el, "::placeholder").fontFamily);
   assert.ok(/^"?Noto Sans Thai"?,/.test(ph), "placeholder font " + ph);
-  await assertThaiFont(page, ["#questionTitle", "#scene-question .label", "#scene-question .rule", "#scene-question .privacy", "#btnAsk", "#soundToggle"]);
+  await assertThaiFont(page, ["#questionTitle", "#scene-question .label", "#scene-question .rule", "#btnAsk", "#soundToggle"]);
   await page.fill("#questionInput", "งานใหม่จะไปได้ดีไหม");
   await page.fill("#contextInput", "เพิ่งลาออกจากที่เดิม ยังกังวลอยู่");
   await assertThaiFont(page, ["#questionInput", "#contextInput"]);
-  await shot(page, "14-font-02-question-th"); log("font: question inputs/placeholders/buttons/privacy");
+  await shot(page, "14-font-02-question-th"); log("font: question inputs/placeholders/buttons");
   await page.fill("#contextInput", "");
   await page.fill("#questionInput", "");
   await page.click("#btnAsk");
@@ -658,23 +649,14 @@ if (!ONLY || ONLY === "font") {
   await page.click("#btnAsk");
   await active(page, "draw");
   await page.waitForTimeout(1200);
-  assert.equal(await disclaimerVisible(page), false, "no disclaimer on draw"); await noAI(page);
+  await noNotices(page); await noAI(page);
   await assertThaiFont(page, ["#drawLines .ln"]);
   await active(page, "first");
   await page.waitForSelector("#rate-free.is-in", { timeout: 20000 });
   await page.waitForTimeout(1100);
-  await assertThaiFont(page, ["#firstLines .ln", "#firstInvite .ln", "#btnToOffer", "#rate-free .rate-title", "#rate-free .rate-q", "#disclaimerFirst a"]);
-  assert.equal(await disclaimerVisible(page), true); await noAI(page);
-  assert.equal((await page.textContent("#disclaimerFirst")).trim(), "เพื่อความบันเทิงและการสำรวจตัวเอง");
-  assert.equal(await page.getAttribute("#disclaimerFirst a", "href"), "/terms?lang=th");
-  await shot(page, "14-font-03-first-th");
-  await scrollScene(page, "first", "end");
-  await shot(page, "14-terms-01-scene4-footer-th");
-  await page.click("#langToggle"); await page.waitForTimeout(300);
-  assert.equal((await page.textContent("#disclaimerFirst")).trim(), "For Entertainment & Self-Reflection");
-  assert.equal(await page.getAttribute("#disclaimerFirst a", "href"), "/terms?lang=en");
-  await shot(page, "14-terms-02-scene4-footer-en");
-  await page.click("#langToggle"); await page.waitForTimeout(300); log("scene 4 disclaimer line th/en → /terms?lang=");
+  await assertThaiFont(page, ["#firstLines .ln", "#firstInvite .ln", "#btnToOffer", "#rate-free .rate-title", "#rate-free .rate-q"]);
+  await noNotices(page); await noAI(page);
+  await shot(page, "14-font-03-first-th"); log("font: scene 4");
 
   await page.click("#btnToOffer");
   await active(page, "offering");
@@ -688,23 +670,17 @@ if (!ONLY || ONLY === "font") {
   await active(page, "full");
   await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
   await page.waitForTimeout(500);
-  await assertThaiFont(page, ["#fullSpread .pos", "#fullReadings .ln", "#fullFinal .ln", "#btnSave", "#btnAgain", "#rate-full .rate-title", "#disclaimerFull a"]);
-  assert.equal(await disclaimerVisible(page), true); await noAI(page);
+  await assertThaiFont(page, ["#fullSpread .pos", "#fullReadings .ln", "#fullFinal .ln", "#btnSave", "#btnAgain", "#rate-full .rate-title"]);
+  await noNotices(page); await noAI(page);
   const lastBtn = await page.$$eval("#scene-full button", (b) => b.filter((x) => x.offsetParent).at(-1).textContent.trim());
-  assert.equal(lastBtn, "ถามพี่เวราอีกครั้ง", "last button unchanged (disclaimer is a link)");
-  await scrollScene(page, "full", "end");
-  await shot(page, "14-terms-03-scene6-footer-th");
-  await page.click("#langToggle"); await page.waitForTimeout(300);
-  await shot(page, "14-terms-04-scene6-footer-en");
-  await page.click("#langToggle"); await page.waitForTimeout(300);
+  assert.equal(lastBtn, "ถามพี่เวราอีกครั้ง", "last button unchanged");
   await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = 0; });
   await page.waitForTimeout(300);
-  await shot(page, "14-font-04-full-th"); log("scene 6: Thai font everywhere + disclaimer th/en");
+  await shot(page, "14-font-04-full-th"); log("scene 6: Thai font everywhere");
   const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#btnSave")]);
   await dl.saveAs(`${SHOTS}/14-font-05-saved-reading-th.png`);
   assert.equal(await page.evaluate(() => document.fonts.check("300 34px 'Noto Sans Thai'", "ก") && document.fonts.check("400 34px 'Noto Sans Thai'", "ก")), true); log("saved PNG drawn after Noto Sans Thai loaded");
 
-  // /terms (opens in a new tab from the footer link)
   // /terms and /privacy: Stillwater's final copy rendered verbatim (legal/*.md), th + en, following the toggle.
   const { readFileSync } = await import("node:fs");
   const mdText = (file) => readFileSync(new URL(`../legal/${file}`, import.meta.url), "utf8")
@@ -731,10 +707,11 @@ if (!ONLY || ONLY === "font") {
     await tab.click("#langToggle"); await tab.waitForTimeout(200); // leave the stored choice as th
     await tab.close();
   }
-  const [termsTab] = await Promise.all([page.context().waitForEvent("page"), page.click("#disclaimerFull a")]);
+  // reachable by direct URL only (no links in the scenes)
+  const termsTab = await page.context().newPage(); await termsTab.goto(BASE + "/terms");
   await checkLegal(termsTab, "terms", "14-terms-05-page-th", "14-terms-06-page-en");
   log("/terms: final copy verbatim th + en, Thai font, mobile width");
-  const [privTab] = await Promise.all([page.context().waitForEvent("page"), page.click("#scene-full .legal-links a[data-legal=privacy]")]);
+  const privTab = await page.context().newPage(); await privTab.goto(BASE + "/privacy");
   await checkLegal(privTab, "privacy", "15-privacy-th", "15-privacy-en");
   log("/privacy: final copy verbatim th + en");
 
@@ -745,8 +722,98 @@ if (!ONLY || ONLY === "font") {
   await active(page, "safety");
   await page.waitForTimeout(3500);
   await assertThaiFont(page, ["#safetyMsg .ln"]);
-  assert.equal(await disclaimerVisible(page), false); await noAI(page);
-  await shot(page, "14-font-06-safety-th"); log("safety screen Thai font, no disclaimer/CTA");
+  await noNotices(page); await noAI(page);
+  await shot(page, "14-font-06-safety-th"); log("safety screen Thai font, no notice/CTA");
+  await page.context().close();
+}
+
+/* ================= PROTOTYPE PARITY (Palm 2026-10-09): every scene, TH + EN → 16-* ================= */
+const PROTO_TH = {
+  window: ["กำลังรออยู่เลย มาสิ", "หากมีคำถามที่อยากให้จักรวาลช่วยตอบ", "พี่จะช่วยรับคำถามไว้", "แล้วขอให้พลังงานของจักรวาล", "นำคำตอบที่เหมาะสมกับคุณกลับมา"],
+  enter: "พร้อมส่งคำถาม", qTitle: "มีเรื่องอะไรที่ยังค้างอยู่ในใจ?", ask: "พร้อมรับคำตอบ",
+  draw: ["รอพี่สักครู่...พี่จะลองขอคำตอบจากจักรวาลให้คุณนะคะ", "คำถามของคุณถูกฝากไว้แล้ว ตอนนี้ลองปล่อยให้คำตอบเดินทางมาหาคุณ"],
+  invite: ["คำตอบแรกคือสิ่งที่คุณควรรู้", "แต่บางครั้ง..คำตอบหนึ่งใบไม่ได้เล่าเรื่องทั้งหมด", "พี่เวรายังสามารถถามต่อได้อีกครั้ง", "และครั้งนี้จะเปิดไพ่เพิ่ม 3 ใบ", "เพื่อดูสิ่งที่อยู่เบื้องหลังคำตอบแรก"],
+  next: "ให้พี่ถามต่อ", offerTitle: "บางคำถาม... ไพ่ใบเดียวอาจยังเล่าไม่หมด", pay: "เข้าสู่การชำระเงิน",
+  small: "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ", again: "ถามพี่เวราอีกครั้ง"
+};
+for (const L of ["th", "en"]) {
+  if (ONLY && ONLY !== "proto") break;
+  const page = await newPage({ locale: L === "th" ? "th-TH" : "en-US" });
+  const P = (n) => `16-${L}-${n}`;
+  await page.goto(BASE + "/");
+  await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
+  await page.waitForTimeout(1100);
+  assert.equal(await page.getAttribute("html", "lang"), L);
+  if (L === "th") {
+    assert.deepEqual(await page.$$eval("#windowLines .ln", (n) => n.map((x) => x.textContent)), PROTO_TH.window);
+    assert.equal((await page.textContent("#btnEnter")).trim(), PROTO_TH.enter);
+  }
+  await noNotices(page); await shot(page, P("1-window"));
+  await page.click("#btnEnter"); await active(page, "question"); await page.waitForTimeout(1500);
+  if (L === "th") { assert.equal((await page.textContent("#questionTitle")).trim(), PROTO_TH.qTitle); assert.equal((await page.textContent("#btnAsk")).trim(), PROTO_TH.ask); }
+  await noNotices(page); await shot(page, P("2-question"));
+  await page.fill("#questionInput", L === "th" ? "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม" : "I'm starting a new job next month. Will it go well?");
+  await page.click("#btnAsk"); await active(page, "draw"); await page.waitForTimeout(900);
+  if (L === "th") assert.deepEqual(await page.$$eval("#drawLines .ln", (n) => n.map((x) => x.textContent)), PROTO_TH.draw);
+  await noNotices(page); await shot(page, P("3-draw"));
+  await active(page, "first"); await page.waitForSelector("#btnToOffer.is-in", { timeout: 20000 }); await page.waitForTimeout(1100);
+  if (L === "th") {
+    assert.deepEqual(await page.$$eval("#firstInvite .ln:not(button)", (n) => n.map((x) => x.textContent)), PROTO_TH.invite);
+    assert.equal((await page.textContent("#btnToOffer")).trim(), PROTO_TH.next);
+  }
+  await noNotices(page); await shot(page, P("4a-first"));
+  await page.waitForSelector("#rate-free.is-in", { timeout: 20000 });
+  await scrollScene(page, "first", "end");
+  assert.ok(await page.isVisible("#rate-free .stars"), "free rating stars visible");
+  await shot(page, P("4b-first-end-stars"));
+  await page.click("#btnToOffer"); await active(page, "offering"); await page.waitForTimeout(1100);
+  if (L === "th") {
+    assert.equal((await page.textContent("#scene-offering h2")).trim(), PROTO_TH.offerTitle);
+    assert.equal((await page.textContent("#btnPay")).trim(), PROTO_TH.pay);
+    assert.equal((await page.textContent("#scene-offering .small")).trim(), PROTO_TH.small);
+  }
+  await noNotices(page); await shot(page, P("5a-offering"));
+  await page.click("#btnPay"); await page.waitForSelector("#slipBox:not([hidden])"); await page.waitForTimeout(600);
+  await page.evaluate(() => { document.getElementById("scene-offering").scrollTop = 260; }); await page.waitForTimeout(300);
+  await noNotices(page); await shot(page, P("5b-offering-qr"));
+  await uploadSlip(page, await makeSlip("success", "proto " + L));
+  await page.waitForFunction(() => document.getElementById("payStatus").classList.contains("is-ok"), null, { timeout: 20000 });
+  await page.evaluate(() => { const s = document.getElementById("scene-offering"); s.scrollTop = s.scrollHeight; }); await page.waitForTimeout(200);
+  await shot(page, P("5c-slip-ok"));
+  await active(page, "full"); await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 }); await page.waitForTimeout(600);
+  await noNotices(page); await shot(page, P("6a-full"));
+  await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = s.scrollHeight / 2 - 300; }); await page.waitForTimeout(300);
+  await shot(page, P("6b-full-middle"));
+  await scrollScene(page, "full", "end");
+  assert.ok(await page.isVisible("#rate-full .stars") && await page.isVisible("#btnShare") && await page.isVisible("#btnSave"), "stars + save + share visible");
+  await shot(page, P("6c-full-end-stars-share"));
+  const lastBtn = await page.$$eval("#scene-full button", (b) => b.filter((x) => x.offsetParent).at(-1).textContent.trim());
+  assert.equal(lastBtn, L === "th" ? PROTO_TH.again : "Ask Vera Again", "last button");
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#btnSave")]);
+  await dl.saveAs(`${SHOTS}/${P("6d-saved-reading")}.png`);
+  // Silent share tracking: copy-link fallback, then navigator.share completed / cancelled (stubbed).
+  const orderId = await page.evaluate(async () => (await (await fetch("/__mock/events")).json()).filter((e) => e.event === "read_full").at(-1).order_id);
+  const uiBefore = await page.evaluate(() => document.getElementById("vera-app").innerHTML.length);
+  await page.click("#btnShare"); await page.waitForTimeout(300);
+  await page.evaluate(() => { navigator.share = async () => {}; });
+  await page.click("#btnShare"); await page.waitForTimeout(300);
+  await page.evaluate(() => { navigator.share = async () => { throw new DOMException("cancel", "AbortError"); }; });
+  await page.click("#btnShare"); await page.waitForTimeout(500);
+  const shares = (await (await page.request.get(`${BASE}/__mock/events`)).json()).filter((e) => e.event === "share" && e.order_id === orderId);
+  assert.deepEqual(shares.map((e) => e.share_channel + ":" + e.share_result), ["download_image:completed", "copy_link:completed", "native:completed", "native:cancelled"]);
+  assert.ok(shares.every((e) => e.lang === L && "src" in e && "first_src" in e), "share rows carry lang + source");
+  assert.ok(Math.abs((await page.evaluate(() => document.getElementById("vera-app").innerHTML.length)) - uiBefore) < 80, "tracking adds no UI");
+  await noNotices(page);
+  log(`16-${L}: share events logged silently (download_image, copy_link, native completed/cancelled)`);
+  await page.click("#btnAgain"); await active(page, "question");
+  await ask(page, L === "th" ? "ช่วงนี้ไม่อยากมีชีวิตอยู่แล้ว" : "Lately I want to kill myself");
+  await active(page, "safety"); await page.waitForTimeout(3500);
+  assert.equal(await page.$$eval("#scene-safety button", (b) => b.length), 0, "no CTA on safety");
+  await noNotices(page); await shot(page, P("7-safety"));
+  // silent data still flows
+  const ev = await (await page.request.get(`${BASE}/__mock/events`)).json();
+  assert.ok(["read_free", "payment_verified", "read_full"].every((k) => ev.some((e) => e.event === k && e.lang === L)), "events logged silently");
+  log(`16-${L}: every scene matches the prototype, no notices; events still logged`);
   await page.context().close();
 }
 

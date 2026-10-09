@@ -1,6 +1,6 @@
 # Terms & Disclaimer
 
-Effective: 1 November 2026
+Effective: from the day Stillwater opens to the public
 
 ## A Moment for Reflection
 
@@ -26,7 +26,7 @@ If you're having thoughts of harming yourself, please reach out to someone you t
 
 You type one question. The site draws 1 free card, with Vera's reading of it on screen.
 
-If you'd like to go further, you can pay ฿59 by PromptPay QR, a Thailand-based payment method. The price and what you get are shown next to the QR before you pay, along with links to these terms and the Privacy Notice.
+If you'd like to go further, you can pay ฿59 by PromptPay QR, a Thailand-based payment method. The price and what you get are shown next to the QR before you pay.
 
 We check your payment from your transfer slip. A slip unlocks a reading only if the amount is exactly ฿59, it was paid to Stillwater's registered account, it is dated after you asked your question, and it hasn't been used before. Each slip can be used only once. Invalid or already-used slips can't unlock a reading.
 
@@ -38,7 +38,7 @@ Once your payment is confirmed, the site draws 3 new cards, different from your 
 
 Your reading appears on the same page after the system confirms your payment, usually within a minute. For some banks, slip confirmation can take up to about 10 minutes. While you wait, you can tap to check again. Please don't pay again.
 
-Your full reading is kept only in your own browser, not on our servers, so we recommend saving it as a file or sharing it, so you can come back to it later. Each reading has a Reading ID shown on screen. Please note it down for when you contact us.
+Your full reading is kept only in your own browser, not on our servers, so we recommend saving it as a file or sharing it, so you can come back to it later. Please keep your transfer slip and note roughly when you did your reading, for when you contact us.
 
 ## Scope of purchase
 
@@ -54,12 +54,12 @@ Sometimes a card draw or reading may not display. If that happens:
 
 - **A card can't be drawn, or the free reading fails:** just ask your question again. You won't be charged.
 - **Payment isn't confirmed yet:** tap to check again. Please don't pay again.
-- **Paid, but no reading appears:** please don't pay again. Keep your slip, note the time, and contact us. We'll deliver your reading or refund you as set out in "Refunds and problems".
+- **Paid, but no reading appears:** please don't pay again. Keep your slip, note the time, and contact us at oneera1991@gmail.com. We'll first reopen your reading; if we can't fix it, we'll refund you as set out in "Refunds and problems".
 - **Paid twice:** we'll refund the extra payment.
 
 ## Refunds and problems
 
-- **Paid, but no reading appeared or the reading failed:** contact us with your slip or payment reference. We'll deliver your reading or refund the full ฿59. Please let us know as soon as possible (ideally within 7 days) so we can check it easily.
+- **Paid, but no reading appeared or the reading failed:** if the problem is on our side, contact us at oneera1991@gmail.com with your slip or payment reference. We'll first reopen your reading; if we still can't fix it, we'll refund the full ฿59. Please let us know as soon as possible (ideally within 7 days) so we can check it easily.
 - **Paid twice for the same reading:** we'll refund the extra payment.
 - **Change of mind, or not happy with what the cards say:** this isn't refundable, since the reading is a digital service that was fully delivered as described. But if something went wrong, please tell us.
 
@@ -78,6 +78,5 @@ Email: oneera1991@gmail.com
 To report a payment or reading problem, please include:
 
 - your transfer slip (or payment reference)
-- your Reading ID, if you have it
-- the time of your payment or reading
+- the approximate time of your payment or reading
 - the question you asked

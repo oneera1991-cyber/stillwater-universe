@@ -39,10 +39,12 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 - The saved-reading PNG loads Noto Sans Thai and Cormorant before drawing.
 - Latin display text stays in Cormorant Garamond (Google Fonts).
 
-### Disclaimer / Terms
-- A small line "เพื่อความบันเทิงและการสำรวจตัวเอง" / "For Entertainment & Self-Reflection" sits at the end of scene 4 and scene 6 only (not on the landing or draw scenes). It links to `/terms?lang=th|en` in a new tab.
-- `terms.html` (served at `/terms` via the `vercel.json` rewrite) shows Palm's approved "A Moment for Reflection" text in th + en.
-- The full Terms copy from Stillwater goes in the `data-slot="stillwater-terms"` placeholder section.
+### Customer scenes = the prototype (Palm, 2026-10-09)
+- Scenes 1–6 (TH and EN) carry no disclaimer, privacy/data note, Reading ID, Terms/Privacy links, or any other notice, warning or consent text. They match the prototype (`04942b9`): same layout, copy, fonts and flow.
+- The star rating (scene 4 + scene 6) and the save / share buttons stay as they are.
+- Source tracking, ratings, share tracking and event logging all run silently.
+- `/terms` and `/privacy` exist but are reachable only by direct URL. Nothing in the scenes links to them.
+- e2e `noNotices()` checks every scene for notice elements and notice text. Screenshots are `16-th-*` and `16-en-*`.
 - The page copy never mentions "AI".
 
 ### Data collection (source, ratings, event log)
@@ -52,11 +54,15 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
   - With no tag, the source comes from `document.referrer`: `fb`, `ig`, `tiktok`, `line`, `google`, `youtube`, `referral` (other site) or `direct`.
   - The first touch is stored once in `localStorage["stillwater.src.first"]`. The last touch (`stillwater.src.last`) is updated on every non-direct landing.
   - Tracking params are removed from the address bar.
-  - `/api/read` re-sanitizes `{first, last}` and seals it in the order token, so payment / full-reading / rating events carry the source server-side.
+  - `/api/read` re-sanitizes `{first, last}` and seals it in the order token, so payment / full-reading / rating / share events carry the source server-side.
 - **Ratings**: an optional 1–5 star "ให้ดาวพี่เวรา" / "Rate Vera" widget after the free answer (`stage: "free"`) and after the full reading (`stage: "full"`).
   - `POST /api/rate { order, stage, stars, paid? }`: `stars` must be an integer 1–5. `full` requires this order's payment (same gate as `/api/deeper`).
   - There is one rating per order + stage. `rating_key = <order_id>:<stage>`; rating again adds a row with the same key, and the latest row wins. TODO(storage): upsert.
-- **Privacy**: the question scene says questions are kept anonymously and asks people not to include names or phone numbers.
+- **Share tracking (silent):** tapping share or save on scene 6 fires `POST /api/share { order, channel, result }` without awaiting it. There's no visible change, and errors are ignored.
+  - `channel`: `native` (navigator.share; the target app is unknown), `copy_link` (clipboard fallback), `download_image` (save PNG), plus `line` / `facebook` / `x` reserved for future direct buttons.
+  - `result`: `completed` / `cancelled` (navigator.share AbortError) / `failed` / `unknown`.
+  - `order_id`, `lang` and `src` / `first_src` come only from the sealed order token.
+- **Privacy** (no notice in the scenes; the copy lives on `/privacy`):
   - No IP or user agent is logged, only a coarse `device` (mobile/tablet/desktop/bot/unknown).
   - Phone numbers, emails and LINE ids in the question/context are redacted to `[phone]` / `[email]` / `[line id]` before logging.
   - Safety (self-harm / crisis) `read_free` rows keep `question` and `context` empty; the safety flag, source, lang and device are still logged.
@@ -65,14 +71,14 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
   - Sinks are chosen with `LOG_SINK`: `console` (default; one `STILLWATER_EVENT {json}` line in the Vercel logs), `sheets` (stub) or `none`.
   - **Google Sheets sink is a stub.** It builds the `values:append` request but does not call Google. TODO(auth): service-account token via `GOOGLE_SERVICE_ACCOUNT_JSON` (or `GOOGLE_SHEETS_TOKEN`), plus `waitUntil()` on Vercel.
 
-**Events**: `read_free` (every free attempt, including safety / needs_rewrite), `payment_verified` (slip OK), `read_full` (3 cards generated), `rating`.
+**Events**: `read_free` (every free attempt, including safety / needs_rewrite), `payment_verified` (slip OK), `read_full` (3 cards generated), `rating`, `share`.
 
 **Sheet columns** (Google Sheet `1IlhWkJJBKTs3UTtbAPcQLreHouSCRF04QFqfsS93W58`, row 1 of tab `events`, already written, in this order; every event fills the common columns plus its own):
 
 | # | column | filled by | meaning |
 | --- | --- | --- | --- |
 | 1 | `ts` | all | server time (ISO, UTC) |
-| 2 | `event` | all | `read_free` / `payment_verified` / `read_full` / `rating` |
+| 2 | `event` | all | `read_free` / `payment_verified` / `read_full` / `rating` / `share` |
 | 3 | `env` | all | `production` / `preview` / `dev` |
 | 4 | `order_id` | all (empty for safety / needs_rewrite) | from the order token |
 | 5 | `lang` | all | `th` / `en` |
@@ -85,21 +91,25 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 | 17 | `device` | all | mobile / tablet / desktop / bot / unknown |
 | 18 | `reader` | read_free, read_full | `real` / `stub` |
 | 19–20 | `question`, `context` | read_free | PII-redacted; empty when `safety` = TRUE |
-| 21 | `card1` | read_free, read_full, rating | free card id |
+| 21 | `card1` | read_free, read_full, rating, share | free card id |
 | 22–23 | `safety`, `needs_rewrite` | read_free | TRUE / FALSE |
 | 24–25 | `trans_ref`, `amount_thb` | payment_verified | EasySlip transRef, 59 |
 | 26 | `cards3` | read_full | ids past,present,future, e.g. `4,17,9` |
 | 27–29 | `stage`, `stars`, `rating_key` | rating | `free`/`full`, 1–5, `<order_id>:<stage>` |
+| 30 | `share_channel` | share | `native` / `copy_link` / `download_image` / `line` / `facebook` / `x` |
+| 31 | `share_result` | share | `completed` / `cancelled` / `failed` / `unknown` |
+
+**Sheet header change needed** (the live sheet is not edited from here): the Vera Readings `events` tab has 29 header columns. Add `share_channel` in **AD1** and `share_result` in **AE1**, right after `rating_key` (AC1). Earlier columns don't move, so existing rows stay valid.
 
 ### Reading ID, deletion requests, retention
 - **Reading ID** = first 8 chars of `order_id` after `ord_`, uppercased. For example `ord_KB1lpqjhlyTa…` becomes `KB1LPQJH` (`readingId()` in `api/_lib/order.js`).
-  - It is shown small on scene 6 ("รหัสการอ่าน" / "Reading ID") and on the saved PNG.
+  - It is **not shown** to the customer: not on scene 6 and not on the saved PNG (Palm, 2026-10-09). `/api/read` and `/api/deeper` still return `reading_id`, and the page keeps it in state.
   - It is not a separate column, because it can be derived. In the Sheet, a helper column can use `=UPPER(MID(D2,5,8))` (`order_id` is column D).
   - The match ignores case, so check the matching rows before deleting.
 - **Deleting a reading on request:**
-  1. Ask for the Reading ID from scene 6 or the saved image.
-  2. In the Sheet: Data → Create a filter, then filter the `order_id` column with "Text contains" `ord_<ID>` (match case off), or use the helper column.
-  3. Check the rows: `read_free`, `payment_verified`, `read_full` and `rating` all share that `order_id`. Delete them.
+  1. The customer can't see a Reading ID, so identify the rows by their payment reference (`trans_ref` on the `payment_verified` row, from their slip), the time of the reading, and the question they asked. That gives the `order_id`.
+  2. In the Sheet: Data → Create a filter, then filter the `order_id` column with that value (or "Text contains" `ord_<ID>`, match case off, or use the helper column).
+  3. Check the rows: `read_free`, `payment_verified`, `read_full`, `rating` and `share` all share that `order_id`. Delete them.
   4. Alternatively, run `deleteByReadingId("<ID>")` from the Apps Script below, or plan it offline with `node scripts/purge-old-rows.mjs events.csv --reading-id <ID>`.
   - Safety rows have no `order_id` and never contain question text.
 - **Retention: 90 days, via an Apps Script trigger that Palm installs on the Sheet.**
@@ -141,7 +151,7 @@ function deleteByReadingId(id) {
 
 ### Legal pages
 - `/terms` → `terms.html` and `/privacy` → `privacy.html` (`vercel.json` rewrites, mirrored in `dev/server.mjs`).
-- They render Stillwater's final copy word for word: `legal/{terms,privacy}.{th,en}.md`, copied from `stillwater/prompts/`, effective 1 Nov 2026, support email oneera1991@gmail.com.
+- They render Stillwater's final copy word for word: `legal/{terms,privacy}.{th,en}.md`, copied from `stillwater/prompts/` (the effective date is whatever line 3 of each file says; no launch date is hardcoded here), support email oneera1991@gmail.com.
 - `scripts/build-legal.mjs` turns the markdown into `legal/content.js`. It only maps headings, lists, bold and paragraphs, and links the email (mailto:) and 1323 / 1669 (tel:).
 - Rebuild after any copy change with `node scripts/build-legal.mjs`. `dev/unit.mjs` fails if the generated file is stale, and e2e compares the page text with the markdown.
 - Both pages follow the TH/EN toggle (`?lang=`, otherwise the saved choice, otherwise the browser language) and use the same loopless fonts.
@@ -164,7 +174,7 @@ function deleteByReadingId(id) {
 | `PAYMENT_PROVIDER` | no | `promptpay` (default) or `omise` (inactive). |
 | `OPENAI_API_KEY` | yes (production) | Stillwater's reader (`api/_lib/vera.js`). If it is missing on production, readings return an error. |
 | `LOG_SINK` | no | `console` (default), `sheets` (stub, needs `GOOGLE_SHEETS_ID`), `none`. |
-| `GOOGLE_SHEETS_ID` | later | Intended value: `1IlhWkJJBKTs3UTtbAPcQLreHouSCRF04QFqfsS93W58` (spreadsheet id, not a secret). Header row already has the 29 columns below. Not used until Sheets auth is implemented. |
+| `GOOGLE_SHEETS_ID` | later | Intended value: `1IlhWkJJBKTs3UTtbAPcQLreHouSCRF04QFqfsS93W58` (spreadsheet id, not a secret). Header row has the first 29 columns; add `share_channel` (AD1) and `share_result` (AE1) for the 31-column schema. Not used until Sheets auth is implemented. |
 | `GOOGLE_SHEETS_TAB` | later | `events` (default). |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | later | Service-account key for the Sheets sink (secret). Share the sheet with the service-account email as Editor. |
 | `VERA_READER` | no | `stub` or `real` to force a reader. Leave it unset in production. |

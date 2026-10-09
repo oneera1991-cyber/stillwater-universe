@@ -51,23 +51,17 @@ export const STRINGS = {
       contextPlaceholder: "เช่น เรื่องนี้เริ่มเมื่อไร ตอนนี้รู้สึกอย่างไร",
       rule: "พี่เวรายังไม่รับคำถามเรื่องสุขภาพ กฎหมาย\nและเรื่องเงินก้อนใหญ่นะคะ",
       submit: "พร้อมรับคำตอบ",
-      empty: "พิมพ์คำถามสักนิดก่อนนะคะ",
-      privacy: "พี่เวราเก็บคำถามไว้แบบไม่ระบุตัวตน เพื่อพัฒนาคำอ่านให้ดีขึ้น\nอย่าใส่ชื่อหรือเบอร์โทรนะคะ"
+      empty: "พิมพ์คำถามสักนิดก่อนนะคะ"
     },
     legal: {
       terms: "ข้อกำหนดการใช้งาน",
-      privacy: "ประกาศความเป็นส่วนตัว",
-      readingId: "รหัสการอ่าน",
-      readingIdHint: "ใช้รหัสนี้เมื่อต้องการขอลบข้อมูลการอ่านของคุณ"
+      privacy: "ประกาศความเป็นส่วนตัว"
     },
     privacyPage: {
       title: "ประกาศความเป็นส่วนตัว",
       back: "กลับไปที่ Stillwater"
     },
-    disclaimer: { // approved by Palm 2026-10-09
-      line: "เพื่อความบันเทิงและการสำรวจตัวเอง",
-      title: "A Moment for Reflection",
-      body: "การอ่านไพ่ครั้งนี้จัดทำขึ้นเพื่อความบันเทิงและการสำรวจตัวเอง ไพ่เป็นมุมมองให้คุณได้ลองทบทวน ไม่ใช่คำรับรองว่าสิ่งใดจะเกิดขึ้นในอนาคต การตัดสินใจยังคงเป็นของคุณ",
+    disclaimer: { // only the /terms page back link (no disclaimer in the scenes — Palm, 2026-10-09)
       back: "กลับไปที่ Stillwater"
     },
     rate: {
@@ -108,9 +102,7 @@ export const STRINGS = {
       title: "บางคำถาม... ไพ่ใบเดียวอาจยังเล่าไม่หมด",
       copy: "ให้พี่เปิดไพ่เพิ่มอีกสามใบ เพื่อดูเรื่องราวตั้งแต่อดีต ปัจจุบัน และแนวโน้มข้างหน้า",
       ppf: "Past · Present · Future",
-      sub: "", // optional line under the positions; hidden when empty
       price: "฿59",
-      scope: "ไพ่ใหม่ 3 ใบ สำหรับคำถามเดิม — อดีต / ปัจจุบัน / แนวโน้มข้างหน้า",
       pay: "เข้าสู่การชำระเงิน",
       qrAlt: "QR พร้อมเพย์ 59 บาท",
       hint: "สแกน QR นี้ หรือบันทึกรูปไปเปิดในแอปธนาคาร\nโอน 59 บาท แล้วแนบสลิปด้านล่างนะคะ",
@@ -119,7 +111,7 @@ export const STRINGS = {
       attachAgain: "แนบสลิปใหม่",
       slipAlt: "สลิปที่แนบ",
       retry: "ตรวจสลิปอีกครั้ง",
-      small: "เมื่อตรวจสลิปผ่าน พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ",
+      small: "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ",
       back: "กลับไปดูคำตอบเดิม"
     },
     pay: {
@@ -225,23 +217,17 @@ export const STRINGS = {
       contextPlaceholder: "e.g. when this started, how you feel right now",
       rule: "Vera doesn't take questions about health, legal matters\nor large sums of money.",
       submit: "Let's begin", // [Palm]
-      empty: "Please write your question first.",
-      privacy: "We keep questions anonymously to improve readings.\nPlease don't include names or phone numbers."
+      empty: "Please write your question first."
     },
     legal: {
       terms: "Terms",
-      privacy: "Privacy Notice",
-      readingId: "Reading ID",
-      readingIdHint: "Use this ID if you'd like your reading data deleted."
+      privacy: "Privacy Notice"
     },
     privacyPage: {
       title: "Privacy Notice",
       back: "Back to Stillwater"
     },
-    disclaimer: { // approved by Palm 2026-10-09
-      line: "For Entertainment & Self-Reflection",
-      title: "A Moment for Reflection",
-      body: "This reading is intended for entertainment and self-reflection. The cards offer perspectives to explore, not promises of what the future holds. Your choices remain your own.",
+    disclaimer: { // only the /terms page back link (no disclaimer in the scenes — Palm, 2026-10-09)
       back: "Back to Stillwater"
     },
     rate: {
@@ -280,9 +266,7 @@ export const STRINGS = {
       title: "Some questions need more than one card.", // [Palm]
       copy: "Let me open three more cards to explore what has been, what is, and what may lie ahead.", // [Palm]
       ppf: "Past · Present · Future", // [Palm]
-      sub: "",
       price: "฿59", // [Palm]
-      scope: "3 new cards for the same question — past / present / future",
       pay: "Pay with PromptPay QR", // [Palm]
       qrAlt: "PromptPay QR, 59 baht",
       hint: "Scan this QR, or save the image and open it in your banking app.\nTransfer 59 baht, then attach your slip below.",
@@ -291,7 +275,7 @@ export const STRINGS = {
       attachAgain: "Attach a new slip",
       slipAlt: "Your attached slip",
       retry: "Check slip again",
-      small: "Once your slip is verified, Vera will open the three cards right away. PromptPay (Thai bank accounts) only.",
+      small: "Once your payment goes through, Vera will open the three cards right away.",
       back: "Back to my first answer"
     },
     pay: {
