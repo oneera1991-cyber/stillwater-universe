@@ -8,10 +8,16 @@ Stillwater is the data controller for the personal data you give us when you use
 
 ## What data we collect
 
-- **Service log:** your question, any optional context you add, the cards drawn, your payment reference, your Reading ID, and your star rating (if you give one). Phone numbers, emails and LINE IDs are automatically removed from the context.
+- **Service log:** your question, any optional context you add, the cards drawn, your payment reference, your Reading ID, and your star rating (if you give one). Phone numbers, emails and LINE IDs are automatically removed from your question and context.
 - **Questions about self-harm:** these are not stored.
 - **Transfer slip data:** used to verify your payment.
+- **Visit data:** how you reached us (for example, the link or website that brought you), your general device type (mobile, tablet or desktop), and the language you use on the site.
 - **Technical data:** basic logs needed to run the site, kept short-term by our hosting platform.
+- **Anonymous visit statistics:** cookieless page-view counts from our hosting platform.
+
+**Data kept in your browser:** the site uses your browser's local storage, not cookies, to remember your language, how you reached us, your payment status and your paid reading. You can clear it at any time in your browser settings. We don't use advertising cookies or ad trackers.
+
+**Fonts:** some of the site's fonts load from an external font service, which receives your IP address in order to deliver them.
 
 Your full reading is not stored on our servers. It is kept only in your own browser, so we recommend saving it as a file or sharing it.
 
@@ -27,6 +33,7 @@ Your full reading is not stored on our servers. It is kept only in your own brow
 
 - Hosting and cloud providers
 - A cloud storage or spreadsheet provider used for the service log
+- Web font providers
 - A text processing service provider that helps produce readings
 - A transfer slip verification provider
 - Government authorities, where the law requires
