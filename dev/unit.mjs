@@ -97,6 +97,42 @@ assert.match(p.qrPayload, /^000201010212/); assert.ok(p.qrPayload.includes("5405
 process.env.PROMPTPAY_ID = "12345";
 await assert.rejects(payment.createPayment(order), /PROMPTPAY_ID/); ok("bad PROMPTPAY_ID rejected");
 
+/* PAYMENT_TEST_MODE=1 (preview only): any JPG/PNG passes, no EasySlip call; HARD-GUARDED off on VERCEL_ENV=production */
+{
+  const env0 = { ...process.env };
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+  const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 9]);
+  assert.equal(payment.paymentTestMode({ PAYMENT_TEST_MODE: "1" }), true);
+  assert.equal(payment.paymentTestMode({ PAYMENT_TEST_MODE: "1", VERCEL_ENV: "preview" }), true);
+  assert.equal(payment.paymentTestMode({ PAYMENT_TEST_MODE: "1", VERCEL_ENV: "production" }), false, "guard: production ignores the flag");
+  assert.equal(payment.paymentTestMode({ PAYMENT_TEST_MODE: "1", VERCEL_ENV: " Production " }), false, "guard: case/space-insensitive");
+  assert.equal(payment.paymentTestMode({ PAYMENT_TEST_MODE: "true" }), false); assert.equal(payment.paymentTestMode({}), false);
+  delete process.env.EASYSLIP_API_KEY; delete process.env.EASYSLIP_MOCK; process.env.PAYMENT_TEST_MODE = "1"; process.env.VERCEL_ENV = "preview";
+  const f0 = globalThis.fetch; let calls = 0; globalThis.fetch = async () => { calls++; throw new Error("no network"); };
+  const w0 = console.warn; console.warn = () => {};
+  const t1 = await payment.verifySlip(order, { bytes: png, mime: "image/png" });
+  const t2 = await payment.verifySlip(order, { bytes: jpg, mime: "image/jpeg" });
+  assert.equal(t1.ok, true); assert.match(t1.ref, /^TEST-[0-9A-F]{12}$/); assert.equal(t1.amount, 5900); assert.equal(t2.ok, true); assert.notEqual(t1.ref, t2.ref);
+  assert.equal((await payment.verifySlip(order, { bytes: Buffer.from("GIF89a....."), mime: "image/gif" })).reason, "bad_file", "still only images");
+  assert.equal(calls, 0, "no EasySlip call in test mode");
+  // QR: real PromptPay QR when PROMPTPAY_ID is valid, non-payable demo QR otherwise; UI mode stays "live" (looks identical)
+  process.env.PROMPTPAY_ID = "000-000-0000";
+  const q1 = await payment.createPayment(order); assert.match(q1.qrPayload, /^000201010212/); assert.equal(q1.mode, "live");
+  process.env.PROMPTPAY_ID = "abcdefghij";
+  const q2 = await payment.createPayment(order); assert.equal(q2.qrPayload, payment.DEMO_QR_TEXT); assert.ok(!q2.qrPayload.startsWith("0002"), "demo QR is not an EMVCo payment payload");
+  assert.match(q2.qr, /^data:image\/png;base64,/); assert.equal(q2.mode, "live");
+  // guard: production ignores PAYMENT_TEST_MODE → real verification path (needs EasySlip) and a bad PROMPTPAY_ID still rejects
+  process.env.VERCEL_ENV = "production";
+  await assert.rejects(payment.verifySlip(order, { bytes: png, mime: "image/png" }), (e) => e.code === "config_missing", "production: no free pass");
+  await assert.rejects(payment.createPayment(order), /PROMPTPAY_ID/, "production: no demo QR");
+  process.env.EASYSLIP_API_KEY = "k"; globalThis.fetch = async () => { calls++; return new Response(JSON.stringify({ success: false, error: { code: "SLIP_NOT_FOUND" } }), { status: 400 }); };
+  assert.equal((await payment.verifySlip(order, { bytes: png, mime: "image/png" })).reason, "unreadable", "production: EasySlip decides"); assert.equal(calls, 1);
+  globalThis.fetch = f0; console.warn = w0;
+  for (const k of Object.keys(process.env)) if (!(k in env0)) delete process.env[k];
+  Object.assign(process.env, env0);
+  ok("PAYMENT_TEST_MODE: any JPG/PNG passes without EasySlip (preview/dev), demo QR only when PROMPTPAY_ID invalid, UI mode 'live'; ignored on VERCEL_ENV=production");
+}
+
 /* Mae Manee (SCB) bill-payment QR mode — PAYMENT_QR_MODE=maemanee */
 {
   const mm = await import("../api/_lib/payment/maemanee.js");
@@ -333,6 +369,19 @@ const so = signOrder({ question: "q", card1: 2, source: { first: { src: "Friends
 assert.equal(verifyOrder(so.token).source.first.src, "friends"); assert.equal(verifyOrder(so.token).source.last.src, "ig");
 assert.ok(!Buffer.from(so.token.split(".")[1], "base64url").toString("latin1").includes("instagram"), "sealed");
 assert.deepEqual(verifyOrder(signOrder({ question: "q", card1: 2 }).token).source, { first: null, last: null }); ok("source sealed in order token");
+{ // "แชร์ Stillwater" link → src "share" / src_type "referral"
+  assert.equal(src.SHARE_PATH, "/?src=share"); assert.ok(src.SRC_PRESETS.includes("share") && src.SRC_TYPES.includes("referral"));
+  const sh = L("?src=share"); assert.deepEqual([sh.src, sh.src_type], ["share", "referral"]); assert.equal(src.isSignal(sh), true);
+  assert.deepEqual([L("?src=Share").src, L("?src=Share").src_type], ["share", "referral"]);
+  assert.deepEqual([L("?src=sharelink").src_type, L("?src=friends").src_type], ["tag", "tag"], "only the exact 'share' preset is a referral");
+  const t = src.sanitizeTouch(sh); assert.deepEqual([t.src, t.src_type], ["share", "referral"], "server keeps src_type referral");
+  const sealed = verifyOrder(signOrder({ question: "q", card1: 2, source: { first: sh, last: sh } }).token).source;
+  assert.deepEqual([sealed.first.src, sealed.first.src_type, sealed.last.src], ["share", "referral", "share"]);
+  const kept = verifyOrder(signOrder({ question: "q", card1: 2, source: { first: L("?src=friends"), last: sh } }).token).source;
+  assert.deepEqual([kept.first.src, kept.last.src], ["friends", "share"], "existing first touch kept, last = share");
+  assert.ok(src.SRC_PRESETS.includes("group")); assert.deepEqual([L("?src=group").src, L("?src=group").src_type], ["group", "tag"], "group preset = tag");
+  ok("share link: '?src=share' → src share / src_type referral; first_src for new visitors, existing first touch kept");
+}
 
 /* ---------------- event log ---------------- */
 const log = await import("../api/_lib/log.js");
@@ -544,6 +593,36 @@ for (const lg of ["th", "en"]) {
 }
 ok("stub overview (final) ties all four cards");
 
+/* vera.js 2ed3ca4: fallback ending = overview of all FOUR cards + Vera's closing; the page adds thanks / come-back once */
+{
+  vera.setClientForTesting({ responses: { create: async () => ({ status: "completed", output_text: "not json", usage: { input_tokens: 1, output_tokens: 1 } }) } });
+  const warn0 = console.warn; console.warn = () => {};
+  globalThis.__fallbackEnding = {};
+  const stubR = await import("../api/_lib/vera.stub.js");
+  for (const lang of ["th", "en"]) {
+    const fb = await vera.generateThree({ question: "q job", card1: { id: 18, text: "t" }, openThread: "o", cards3: [1, 2, 3], lang });
+    assert.equal(fb.fallback, true);
+    globalThis.__fallbackEnding[lang] = { final: fb.final, closing: fb.closing };
+    assert.ok(fb.final.includes("The Moon") && fb.final.includes(fb.cards[2].name), "overview spans free card → card 4");
+    assert.match(fb.final, lang === "th" ? /ไพ่ทั้งสี่ใบ/ : /All four cards/);
+    const stub = await stubR.generateThree({ question: "q", lang, card1: { id: 18 }, cards3: [1, 2, 3] });
+    for (const r of [fb, stub]) {
+      const ending = r.final + "\n" + r.closing;
+      assert.ok(!ending.includes(t(lang, "full.thanks")) && !ending.includes(t(lang, "full.returnLine")), "reader never repeats the page's fixed lines");
+      assert.ok(!(lang === "th" ? /ขอบคุณจักรวาล|กลับมาหาพี่เวรา|กลับมาถาม/ : /thank(s| you)? (to )?the universe|come back/i).test(ending), "no thanks / come-back in final or closing: " + ending);
+      assert.notEqual(r.final.trim(), r.closing.trim());
+      assert.ok(!/น้ำนิ่ง|still water|walk on gently/i.test(ending), "Palm: the 'น้ำนิ่ง' sentence never appears in the ending");
+    }
+  }
+  vera.setClientForTesting(null);
+  console.warn = warn0;
+  { const { readFileSync } = await import("node:fs");
+    const src = ["../api/_lib/vera.stub.js", "../index.html", "../i18n/strings.js"].map((f) => readFileSync(new URL(f, import.meta.url), "utf8")).join("\n");
+    assert.ok(!/น้ำนิ่ง|in the still water|walk on gently/i.test(src.replace(/stars over still water/g, "")), "no 'น้ำนิ่ง' ending sentence anywhere in the stub reader / page / strings"); }
+  for (const lang of ["th", "en"]) assert.deepEqual(vera.findKeepQuestionWords(globalThis.__fallbackEnding[lang].final, globalThis.__fallbackEnding[lang].closing), [], "vera.js fallback ending has no keep-the-question phrase");
+  ok("vera.js 2ed3ca4: fallback overview ties all four cards, closing = Vera's words only; thanks / come-back come once, from the page (th + en, real fallback + stub)");
+}
+
 /* vera.js d91dfe1: story-style fallback (no position label) + internal position_label_flags never reach the page */
 {
   const realClient = { responses: { create: async () => ({ status: "completed", output_text: "not json", usage: { input_tokens: 1, output_tokens: 1 } }) } };
@@ -586,6 +665,35 @@ ok("stub overview (final) ties all four cards");
   process.env.VERA_READER = "stub";
   vera.setClientForTesting(null);
   ok("vera.js d91dfe1: fallback opens story-style (th+en), position_label_flags internal only (not in API response or Sheet row)");
+
+/* vera.js a179c20: internal keep_question_flags (log only) never reach the page or the Sheet */
+{
+  assert.deepEqual(vera.findKeepQuestionWords("I'll keep your question in still water."), ["still water", "keep your question"]);
+  assert.deepEqual(vera.findKeepQuestionWords("พี่เวราจะเก็บคำถามนี้ไว้ในน้ำนิ่งนะคะ"), ["เก็บคำถาม", "น้ำนิ่ง"]);
+  assert.deepEqual(vera.findKeepQuestionWords("Welcome to Stillwater."), [], "brand name not flagged");
+  const keepClient = { responses: { create: async ({ input }) => {
+    const files = [...input.matchAll(/"file":"([a-z]+\.jpg)"/g)].map((m) => m[1]);
+    if (files.length >= 3) return { status: "completed", usage: { input_tokens: 1, output_tokens: 1 }, output_text: JSON.stringify({ safety: false, cards: files.slice(0, 3).map((f) => ({ file: f, text: "It moves on." })), final: "All four cards point one way.", closing: "I'll keep your question in still water." }) };
+    return { status: "completed", usage: { input_tokens: 1, output_tokens: 1 }, output_text: JSON.stringify({ needs_rewrite: false, safety: false, card: { file: files[0] || "x.jpg", text: "a\nb\nc\nI'll hold this question for you." }, open_thread: "o" }) };
+  } } };
+  vera.setClientForTesting(keepClient);
+  const w0 = console.warn; const warned = []; console.warn = (...a) => warned.push(a.join(" "));
+  const k3 = await vera.generateThree({ question: "q job", card1: { id: 0, text: "t" }, openThread: "o", cards3: [1, 2, 3], lang: "en" });
+  assert.deepEqual(k3.keep_question_flags, ["still water", "keep your question"]);
+  assert.ok(warned.some((l) => l.startsWith("vera keep-question flag (paid, en)")), "logged to the console only");
+  process.env.VERA_READER = "real";
+  const evs = []; log.setSink({ name: "mem", write: (row) => { evs.push(row); } });
+  const r1 = fakeRes(); await (await import("../api/read.js")).default(req({ question: "Will my new job go well?", lang: "en" }), r1);
+  const o1 = verifyOrder(r1.body.order);
+  const d1 = fakeRes(); await (await import("../api/deeper.js")).default(req({ order: r1.body.order, paid: signPaid({ orderId: o1.orderId, method: "promptpay-slip", ref: "KQF", amount: 5900, currency: "THB" }) }), d1);
+  await new Promise((r) => setTimeout(r, 20));
+  log.setSink(null); console.warn = w0; process.env.VERA_READER = "stub"; vera.setClientForTesting(null);
+  assert.equal(r1.statusCode, 200); assert.equal(d1.statusCode, 200);
+  for (const b of [r1.body, d1.body]) assert.ok(!JSON.stringify(b).includes("keep_question_flags"), "never in an API response");
+  assert.ok(evs.length >= 2 && evs.every((e) => !("keep_question_flags" in e)), "never in a Sheet row");
+  assert.ok(!log.COLUMNS.includes("keep_question_flags") && log.COLUMNS.length === 31, "no Sheet column");
+  ok("vera.js a179c20: keep_question_flags internal + console-only (not in /api/read or /api/deeper responses, no Sheet row field or column); 'Stillwater' brand not flagged");
+}
 }
 /* ---------------- legal pages content ---------------- */
 const legalBuild = await import("../scripts/build-legal.mjs");

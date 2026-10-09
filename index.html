@@ -576,7 +576,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 <script type="module">
 /* All user-facing copy lives in /i18n/strings.js (shared with the API). */
 import { t as tr, normLang, errorKey, LANGS } from '/i18n/strings.js';
-import { touchFromLanding, isSignal, TRACKING_PARAMS } from '/lib/source.js';
+import { touchFromLanding, isSignal, TRACKING_PARAMS, SHARE_PATH } from '/lib/source.js';
 import { POSITION_ORDER, cardHeading, storyLines } from '/lib/story.js';
 
 (function(){
@@ -1495,10 +1495,11 @@ function logShare(channel, result){
   }catch(e){}
 }
 
-/* "แชร์ Stillwater": shares ONLY the site link — never the question, the cards or the reading. */
+/* "แชร์ Stillwater": shares ONLY the site link (/?src=share, so new visitors are counted as
+   src "share" / src_type "referral") — never the question, the cards or the reading. */
 async function shareSite(){
   buttonSound();
-  const url = location.origin + '/';
+  const url = location.origin + SHARE_PATH;
   setText($('shareNote'), null);
   if(navigator.share){
     try{ await navigator.share({ title: t('full.shareTitle'), url }); logShare('native', 'completed'); trackEvent('site_shared'); return; }

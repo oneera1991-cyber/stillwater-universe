@@ -24,7 +24,7 @@ Nothing in this file has been done yet. Every push, deploy, env-var change and S
 | 3 | **OpenAI API key** → `OPENAI_API_KEY` | Stillwater's reader. Without it, **production** readings return an error, and preview falls back to the stub reader. |
 | 4 | **Google service account** (for the Sheet log) | Created under oneera1991@gmail.com. Steps are in §3. |
 | 5 | **Approval to push** branch `vera-6scene` and later merge/promote to production | |
-| 6 | Optional, before launch: Stillwater's `vera.js` update | `final` should cover all four cards, `closing` should be Vera's words only, and the CALL_B page description should be updated (README → "V2: changes Stillwater needs to make"). It works without this, but `final` still says "สามใบ…" / "these three cards…". |
+| 6 | ~~Stillwater's `vera.js` four-card update~~ | **Done**: `vera.js` `a179c20` is copied in (the overview covers all four cards, and `closing` is Vera's words only). |
 
 ## 2. Environment variables (Vercel → Project → Settings → Environment Variables)
 
@@ -42,6 +42,7 @@ Nothing in this file has been done yet. Every push, deploy, env-var change and S
 | `PAYMENT_PROVIDER` | no | — | Leave unset (= `promptpay`). |
 | `PAYMENT_QR_MODE` | no | — | **Leave unset** (= `promptpay`, Palm's personal PromptPay). `maemanee` is an inactive future option (§7). |
 | `VERA_READER` | no | — | **Leave unset** in production. `stub` forces the offline reader. |
+| `PAYMENT_TEST_MODE` | no | Preview only | `1` lets any uploaded image pass slip verification, for the preview test without real money. The code ignores it on production. **Remove it from Preview before the real ฿59 test (§5 A).** |
 | `EASYSLIP_MOCK` | no | — | **Never set** on Vercel (it is for the local dev server only). |
 | `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` | no | — | Only for `PAYMENT_PROVIDER=omise` (inactive). |
 

@@ -233,7 +233,7 @@ if (!ONLY) {
 
   await page.click("#btnShareSite");
   await page.waitForFunction(() => document.getElementById("shareNote").textContent.length > 0);
-  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), BASE + "/", "share copies the site link only");
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), BASE + "/?src=share", "share copies the site link only (?src=share)");
   log("share Stillwater →", await page.textContent("#shareNote"));
 
   await page.click("#btnClose");
@@ -441,7 +441,7 @@ if (!ONLY || ONLY === "en") {
   await shot(page, "12-en-06c-full-end"); log("EN full reading: Past / Present / Future");
   await page.click("#btnShareSite");
   await page.waitForFunction(() => document.getElementById("shareNote").textContent === "Link copied.");
-  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), BASE + "/");
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), BASE + "/?src=share");
   log("EN share Stillwater → site link copied");
 
   await page.reload();
@@ -811,12 +811,12 @@ for (const L of ["th", "en"]) {
   const orderId = await page.evaluate(async () => (await (await fetch("/__mock/events")).json()).filter((e) => e.event === "read_full").at(-1).order_id);
   const uiBefore = await page.evaluate(() => document.getElementById("vera-app").innerHTML.length);
   await page.click("#btnShareSite"); await page.waitForTimeout(300);
-  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), BASE + "/", "copied link = site only");
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), BASE + "/?src=share", "copied link = site only");
   await page.evaluate(() => { window.__shared = []; navigator.share = async (d) => { window.__shared.push(d); }; });
   await page.click("#btnShareSite"); await page.waitForTimeout(300);
   const shared = await page.evaluate(() => window.__shared);
   assert.equal(shared.length, 1); assert.deepEqual(Object.keys(shared[0]).sort(), ["title", "url"], "no text / files shared");
-  assert.equal(shared[0].url, BASE + "/");
+  assert.equal(shared[0].url, BASE + "/?src=share");
   const cardNames = await page.$$eval("#fullStory .name, #firstName", (n) => n.map((x) => x.textContent));
   assert.ok(!cardNames.some((nm) => JSON.stringify(shared[0]).includes(nm)), "no card names / reading in the share");
   await page.evaluate(() => { navigator.share = async () => { throw new DOMException("cancel", "AbortError"); }; });
@@ -985,6 +985,8 @@ for (const L of ["th", "en"]) {
   assert.deepEqual(end.buttons, [E.share, E.close], "only the two final buttons");
   assert.deepEqual(end.slot, { hidden: true, h: 0, text: "" }, "IG story slot hidden, no placeholder");
   assert.equal(end.gone, 0, "no save / share-reading / ask-again"); assert.ok(end.visibleAll);
+  assert.ok(!/น้ำนิ่ง|still water|walk on gently/i.test(await page.textContent("#fullFinal")), "Palm: no 'น้ำนิ่ง' sentence in the ending");
+  assert.equal((await page.textContent("#fullFinal")).split(E.thanks).length, 2, "thanks line appears once"); assert.equal((await page.textContent("#fullFinal")).split(E.ret).length, 2, "come-back line appears once");
   assert.ok(!(await page.evaluate(() => document.getElementById("scene-full").innerText)).match(/บันทึกคำอ่าน|แชร์คำอ่าน|ถามพี่เวราอีกครั้ง|Save reading|Share reading|Ask Vera Again/i));
   await scrollTo(page, "full", "#fullFinal", 10);
   await shot(page, P("5a-ending"));
@@ -1020,7 +1022,7 @@ for (const L of ["th", "en"]) {
   await page.evaluate(() => { window.__shared = []; navigator.share = async (d) => { window.__shared.push(d); }; });
   await page.click("#btnShareSite"); await page.waitForTimeout(300);
   const sh = (await page.evaluate(() => window.__shared))[0];
-  assert.deepEqual(Object.keys(sh).sort(), ["title", "url"]); assert.equal(sh.url, BASE + "/"); assert.ok(!deeper.cards.some((c) => JSON.stringify(sh).includes(c.name)), "no card names shared");
+  assert.deepEqual(Object.keys(sh).sort(), ["title", "url"]); assert.equal(sh.url, BASE + "/?src=share"); assert.ok(!deeper.cards.some((c) => JSON.stringify(sh).includes(c.name)), "no card names shared");
 
   // close → landing, session cleared
   const orderId = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).order);
@@ -1034,6 +1036,24 @@ for (const L of ["th", "en"]) {
   assert.ok(closeEv && closeEv.order_id && orderId, "silent close event");
   await page.click("#btnEnter"); await active(page, "question");
   assert.equal(await page.inputValue("#questionInput"), "");
+  // a NEW visitor arriving via the shared link → first touch = share / referral; an existing visitor keeps their first touch
+  {
+    const fresh = await newPage({ locale: L === "th" ? "th-TH" : "en-US" });
+    await fresh.goto(sh.url);
+    await fresh.waitForFunction(() => !!localStorage.getItem("stillwater.src.first"));
+    const ff = await fresh.evaluate(() => [JSON.parse(localStorage.getItem("stillwater.src.first")), JSON.parse(localStorage.getItem("stillwater.src.last"))]);
+    assert.deepEqual([ff[0].src, ff[0].src_type, ff[1].src], ["share", "referral", "share"]);
+    assert.equal(new URL(fresh.url()).search, "", "?src=share stripped from the address bar");
+    await fresh.click("#btnEnter"); await active(fresh, "question");
+    await ask(fresh, L === "th" ? "งานใหม่จะไปได้ดีไหม" : "Will my new job go well?"); await active(fresh, "first");
+    await fresh.waitForTimeout(400);
+    const rfS = (await (await fresh.request.get(`${BASE}/__mock/events`)).json()).filter((e) => e.event === "read_free" && e.lang === L).at(-1);
+    assert.deepEqual([rfS.src, rfS.src_type, rfS.first_src, rfS.first_src_type], ["share", "referral", "share", "referral"], "read_free row: src / first_src = share (referral)");
+    await fresh.context().close();
+  }
+  await page.goto(BASE + "/?src=share");
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem("stillwater.src.last") || "{}").src === "share");
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.src.first")).src), "direct", "existing first touch (direct) not overwritten");
   log(`18-${L}: share = site link only; close → landing (scene 1), session cleared, silent 'close' event; new question starts from "${L === "th" ? "พร้อมส่งคำถาม" : "I'm ready to ask"}"`);
   await page.context().close();
 }

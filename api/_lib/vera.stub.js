@@ -18,7 +18,7 @@ Matches /workspace/stillwater/prompts/vera-reader-interface.md exactly:
     ok, lang, safety, safety_source?,
     cards: [{ position, position_key, id, name, file, image, text } x3],  // in cards3 order
     final, closing, message, fallback, attempts, retry_log, usage,
-    guarantee_flags, position_label_flags }  // INTERNAL log-only checks (vera.js d91dfe1); [] here
+    guarantee_flags, position_label_flags, keep_question_flags }  // INTERNAL log-only checks (vera.js d91dfe1 / a179c20); [] here
     - cards3 validated with vera.js validateCards3 (distinct, valid, not card1) → 400 "invalid_cards"
     - empty question → 400 "missing_question"
 
@@ -86,7 +86,7 @@ export async function generateFree({ question, context, card, lang } = {}) {
     card: { ...publicCard(entry), text },
     message: null,
     open_thread: L === "en" ? "the root of this, and where it is heading" : "รากของเรื่องนี้ และแนวโน้มข้างหน้า",
-    guarantee_flags: [], // INTERNAL (vera.js d91dfe1): log-only post-check; filler text has none
+    guarantee_flags: [], keep_question_flags: [], // INTERNAL (vera.js d91dfe1 / a179c20): log-only post-checks; filler text has none
     ...meta()
   };
 }
@@ -123,14 +123,14 @@ export async function generateThree({ question, context, card1, openThread, card
   const firstName = free ? free.name : (c1.name || (L === "en" ? "the first card" : "ใบแรก"));
   return {
     ok: true, lang: L, safety: false, cards,
-    guarantee_flags: [], position_label_flags: [], // INTERNAL (vera.js d91dfe1): log-only post-checks; never sent to the page
+    guarantee_flags: [], position_label_flags: [], keep_question_flags: [], // INTERNAL (vera.js d91dfe1 / a179c20): log-only post-checks; never sent to the page
     // Overview across ALL FOUR cards (free card + 3), without repeating each card's reading.
     final: L === "en"
       ? `From ${firstName} to ${cards[2].name}, the four cards tell one story: where it began, what is moving now, and where it leans. One real step you can take now: choose one small move that feels true, and see where it leads.`
       : `ตั้งแต่ ${firstName} จนถึง ${cards[2].name} ไพ่ทั้งสี่ใบเล่าเรื่องเดียวกันค่ะ ว่ามันเริ่มจากตรงไหน ตอนนี้อะไรกำลังเคลื่อน และมันกำลังเอนไปทางไหน สิ่งที่ทำได้จริงตอนนี้คือเลือกหนึ่งก้าวเล็ก ๆ ที่ตรงกับใจ แล้วลองดูว่ามันพาไปทางไหน`,
     closing: L === "en"
-      ? "Vera will keep this question in the still water. Walk on gently."
-      : "พี่เวราจะเก็บคำถามนี้ไว้ในน้ำนิ่งนะคะ ขอให้คุณเดินต่ออย่างเบาใจค่ะ",
+      ? "I hope your heart feels a little lighter than when you first asked."   // = vera.js 2ed3ca4 fallbackClosing
+      : "ขอให้ใจคุณเบาลงกว่าตอนที่เริ่มถามนะคะ",                              // (Palm 2026-10-09: old still-pond closing removed)
     message: null,
     ...meta()
   };

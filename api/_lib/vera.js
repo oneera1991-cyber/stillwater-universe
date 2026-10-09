@@ -292,6 +292,37 @@ function logGuarantee(where, lang, hits) {
 
 /*
 ----------------------------------------
+KEEP-THE-QUESTION POST-CHECK (log only, never rewrites)
+----------------------------------------
+Palm 2026-10-09 removed the page line "พี่เวราจะเก็บคำถามนี้ไว้ในน้ำนิ่งนะคะ…".
+The prompts forbid Vera saying she keeps/holds/stores the question (in still
+water or anywhere); this flags model output that slips through. Note: the
+brand "Stillwater" (one word) is NOT flagged; "still water" (two words) is.
+*/
+const KEEP_QUESTION_PATTERNS = [
+  /เก็บคำถาม/,
+  /น้ำนิ่ง/,
+  /\bstill\s+waters?\b/i,
+  /\b(?:keep|keeping|kept|hold|holding|held|store|storing|stored)\s+(?:your|this|the)\s+question\b/i
+];
+
+/** Returns the keep-the-question phrases found in the given texts ([] if none). */
+export function findKeepQuestionWords(...texts) {
+  const joined = texts.flat().filter(Boolean).join("\n");
+  const hits = [];
+  for (const re of KEEP_QUESTION_PATTERNS) {
+    const m = joined.match(re);
+    if (m) hits.push(m[0]);
+  }
+  return hits;
+}
+
+function logKeepQuestion(where, lang, hits) {
+  if (hits.length) console.warn(`vera keep-question flag (${where}, ${lang}):`, JSON.stringify(hits));
+}
+
+/*
+----------------------------------------
 LEADING POSITION-LABEL POST-CHECK (log only, never rewrites)
 ----------------------------------------
 The page shows each paid card alone under a spoken heading and no position
@@ -373,29 +404,34 @@ export const SHARED_SYSTEM_PROMPT = `คุณคือ "พี่เวรา" 
 
 // [CALL_A] / [CALL_B] markers are also used by scripts/test-vera.mjs --mock.
 export const CALL_A_INSTRUCTIONS = `[CALL_A] งานนี้: เปิดไพ่ฟรี 1 ใบ
+- หน้าเว็บแสดงไพ่ใบนี้ใต้ประโยคนำที่พี่เวราพูด: "ไพ่ใบนี้มีบางอย่างอยากบอกคุณ" text คือสิ่งที่พี่เวราพูดต่อจากประโยคนั้นทันที ให้รับต่อได้ลื่น ๆ ห้ามพูดซ้ำหรือถอดความประโยคนำ
 - ตอบสั้น 4 บรรทัดพอดี แต่ละบรรทัดเป็น 1 ประโยคสั้น (รวม ~50–70 คำ) หน้าเว็บจะเผยทีละบรรทัด
 - บรรทัด 1–3: ไพ่ใบนี้ตอบแก่นของคำถามว่าอะไร ใช้รายละเอียดจริงจากคำถาม (ให้สาระจริง ไม่ลอย)
 - บรรทัด 4: ชี้ว่ายังมีอีกชั้นของเรื่องนี้ที่ไพ่ใบเดียวยังเปิดไม่หมด โดยบอก "ประเด็น" ที่ยังค้างอย่างซื่อตรง เช่น เรื่องนี้มีรากจากอะไร หรือแนวโน้มจะไปทางไหน
 - ห้ามโกหก ห้ามขู่ ห้ามสร้างความกลัวเพื่อให้จ่าย ห้ามกั๊กคำตอบที่ไพ่ใบนี้ให้ได้แล้ว ห้ามพูดถึงราคา การจ่าย หรือปุ่ม (CTA เป็นข้อความของหน้าเว็บ)
 - ถ้าคำถามว่าง ก่อกวน หรือไม่ใช่คำถาม: needs_rewrite=true และ text เป็นประโยคชวนถามใหม่สั้น ๆ
+- ห้ามพูดว่าพี่เวราจะเก็บ ถือ หรือรักษาคำถามนี้ไว้ ไม่ว่าในน้ำนิ่งหรือที่ไหน (เช่น "เก็บคำถามไว้ในน้ำนิ่ง")
 - แยกบรรทัดด้วย \\n ใน text (ไม่มีบรรทัดว่าง)
 Output JSON (ตอบเฉพาะ JSON นี้ ไม่มีข้อความอื่น):
 { "needs_rewrite": false, "safety": false, "card": { "file": "<drawn file>", "text": "..." }, "open_thread": "<one short internal line: the unanswered layer, passed to Call B; not shown to the customer>" }`;
 
-export const CALL_B_INSTRUCTIONS = `[CALL_B] งานนี้: เปิดไพ่เพิ่ม 3 ใบต่อจากใบฟรี (ลำดับในระบบ: อดีต / ปัจจุบัน / แนวโน้มข้างหน้า)
-- หน้าเว็บเผยไพ่ทีละใบ แต่ละใบโผล่มาเดี่ยว ๆ ใต้ประโยคนำที่พี่เวราพูด มีปุ่ม "ใบต่อไป" คั่นระหว่างใบ และหน้าเว็บไม่แสดงคำว่าอดีต/ปัจจุบัน/อนาคต ประโยคนำคือ
-  ใบ 1: "เรื่องนี้เริ่มต้นจากอะไร"
-  ใบ 2: "แล้วตอนนี้ อะไรกำลังเกิดขึ้น"
-  ใบ 3: "ถ้าเรื่องนี้เดินต่อไป..."
+export const CALL_B_INSTRUCTIONS = `[CALL_B] งานนี้: เปิดไพ่ใบที่ 2–4 ของเรื่องเล่า 4 ใบ ที่เริ่มต้นจากใบฟรี (ใบที่ 1) (ลำดับในระบบ: อดีต / ปัจจุบัน / แนวโน้มข้างหน้า)
+- ใบฟรีเป็นส่วนหนึ่งของเรื่องนี้ (ชื่อและคำอ่านใบฟรีให้มาแล้ว) พูดถึงใบฟรีได้ แต่ห้ามพูดถึงไพ่ใบอื่นนอกจาก 4 ใบนี้
+- หน้าเว็บเผยไพ่ทีละใบ แต่ละใบโผล่มาเดี่ยว ๆ ใต้ประโยคนำที่พี่เวราพูด มีปุ่ม "พี่เวราเล่าต่อค่ะ" คั่นระหว่างใบ และหน้าเว็บไม่แสดงคำว่าอดีต/ปัจจุบัน/อนาคต ประโยคนำคือ
+  ใบ 1 (ใบฟรี เปิดไปแล้ว): "ไพ่ใบนี้มีบางอย่างอยากบอกคุณ"
+  ใบ 2: "เรื่องนี้เริ่มต้นจากอะไร"
+  ใบ 3: "แล้วตอนนี้ อะไรกำลังเกิดขึ้น"
+  ใบ 4: "ถ้าเรื่องนี้เดินต่อไป..."
 - text ของแต่ละใบคือสิ่งที่พี่เวราพูดต่อจากประโยคนำนั้นทันที ห้ามบอกหรือพูดซ้ำตำแหน่ง (ห้าม "อดีต:", "ในอดีต", "ปัจจุบัน:", "ในปัจจุบัน", "อนาคต:", "แนวโน้มข้างหน้า:" หรือคำทำนองนี้) ให้เปิดด้วยชื่อไพ่ที่ร้อยอยู่ในประโยคซึ่งรับต่อจากประโยคนำได้ลื่น ๆ
-- เล่าเหมือนนั่งเล่าเรื่องให้คนตรงหน้าฟัง ไม่ใช่รายงาน ใบ 2 รับต่อจากใบ 1 และใบ 3 รับต่อจากใบ 2 เป็นเรื่องเดียวที่เดินไปข้างหน้า
-- เรื่องนี้ต่อจากคำอ่านใบฟรี ตอบ open_thread ให้ได้จริง ห้ามพูดซ้ำสิ่งที่ใบฟรีพูดไปแล้ว
-- ใบ 1 (~60–90 คำ): รากของสถานการณ์ที่ทำให้คำถามนี้เกิดขึ้น
-- ใบ 2 (~60–90 คำ): สิ่งที่เกิดขึ้นจริงตอนนี้ รวมมุมที่ลูกค้าอาจมองข้าม
-- ใบ 3 (~60–90 คำ): พูดเป็นแนวโน้มเท่านั้น ว่าพลังมีแนวโน้มจะเอียงไปทางไหนถ้ายังเป็นแบบนี้ เป็นความเป็นไปได้ ไม่ใช่สิ่งที่แน่ชัด ไม่ฟันธง และไม่ระบุวันหรือช่วงเวลา
-- final (2–3 ประโยค): ผูก 3 ใบเป็นคำตอบเดียวต่อคำถาม พร้อมหนึ่งสิ่งที่ทำได้จริง
-- closing (1 ประโยค): ปิดเบา ๆ จากพี่เวรา ไม่ขายอะไรต่อ
-- cards ต้องเรียงตามลำดับที่ให้มา และ file ต้องตรงกับที่ระบบสุ่มให้ทุกใบ
+- เล่าเหมือนนั่งเล่าเรื่องให้คนตรงหน้าฟัง ไม่ใช่รายงาน ใบ 2 รับต่อจากใบฟรีได้อย่างเป็นธรรมชาติ ใบ 3 รับต่อจากใบ 2 และใบ 4 รับต่อจากใบ 3 เป็นเรื่องเดียวที่เดินไปข้างหน้า
+- ตอบ open_thread ให้ได้จริง ห้ามพูดซ้ำสิ่งที่ใบฟรีพูดไปแล้ว
+- ใบ 2 (~60–90 คำ): รากของสถานการณ์ที่ทำให้คำถามนี้เกิดขึ้น
+- ใบ 3 (~60–90 คำ): สิ่งที่เกิดขึ้นจริงตอนนี้ รวมมุมที่ลูกค้าอาจมองข้าม
+- ใบ 4 (~60–90 คำ): พูดเป็นแนวโน้มเท่านั้น ว่าพลังมีแนวโน้มจะเอียงไปทางไหนถ้ายังเป็นแบบนี้ เป็นความเป็นไปได้ ไม่ใช่สิ่งที่แน่ชัด ไม่ฟันธง และไม่ระบุวันหรือช่วงเวลา
+- ตอนจบบนหน้าเว็บเรียงแบบนี้: final (ภาพรวม) → closing (คำพูดสุดท้ายของพี่เวรา) → ข้อความขอบคุณจักรวาล และข้อความชวนกลับมาถามใหม่ ซึ่งหน้าเว็บใส่เอง
+- final (2–3 ประโยค): ภาพรวมเดียวที่เชื่อมไพ่ทั้ง 4 ใบ (รวมใบฟรี) เข้าเป็นคำตอบต่อคำถาม ห้ามเล่าซ้ำทีละใบ พร้อมหนึ่งก้าวที่ทำได้จริงและจับต้องได้
+- closing (1–2 ประโยค): คำพูดปิดเบา ๆ ด้วยน้ำเสียงของพี่เวราเอง ไม่ขายอะไรต่อ ห้ามขอบคุณจักรวาล และห้ามชวนให้กลับมาถามใหม่ (หน้าเว็บใส่สองส่วนนี้เอง) ห้ามพูดว่าพี่เวราจะเก็บ ถือ หรือรักษาคำถามนี้ไว้ ไม่ว่าในน้ำนิ่งหรือที่ไหน (เช่น "เก็บคำถามไว้ในน้ำนิ่ง") ทั้งใน closing และทุกส่วนของคำอ่าน
+- cards มี 3 รายการ (ใบ 2–4) ต้องเรียงตามลำดับที่ให้มา และ file ต้องตรงกับที่ระบบสุ่มให้ทุกใบ ห้ามใส่ใบฟรีลงใน cards
 - ฟิลด์ position ใน JSON ใส่ตามเดิม (ใช้ภายในระบบ ไม่แสดงบนหน้าเว็บ) แต่ห้ามใส่คำบอกตำแหน่งลงใน text
 Output JSON (ตอบเฉพาะ JSON นี้ ไม่มีข้อความอื่น):
 { "safety": false, "cards": [ {"position":"อดีต","file":"...","text":"..."}, {"position":"ปัจจุบัน","file":"...","text":"..."}, {"position":"แนวโน้มข้างหน้า","file":"...","text":"..."} ], "final": "...", "closing": "..." }`;
@@ -422,29 +458,34 @@ export const SHARED_SYSTEM_PROMPT_EN = `You are "Vera", the tarot reader of Stil
 
 // [CALL_A] / [CALL_B] markers are also used by scripts/test-vera.mjs --mock.
 export const CALL_A_INSTRUCTIONS_EN = `[CALL_A] Task: free reading, 1 card
+- The page shows this card under a heading that Vera speaks: "This card has something to tell you". The text is what Vera says right after that heading, so it should flow on from it. Don't restate or paraphrase the heading.
 - Exactly 4 short lines, each line one short sentence (about 40–60 words in total). The page reveals them one line at a time.
 - Lines 1–3: what this card says about the heart of the question, using real details from the question. Give real substance, nothing vague.
 - Line 4: say honestly that there is another layer of this that one card can't fully open yet, and name the specific open point, for example what this grew out of, or which way it is heading.
 - No lying, no threats, no creating fear or pressure to pay. Don't hold back anything this card can already answer. Never mention price, payment or buttons (the call to action belongs to the page).
 - If the question is empty, spam, or not a question: needs_rewrite=true, and text is one short line inviting them to ask again.
+- Never say that Vera is keeping, holding or storing their question, in still water or anywhere else (e.g. "keeping your question in still water").
 - Separate the lines with \\n inside text (no blank lines).
 Output JSON (reply with only this JSON, nothing else):
 { "needs_rewrite": false, "safety": false, "card": { "file": "<drawn file>", "text": "..." }, "open_thread": "<one short internal line: the unanswered layer, passed to Call B; not shown to the customer>" }`;
 
-export const CALL_B_INSTRUCTIONS_EN = `[CALL_B] Task: open 3 more cards, continuing from the free card (system order: Past / Present / Future)
-- The page reveals the cards one at a time. Each card appears alone under a heading that Vera speaks, with a "next card" button in between, and the page shows no Past/Present/Future labels. The headings are:
-  Card 1: "Where did this begin?"
-  Card 2: "And now, what is happening?"
-  Card 3: "If this keeps unfolding..."
+export const CALL_B_INSTRUCTIONS_EN = `[CALL_B] Task: open cards 2–4 of a four-card story that began with the free card (card 1) (system order: Past / Present / Future)
+- The free card is part of this story (its name and reading are given). You may mention it, but never mention any card outside these four.
+- The page reveals the cards one at a time. Each card appears alone under a heading that Vera speaks, with a "Vera continues" button in between, and the page shows no Past/Present/Future labels. The headings are:
+  Card 1 (the free card, already shown): "This card has something to tell you"
+  Card 2: "Where did this begin?"
+  Card 3: "And now, what is happening?"
+  Card 4: "If this keeps unfolding..."
 - Each card's text is what Vera says right after its heading. Never state or restate the position (no "Past:", "In the past", "Present:", "In the present", "Future:", "Ahead:", or anything like them). Open with the card's name woven into a sentence that flows on from the heading.
-- Tell it like a storyteller sitting with someone, not a report. Card 2 picks up where card 1 left off, and card 3 picks up from card 2, as one story moving forward.
-- The story follows on from the free reading. Actually answer the open_thread. Don't repeat what the free card already said.
-- Card 1 (~50–80 words): the root of the situation that led to this question.
-- Card 2 (~50–80 words): what is really happening now, including an angle the customer may be overlooking.
-- Card 3 (~50–80 words): speak only of a tendency: where the energy tends to lean if things stay as they are. A possibility, never a certainty, and no dates or timeframes.
-- final (2–3 sentences): tie the 3 cards into one answer to the question, plus one thing they can actually do.
-- closing (1 sentence): a light close from Vera. Don't sell anything.
-- cards must stay in the order given, and every file must match the card the system drew.
+- Tell it like a storyteller sitting with someone, not a report. Card 2 can pick up naturally from the free card, card 3 picks up from card 2, and card 4 from card 3, as one story moving forward.
+- Actually answer the open_thread. Don't repeat what the free card already said.
+- Card 2 (~50–80 words): the root of the situation that led to this question.
+- Card 3 (~50–80 words): what is really happening now, including an angle the customer may be overlooking.
+- Card 4 (~50–80 words): speak only of a tendency: where the energy tends to lean if things stay as they are. A possibility, never a certainty, and no dates or timeframes.
+- The page ends in this order: final (the overview) → closing (Vera's last words) → a line thanking the universe and an invitation to come back, both added by the page.
+- final (2–3 sentences): one overview that connects all four cards (including the free card) into one answer to the question. Don't retell each card. Include one real, concrete step they can take.
+- closing (1–2 sentences): a light close in Vera's own words. Don't sell anything. Don't thank the universe and don't invite them to come back (the page adds both). Never say that Vera is keeping, holding or storing their question, in still water or anywhere else (e.g. "I'll keep your question in still water"), in the closing or anywhere in the reading.
+- cards holds 3 entries (cards 2–4), in the order given, and every file must match the card the system drew. Don't put the free card in cards.
 - Keep the position field in the JSON as shown (used internally, not shown on the page), but never put a position label in the text.
 Output JSON (reply with only this JSON, nothing else):
 { "safety": false, "cards": [ {"position":"Past","file":"...","text":"..."}, {"position":"Present","file":"...","text":"..."}, {"position":"Future","file":"...","text":"..."} ], "final": "...", "closing": "..." }`;
@@ -489,7 +530,7 @@ const STR = {
     noQuestion: "ไม่พบคำถามของรายการนี้",
     defaultOpenThread: "ยังไม่ได้เปิดว่าเรื่องนี้มีรากจากอะไร และแนวโน้มจะไปทางไหน",
     fallbackFree: (c) => [
-      `ไพ่ที่เปิดได้คือ ${c.name} ค่ะ`,
+      `${c.name} คือไพ่ที่ก้าวออกมาตอบคำถามของคุณค่ะ`,
       `แก่นของใบนี้คือ${forCustomer(c.core)}`,
       `สิ่งที่ใบนี้ฝากไว้คือ ${forCustomer(c.advice)}`,
       "ส่วนรากของเรื่องและทิศที่กำลังไป ไพ่ใบเดียวยังเปิดไม่หมดนะคะ"
@@ -502,8 +543,11 @@ const STR = {
       `จากตรงนั้น เรื่องก็เดินมาถึงไพ่ ${c.name} ค่ะ สิ่งที่กำลังเกิดขึ้นตอนนี้คือ${forCustomer(c.core)} สิ่งที่ควรระวังคือ${forCustomer(c.caution)}`,
       `เรื่องมีแนวโน้มจะเอียงเข้าหาไพ่ ${c.name} ค่ะ ใบนี้พูดถึง${forCustomer(c.core)} เป็นทิศที่พลังกำลังเอียงไป ไม่ใช่ตอนจบที่ตายตัว สิ่งที่ควรระวังคือ${forCustomer(c.caution)}`
     ][i],
-    fallbackFinal: (c3) => `สามใบนี้เล่าเรื่องเดียวกันกับคำถามของคุณ สิ่งที่ทำได้จริงตอนนี้คือ ${forCustomer(c3.advice)}`,
-    fallbackClosing: "พี่เวราอยู่ตรงนี้เสมอนะคะ"
+    // Overview of all four cards (free card + 3 paid). The page adds the
+    // thank-the-universe and come-back lines itself, so closing has neither.
+    fallbackFinal: (freeName, c3) =>
+      `ไพ่ทั้งสี่ใบ ตั้งแต่ ${freeName || "ใบแรก"} ที่เปิดให้เห็นก่อน ไปจนถึง ${c3.name} เล่าเรื่องเดียวกันกับคำถามของคุณค่ะ ก้าวที่ทำได้จริงตอนนี้คือ${forCustomer(c3.advice)}`,
+    fallbackClosing: "ขอให้ใจคุณเบาลงกว่าตอนที่เริ่มถามนะคะ"
   },
   en: {
     system: SHARED_SYSTEM_PROMPT_EN,
@@ -539,7 +583,7 @@ const STR = {
     noQuestion: "No question found for this reading",
     defaultOpenThread: "Not opened yet: what this grew out of, and which way it is heading",
     fallbackFree: (c) => [
-      `The card that came up for you is ${c.name}.`,
+      `${c.name} is the card that stepped forward for your question.`,
       `At its heart, this card is about ${forCustomer(c.core)}.`,
       `What it asks of you: ${forCustomer(c.advice)}.`,
       "What this grew out of, and where it's heading, one card can't fully open yet."
@@ -552,8 +596,11 @@ const STR = {
       `From there, the story has come to ${c.name}. Right now, this card speaks of ${forCustomer(c.core)}. What to watch for: ${forCustomer(c.caution)}.`,
       `The story tends to lean toward ${c.name}. This card speaks of ${forCustomer(c.core)}. It is a direction the energy is leaning toward, not a fixed ending. What to watch for: ${forCustomer(c.caution)}.`
     ][i],
-    fallbackFinal: (c3) => `These three cards tell one story about your question. One thing you can actually do now: ${forCustomer(c3.advice)}.`,
-    fallbackClosing: "I'm always right here."
+    // Overview of all four cards (free card + 3 paid). The page adds the
+    // thank-the-universe and come-back lines itself, so closing has neither.
+    fallbackFinal: (freeName, c3) =>
+      `All four cards, from ${freeName || "the first card"} at the start to ${c3.name} at the end, tell one story about your question. One step you can actually take now: ${forCustomer(c3.advice)}.`,
+    fallbackClosing: "I hope your heart feels a little lighter than when you first asked."
   }
 };
 
@@ -710,7 +757,8 @@ Returns:
   message,            // customer-facing text when card is null (safety / rewrite)
   open_thread,        // INTERNAL ONLY — store server-side for Call B, never send to client
   fallback, attempts, retry_log, usage,
-  guarantee_flags }   // INTERNAL, model readings only: guarantee phrases found (log only, text unchanged)
+  guarantee_flags,    // INTERNAL, model readings only: guarantee phrases found (log only, text unchanged)
+  keep_question_flags } // INTERNAL, model readings only: "keeping your question (in still water)" phrases (log only)
 */
 export async function generateFree({ question, context, card, lang } = {}) {
   const L = normalizeLang(lang);
@@ -785,8 +833,10 @@ export async function generateFree({ question, context, card, lang } = {}) {
   if (data) {
     const guarantee_flags = findGuaranteeWords(data.card.text);
     logGuarantee("free", L, guarantee_flags);
+    const keep_question_flags = findKeepQuestionWords(data.card.text);
+    logKeepQuestion("free", L, keep_question_flags);
     return {
-      ...base, needs_rewrite: false, safety: false, guarantee_flags,
+      ...base, needs_rewrite: false, safety: false, guarantee_flags, keep_question_flags,
       card: { ...publicCard(entry), text: data.card.text.trim() },
       message: null,
       open_thread: nonEmpty(data.open_thread) ? data.open_thread.trim() : t.defaultOpenThread,
@@ -811,7 +861,7 @@ export async function readFree({ question, context, lang } = {}) {
 
 /*
 ====================================================
-CALL B — PAID ฿59 3-CARD READING
+CALL B — PAID ฿59: CARDS 2–4 OF THE FOUR-CARD STORY
 ====================================================
 generateThree({ question, context, card1: { id, name, text }, openThread, cards3: [id, id, id], lang })
   All inputs MUST come from server-side order storage / the verified order
@@ -824,7 +874,8 @@ Returns:
   cards: [{ position, position_key, id, name, file, image, text } x3],
   final, closing, message, fallback, attempts, retry_log, usage,
   guarantee_flags,      // INTERNAL, model readings only: guarantee phrases found (log only, text unchanged)
-  position_label_flags } // INTERNAL, model readings only: cards whose text opens with a position label (log only)
+  position_label_flags, // INTERNAL, model readings only: cards whose text opens with a position label (log only)
+  keep_question_flags }  // INTERNAL, model readings only: "keeping your question (in still water)" phrases (log only)
 */
 export function validateCards3(cards3, card1Id) {
   if (!Array.isArray(cards3) || cards3.length !== 3) {
@@ -925,8 +976,10 @@ export async function generateThree({ question, context, card1, openThread, card
     logGuarantee("paid", L, guarantee_flags);
     const position_label_flags = findLeadingPositionLabels(data.cards.map((c) => c.text));
     logPositionLabels("paid", L, position_label_flags);
+    const keep_question_flags = findKeepQuestionWords(data.cards.map((c) => c.text), data.final, data.closing);
+    logKeepQuestion("paid", L, keep_question_flags);
     return {
-      ...base, safety: false, guarantee_flags, position_label_flags,
+      ...base, safety: false, guarantee_flags, position_label_flags, keep_question_flags,
       cards: drawn.map((c, i) => ({ ...pos(i), ...publicCard(c), text: data.cards[i].text.trim() })),
       final: data.final.trim(),
       closing: data.closing.trim(),
@@ -941,7 +994,7 @@ export async function generateThree({ question, context, card1, openThread, card
       ...pos(i), ...publicCard(c),
       text: t.fallbackCard(i, c)
     })),
-    final: t.fallbackFinal(drawn[2]),
+    final: t.fallbackFinal(free ? free.name : clip(c1.name, 60), drawn[2]),
     closing: t.fallbackClosing,
     message: null, fallback: true, usage: finalizeUsage(usage)
   };

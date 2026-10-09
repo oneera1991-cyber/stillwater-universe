@@ -38,7 +38,7 @@ Once your payment is confirmed, the site draws 3 new cards, different from your 
 
 Your reading appears on the same page after the system confirms your payment, usually within a minute. For some banks, slip confirmation can take up to about 10 minutes. While you wait, you can tap to check again. Please don't pay again.
 
-Your full reading is kept only in your own browser, not on our servers, so we recommend saving it as a file or sharing it, so you can come back to it later. Please keep your transfer slip and note roughly when you did your reading, for when you contact us.
+Your full reading is kept only in your own browser, not on our servers, so if you'd like to keep it, we recommend taking a screenshot. Please keep your transfer slip and note roughly when you did your reading, for when you contact us.
 
 ## Scope of purchase
 

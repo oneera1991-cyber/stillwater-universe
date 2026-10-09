@@ -19,7 +19,7 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 - `api/_lib/payment.js`: the ONLY payment-provider boundary. Active provider: `api/_lib/payment/promptpay-easyslip.js`. Inactive option: `api/_lib/payment/omise.js` (`PAYMENT_PROVIDER=omise`).
 - `api/payment/verify-slip.js`: slip upload (multipart `order` + `slip`, JPG/PNG ≤ 4 MB) → EasySlip v2 → paid token.
 - `api/_lib/rate-limit.js`: best-effort in-memory per-IP limits (`/api/read`, `/api/payment/verify-slip`).
-- `api/_lib/vera.js` + `card-meanings.json` + `card-meanings.en.json`: Stillwater's reader, copied verbatim from `stillwater/ai-publish` branch `vera-3card` @ `d91dfe1`. The card-meaning files are unchanged since `ce4add1`. Re-copy these three files when Stillwater updates them.
+- `api/_lib/vera.js` + `card-meanings.json` + `card-meanings.en.json`: Stillwater's reader, copied verbatim from `stillwater/ai-publish` branch `vera-3card` @ `a179c20`. The card-meaning files are unchanged since `ce4add1`. Re-copy these three files when Stillwater updates them.
   - Internal fields `guarantee_flags` and `position_label_flags` are log-only checks (vera.js writes them to the server log with console.warn). `/api/deeper` and `/api/read` build their responses field by field, so these flags never reach the page. `buildRow` keeps only the Sheet columns, so they are not in the Sheet and there is no column for them.
 - `api/_lib/reader.js`: the only place routes get Vera from. Real `vera.js` when `OPENAI_API_KEY` is set, else `api/_lib/vera.stub.js` (same interface, no AI). On Vercel production it always uses the real reader, so a missing key fails with an error instead of serving filler. `VERA_READER=stub|real` forces a choice.
 - Draws: exactly one server-side draw per step, made by the route (`drawOne` in `/api/read`, `drawThree(card1)` in `/api/deeper`, crypto.randomInt), then passed to `generateFree({card})` / `generateThree({cards3})`.
@@ -44,7 +44,7 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
   4. Fixed line `full.thanks`: ขอบคุณจักรวาลที่ส่งคำตอบนี้มาให้คุณนะคะ / Thank you to the universe for sending you this answer.
   5. Fixed line `full.returnLine`: หากมีเรื่องที่อยากถามจักรวาล กลับมาหาพี่เวราได้เสมอ / Whenever there's something you'd like to ask the universe, you can always come back to Vera.
   6. Stars (`#rate-full`), then the final buttons below a divider:
-     - "แชร์ Stillwater" / "Share Stillwater" (`#btnShareSite`) shares **only the site link** (`navigator.share({ title, url })`, or a clipboard copy as fallback). It never includes the question, the cards or the reading.
+     - "แชร์ Stillwater" / "Share Stillwater" (`#btnShareSite`) shares **only the site link** `location.origin + "/?src=share"` (`navigator.share({ title, url })`, or a clipboard copy as fallback). A new visitor arriving through it gets `src = share`, `src_type = referral` as their first touch. An existing first touch is never overwritten; only the last touch becomes `share`. It never includes the question, the cards or the reading.
      - "ปิดการอ่าน" / "Close reading" (`#btnClose`) ends the session: it clears the saved reading and ratings, resets every scene and returns to scene 1 (landing). A new question starts there with "พร้อมส่งคำถาม" / "I'm ready to ask".
 - Removed: "บันทึกคำอ่าน" (the saved-image PNG), "แชร์คำอ่าน" and "ถามพี่เวราอีกครั้ง".
 - `#igStorySlot` (`data-slot="instagram-story"`, `hidden`, empty) is the hook for a future Instagram Story share button, placed in the final buttons. Nothing is shown.
@@ -55,12 +55,15 @@ Prototype นี้ใช้ `gpt-5.4-mini` ทั้ง 2 ขั้นเพื
 - The client analytics `full_card_shown {step}` / `reading_closed` are silent. Nothing goes to the Sheet from them.
 - Safety: the fixed text from `vera.js` is shown as-is (Thai: 1323/1669; English: 1323 (Thai-language), 1669, embassy / local emergency services). No CTA.
 
-### V2: changes Stillwater needs to make in `vera.js` (not edited here)
-The page now shows the free card as card 1 of a 4-card story and puts reader `final` under "เมื่อมองไพ่ทั้งสี่ใบรวมกัน". So that the reading matches:
-1. `CALL_B_INSTRUCTIONS` / `_EN`, the `final` line: change "ผูก 3 ใบเป็นคำตอบเดียว…" / "tie the 3 cards into one answer…" to an overview across **all four** cards: the free card (its name and text are already passed in as `card1`) + the 3 paid cards, as one answer to the question plus one real step. Ask it **not to repeat or summarise each card's reading** one by one. 2–3 sentences.
-2. `closing`: Vera's own final words (1–2 sentences, warm, no selling). It must **not** thank the universe or invite them back, because the page adds those two fixed lines right after it.
-3. The page description in CALL_B: the cards are now card 2 / 3 / 4 of the story (card 1 = the free card under "ไพ่ใบนี้มีบางอย่างอยากบอกคุณ" / "This card has something to tell you"), and the button is "พี่เวราเล่าต่อค่ะ" / "Vera continues", not "ใบต่อไป" / "next card".
-4. Fallbacks: `fallbackFinal` "สามใบนี้เล่าเรื่องเดียวกัน…" / "These three cards tell one story…" → four cards. Optionally, `fallbackFree` EN line 1 "The card that came up for you is {name}." could use the same story voice as the TH one.
+### V2 and `vera.js` 2ed3ca4 → a179c20
+Stillwater's `2ed3ca4` covers the V2 asks:
+- Call A knows the free card sits under "ไพ่ใบนี้มีบางอย่างอยากบอกคุณ".
+- Call B tells cards 2–4 of a four-card story.
+- `final` is one overview across all four cards.
+- `closing` is Vera's own words, with no thanks to the universe and no come-back invite, because the page adds those two fixed lines once.
+- The fallbacks match.
+
+`a179c20` adds a rule that Vera never says she keeps or holds the question, plus an internal, log-only `keep_question_flags` post-check. Like `guarantee_flags` / `position_label_flags`, it is never sent to the page (the API builds responses field by field) and never written to the Sheet (no column). The stub reader mirrors the fallback closing and returns `keep_question_flags: []`. Unit + e2e check that the thanks / come-back lines appear exactly once and that the ending never contains the old "น้ำนิ่ง" closing sentence (removed, Palm 2026-10-09).
 
 ### Fonts
 - **All Thai text uses Noto Sans Thai, the loopless face the live site uses.** Never use Noto Sans Thai Looped, Sarabun or other looped/head faces.
@@ -80,7 +83,7 @@ The page now shows the free card as card 1 of a 4-card story and puts reader `fi
 
 ### Data collection (source, ratings, event log)
 - **Source** (`lib/source.js`, shared by the page and the API):
-  - On landing the page reads `?src=` (presets: `friends`, `tiktok`, `ig`, `fb`, `line`, `fb_ads`, `youtube`; any other value is lowercased, spaces become `_`, and only `[a-z0-9_-]` is kept, up to 32 chars).
+  - On landing the page reads `?src=` (presets: `friends`, `tiktok`, `ig`, `fb`, `line`, `fb_ads`, `youtube`, `share`, `group`; any other value is lowercased, spaces become `_`, and only `[a-z0-9_-]` is kept, up to 32 chars).
   - It also reads `utm_source` / `utm_medium` / `utm_campaign`, and whether `fbclid` / `ttclid` are present (the id values are never stored).
   - With no tag, the source comes from `document.referrer`: `fb`, `ig`, `tiktok`, `line`, `google`, `youtube`, `referral` (other site) or `direct`.
   - The first touch is stored once in `localStorage["stillwater.src.first"]`. The last touch (`stillwater.src.last`) is updated on every non-direct landing.
@@ -115,7 +118,7 @@ The page now shows the free card as card 1 of a 4-card story and puts reader `fi
 | 4 | `order_id` | all (empty for safety / needs_rewrite) | from the order token |
 | 5 | `lang` | all | `th` / `en` |
 | 6 | `src` | all | last-touch source |
-| 7 | `src_type` | all | `tag` / `utm` / `click` / `referrer` / `direct` |
+| 7 | `src_type` | all | `tag` / `referral` (`?src=share`) / `utm` / `click` / `referrer` / `direct` |
 | 8–10 | `utm_source`, `utm_medium`, `utm_campaign` | all | last touch |
 | 11 | `click_id` | all | `fbclid` / `ttclid` / `fbclid+ttclid` (presence only) |
 | 12 | `referrer` | all | referrer host only |
@@ -210,6 +213,7 @@ Full launch checklist (order of steps, real ฿59 test, rollback): **LAUNCH.md**
 | `GOOGLE_SHEETS_ID` | later | Intended value: `1IlhWkJJBKTs3UTtbAPcQLreHouSCRF04QFqfsS93W58` (spreadsheet id, not a secret). Header row has the first 29 columns; add `share_channel` (AD1) and `share_result` (AE1) for the 31-column schema. |
 | `GOOGLE_SHEETS_TAB` | later | `events` (default; `events_preview` recommended for Preview). |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | later | Service-account key file JSON (raw or base64) for the Sheets sink (secret). Alternative: `GOOGLE_SERVICE_ACCOUNT_EMAIL` + `GOOGLE_PRIVATE_KEY`. Share the sheet with the service-account email as Editor. Setup: LAUNCH.md §3. |
+| `PAYMENT_TEST_MODE` | no (Preview only) | `1` = any uploaded JPG/PNG passes slip verification (no EasySlip call, `trans_ref` `TEST-…`). The page looks the same as the real flow. If `PROMPTPAY_ID` is not a valid ID, the QR is a non-payable demo QR (plain text, not a payment). **Ignored whenever `VERCEL_ENV=production`** (hard guard, unit-tested). Never set it for Production. |
 | `VERA_READER` | no | `stub` or `real` to force a reader. Leave it unset in production. |
 | `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` | no | Only for `PAYMENT_PROVIDER=omise`. |
 | `PAYMENT_QR_MODE` | no | `promptpay` (default; launch). `maemanee` is an optional, **inactive** SCB Mae Manee bill-payment QR mode (`MAEMANEE_SHOP_ID`, `MAEMANEE_SHOP_NAME`, optional `MAEMANEE_CHECKS` / `MAEMANEE_NAME_MIN`). See LAUNCH.md §7. It needs a 1-baht calibration test before use. |
@@ -219,7 +223,7 @@ EasySlip IP whitelist: Vercel functions do not have fixed outbound IPs by defaul
 ### Local test (no keys, mocked EasySlip/Omise, no OpenAI calls)
 ```
 npm install
-node dev/server.mjs 3123 &          # static + /api shim + mock EasySlip (and Omise)
+node dev/server.mjs 3123 &          # (run with `env -u PROMPTPAY_ID` if the shell has a placeholder PROMPTPAY_ID) static + /api shim + mock EasySlip (and Omise)
 node dev/unit.mjs                   # tokens / EasySlip / QR / draw / rate limit / i18n / stub==vera.js shapes (fake OpenAI client)
 PLAYWRIGHT=<path to playwright> node dev/e2e.mjs   # 390x844 walk-through, Thai + English + data (ONLY=en / ONLY=data) + screenshots
 ```

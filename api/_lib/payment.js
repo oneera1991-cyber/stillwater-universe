@@ -24,6 +24,8 @@ Adapters (process.env.PAYMENT_PROVIDER, default "promptpay"):
     tarot/fortune-telling as prohibited, so this is not the live path.
 */
 
+import { randomBytes } from "node:crypto";
+import QRCode from "qrcode";
 import * as omise from "./payment/omise.js";
 import * as promptpay from "./payment/promptpay-easyslip.js";
 
@@ -56,6 +58,20 @@ function adapter() {
 }
 const ctx = () => ({ PRICE_SATANG, PRICE_THB, CURRENCY, PRODUCT, PaymentError });
 
+/*
+PAYMENT_TEST_MODE=1 (PREVIEW TESTING ONLY): any uploaded JPG/PNG passes slip verification
+(no EasySlip call, ref "TEST-…"). The page looks exactly like the real flow (mode stays "live").
+HARD GUARD: ignored whenever VERCEL_ENV === "production" — production always verifies for real.
+QR in test mode: the real ฿59 PromptPay QR if PROMPTPAY_ID is valid; otherwise a NON-PAYABLE
+demo QR (plain text, not an EMVCo payment payload, so no bank app can pay it).
+*/
+export function paymentTestMode(env = process.env) {
+  if (String(env.VERCEL_ENV || "").trim().toLowerCase() === "production") return false;
+  return String(env.PAYMENT_TEST_MODE || "").trim() === "1";
+}
+export const DEMO_QR_TEXT = "STILLWATER TEST QR - NOT A PAYMENT / QR ทดสอบ ไม่ใช่การชำระเงินจริง";
+const promptpayIdValid = (env = process.env) => /^(\d{10}|\d{13}|\d{15})$/.test(String(env.PROMPTPAY_ID || "").replace(/[\s-]/g, ""));
+
 export function providerInfo() {
   return { name: providerName(), flow: adapter().FLOW };
 }
@@ -70,12 +86,22 @@ export async function createPayment(order) {
     throw new PaymentError("ไม่พบรายการคำถามนี้", 400, "order_missing");
   }
   const impl = adapter();
+  if (paymentTestMode() && impl.FLOW === "slip" && !promptpayIdValid() && promptpay.qrMode() === "promptpay") {
+    const qr = await QRCode.toDataURL(DEMO_QR_TEXT, { errorCorrectionLevel: "M", margin: 2, width: 480 });
+    return { flow: "slip", paymentId: null, qr, qrPayload: DEMO_QR_TEXT, amount: PRICE_SATANG, currency: CURRENCY, mode: "live" };
+  }
   return { flow: impl.FLOW, ...(await impl.createPayment(order, ctx())) };
 }
 
 export async function verifySlip(order, file) {
   const impl = adapter();
   if (impl.FLOW !== "slip") throw new PaymentError("ช่องทางนี้ไม่ใช้สลิป", 400, "not_supported");
+  if (paymentTestMode()) {
+    const bytes = file && file.bytes;
+    if (!promptpay.sniffImage(bytes) || bytes.length > promptpay.MAX_SLIP_BYTES) return { ok: false, reason: "bad_file" };
+    console.warn("PAYMENT_TEST_MODE: slip accepted without verification (order " + order.orderId + ")");
+    return { ok: true, ref: "TEST-" + randomBytes(6).toString("hex").toUpperCase(), amount: PRICE_SATANG, currency: CURRENCY, slipDate: new Date().toISOString() };
+  }
   const r = await impl.verifySlip(order, file, ctx());
   if (r.ok) return r;
   return { ok: false, reason: SLIP_REASONS.includes(r.reason) ? r.reason : "service" };
