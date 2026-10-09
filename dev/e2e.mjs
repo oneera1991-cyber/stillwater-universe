@@ -13,10 +13,12 @@ await mkdir(SHOTS, { recursive: true });
 
 const browser = await chromium.launch();
 const errors = [];
+let ipN = 10;
 async function newPage(opts = {}) {
   const ctx = await browser.newContext({
     viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
-    locale: "th-TH", acceptDownloads: true, ...opts
+    locale: "th-TH", acceptDownloads: true,
+    extraHTTPHeaders: { "x-forwarded-for": "10.9.0." + (ipN++) }, ...opts
   });
   await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE });
   const page = await ctx.newPage();
@@ -36,6 +38,32 @@ async function ask(page, q, ctx) {
   await page.click("#btnAsk");
 }
 const log = (...a) => console.log("✓", ...a);
+
+/* Fake slip images: rendered HTML "bank slip" + mock marker after PNG IEND
+   (dev/server.mjs mock EasySlip reads "MOCK:<scenario>#"). */
+let slipRenderer;
+async function makeSlip(scenario, label) {
+  slipRenderer ||= await (await browser.newContext({ viewport: { width: 360, height: 560 } })).newPage();
+  await slipRenderer.setContent(`<body style="margin:0;font-family:sans-serif;background:#f4f7f6">
+    <div style="margin:18px;padding:22px;background:#fff;border-radius:14px;box-shadow:0 2px 8px #0002">
+    <div style="color:#0a7f4f;font-weight:700;font-size:20px">โอนเงินสำเร็จ</div>
+    <div style="color:#777;font-size:13px;margin:4px 0 18px">MOCK SLIP · ${label}</div>
+    <div style="font-size:13px;color:#555">จาก</div><div style="font-size:16px;margin-bottom:10px">ผู้โอน ทดสอบ</div>
+    <div style="font-size:13px;color:#555">ไปยัง</div><div style="font-size:16px;margin-bottom:14px">บัญชีทดสอบ (พร้อมเพย์)</div>
+    <div style="font-size:13px;color:#555">จำนวนเงิน</div><div style="font-size:28px;font-weight:700">${scenario === "wrong_amount" ? "5.90" : "59.00"} บาท</div>
+    <div style="margin:22px auto 0;width:120px;height:120px;background:repeating-conic-gradient(#000 0 25%,#fff 0 50%) 0 0/20px 20px"></div>
+    <div style="font-size:11px;color:#999;margin-top:12px;text-align:center">${Math.random().toString(36).slice(2)}</div></div></body>`);
+  const png = await slipRenderer.screenshot();
+  return { name: `slip-${scenario}.png`, mimeType: "image/png", buffer: Buffer.concat([png, Buffer.from(`MOCK:${scenario}#${Math.random()}`)]) };
+}
+async function uploadSlip(page, file) {
+  await page.setInputFiles("#slipInput", file);
+}
+async function waitSlipDone(page) {
+  await page.waitForFunction(() => !document.getElementById("slipPreview").classList.contains("is-checking"), null, { timeout: 20000 });
+  await page.waitForTimeout(250);
+}
+const payStatus = (page) => page.textContent("#payStatus");
 
 /* ---------- main path: all 6 scenes ---------- */
 {
@@ -78,19 +106,67 @@ const log = (...a) => console.log("✓", ...a);
   await shot(page, "05a-offering-locked");
   await page.click("#btnPay");
   await page.waitForSelector("#payQr:not([hidden])");
+  await page.waitForSelector("#slipBox:not([hidden])");
   await page.waitForTimeout(600);
-  await shot(page, "05b-offering-qr"); log("scene 5 offering + QR");
-  const pid = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).paymentId);
-  assert.match(pid, /^chrg_test_/);
+  await shot(page, "05b-offering-qr");
+  const qrSrc = await page.getAttribute("#payQr", "src");
+  assert.match(qrSrc, /^data:image\/png;base64,/);
+  await page.evaluate(() => { const s = document.getElementById("scene-offering"); s.scrollTop = 260; });
+  await page.waitForTimeout(300);
+  await shot(page, "11a-offering-qr"); log("scene 5 offering + dynamic PromptPay QR + slip upload");
 
-  // Client cannot get the reading before paying
-  const early = await page.evaluate(async ([o, c]) => (await fetch("/api/deeper", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ order: o, charge: c }) })).status, [first.order, pid]);
+  // No reading without payment
+  const early = await page.evaluate(async (o) => (await fetch("/api/deeper", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ order: o }) })).status, first.order);
   assert.equal(early, 402);
 
-  await page.request.post(`${BASE}/__mock/pay?payment=${pid}`);
+  const scrollPay = () => page.evaluate(() => { const s = document.getElementById("scene-offering"); s.scrollTop = s.scrollHeight; });
+
+  // client-side bad file (not jpg/png)
+  await uploadSlip(page, { name: "slip.gif", mimeType: "image/gif", buffer: Buffer.from("GIF89a fake") });
+  await page.waitForFunction(() => /JPG หรือ PNG/.test(document.getElementById("payStatus").textContent));
+  await scrollPay(); await page.waitForTimeout(200);
+  await shot(page, "11b-error-bad-file"); log("slip: bad file type → friendly message (client)");
+
+  // checking state
+  await uploadSlip(page, await makeSlip("wrong_amount", "wrong amount"));
+  await page.waitForSelector("#slipPreview.is-checking");
+  await scrollPay(); await page.waitForTimeout(300);
+  await shot(page, "11c-slip-checking"); log("slip: uploaded / checking");
+  await waitSlipDone(page); await scrollPay();
+  assert.match(await payStatus(page), /59 บาท/);
+  await shot(page, "11d-error-wrong-amount"); log("slip: wrong amount");
+
+  for (const [scenario, re, name] of [
+    ["wrong_account", /บัญชีผู้รับ/, "11e-error-wrong-account"],
+    ["unreadable", /อ่าน QR/, "11g-error-unreadable"],
+    ["quota", /ไม่ว่างชั่วคราว/, "11h-error-quota"],
+    ["old", /ก่อนเริ่มคำถามนี้/, "11i-error-old-slip"],
+    ["pending", /ธนาคารกรุงเทพ/, "11j-pending-retry"]
+  ]) {
+    await uploadSlip(page, await makeSlip(scenario, scenario));
+    await waitSlipDone(page); await scrollPay(); await page.waitForTimeout(200);
+    assert.match(await payStatus(page), re, scenario);
+    await shot(page, name); log("slip:", scenario);
+  }
+  assert.ok(await page.isVisible("#btnRetrySlip"), "pending offers retry");
+  await page.click("#btnRetrySlip");
+  await waitSlipDone(page);
+  assert.match(await payStatus(page), /ธนาคารกรุงเทพ/); log("slip: pending retry keeps the same file");
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).paid), null, "no unlock on any failure");
+
+  const goodSlip = await makeSlip("success", "success");
+  globalThis.__goodSlip = goodSlip;
+  await uploadSlip(page, goodSlip);
+  await page.waitForFunction(() => document.getElementById("payStatus").classList.contains("is-ok"), null, { timeout: 20000 });
+  await scrollPay(); await page.waitForTimeout(200);
+  await shot(page, "11k-success"); log("slip: success → paid token");
+  const calls = await (await page.request.get(`${BASE}/__mock/easyslip-calls`)).json();
+  assert.ok(calls.every((c) => c.matchAmount === "59" && c.matchAccount === "true" && c.checkDuplicate === "true"), "EasySlip fields");
+
   await active(page, "full");
   await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
   await page.waitForTimeout(500);
+  await shot(page, "11l-full-after-slip");
   const positions = await page.$$eval("#fullSpread .pos", (n) => n.map((x) => x.textContent));
   assert.deepEqual(positions, ["อดีต", "ปัจจุบัน", "แนวโน้มข้างหน้า"]);
   const ids = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper.cards.map((c) => c.id));
@@ -160,7 +236,7 @@ const log = (...a) => console.log("✓", ...a);
   await page.context().close();
 }
 
-/* ---------- payment return resume (same browser) ---------- */
+/* ---------- duplicate slip on another order + tab reload during payment ---------- */
 {
   const page = await newPage();
   await page.goto(BASE + "/");
@@ -172,17 +248,23 @@ const log = (...a) => console.log("✓", ...a);
   await page.click("#btnToOffer");
   await active(page, "offering");
   await page.click("#btnPay");
-  await page.waitForSelector("#payQr:not([hidden])");
-  const pid = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).paymentId);
-  await page.goto(`${BASE}/?payment=pending&pid=${pid}`);
+  await page.waitForSelector("#slipBox:not([hidden])");
+  // mobile: going to the bank app may reload the tab → resume on the offering scene
+  await page.reload();
   await active(page, "offering");
-  assert.equal(new URL(page.url()).search, "");
-  await page.request.post(`${BASE}/__mock/pay?payment=${pid}`);
+  await page.waitForSelector("#slipBox:not([hidden])");
+  log("tab reload during payment → resumes offering with QR");
+  await uploadSlip(page, globalThis.__goodSlip); // already used for the first order
+  await waitSlipDone(page);
+  await page.evaluate(() => { const s = document.getElementById("scene-offering"); s.scrollTop = s.scrollHeight; });
+  await page.waitForTimeout(200);
+  assert.match(await page.textContent("#payStatus"), /เคยถูกใช้/);
+  await shot(page, "11f-error-duplicate"); log("slip: duplicate (same slip, other order) rejected");
+  await uploadSlip(page, await makeSlip("success", "second"));
   await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
   await page.reload();
-  await page.goto(`${BASE}/?payment=pending&pid=${pid}`);
-  await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 });
-  log("payment return → resumes polling → full reading; reopen uses cached reading");
+  await page.waitForSelector("#scene-full.is-active #fullActions:not([hidden])", { timeout: 40000 });
+  log("reload after paid → cached full reading");
   await page.context().close();
 }
 

@@ -90,6 +90,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 .btn:disabled{opacity:.45;cursor:default}
 .btn-quiet{font-size:.74rem;padding:.65rem 1.2rem;opacity:.75}
 
+[hidden]{display:none!important}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* ---------- scene frame (one page, one scene visible at a time) ---------- */
@@ -246,6 +247,19 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 #scene-offering .status.is-error{color:rgba(255,190,190,.88)}
 #scene-offering .small{font-size:.7rem;line-height:1.7;color:rgba(190,200,225,.55);margin-top:.6rem}
 #scene-offering .btn-quiet{margin-top:1rem}
+#scene-offering .hint{font-size:.82rem;line-height:1.85;color:var(--soft);margin-top:.9rem}
+#scene-offering .qr-actions{display:flex;justify-content:center;margin-top:.2rem}
+#scene-offering .qr-actions .btn-quiet{margin-top:.6rem;text-decoration:none;display:inline-block}
+#scene-offering .slip{border-top:1px solid var(--line);margin-top:1.1rem;padding-top:1.1rem}
+#scene-offering .slip-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#scene-offering .slip-pick{display:inline-block}
+#scene-offering .slip-pick.is-busy{opacity:.45;pointer-events:none}
+#scene-offering .slip-preview{display:block;max-width:150px;max-height:200px;margin:1rem auto 0;border-radius:8px;border:1px solid var(--line);object-fit:contain}
+#scene-offering .slip-preview.is-checking{animation:slipcheck 1.6s ease-in-out infinite}
+@keyframes slipcheck{50%{opacity:.55}}
+.rm #scene-offering .slip-preview.is-checking{animation:none;opacity:.7}
+#scene-offering .status.is-calm{color:var(--cream)}
+#scene-offering .status.is-ok{color:rgba(190,240,215,.95)}
 
 /* =========================================================
    #scene-full — The Full Reading
@@ -397,8 +411,18 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
       <button class="btn" id="btnPay" type="button">เข้าสู่การชำระเงิน</button>
       <img class="qr" id="payQr" alt="QR พร้อมเพย์ 59 บาท" hidden>
       <code class="qr-payload" id="payQrPayload" hidden></code>
+      <p class="hint" id="payHint" hidden>สแกน QR นี้ หรือบันทึกรูปไปเปิดในแอปธนาคาร<br>โอน 59 บาท แล้วแนบสลิปด้านล่างนะคะ</p>
+      <div class="qr-actions" id="payQrActions" hidden>
+        <a class="btn btn-quiet" id="btnSaveQr" download="stillwater-promptpay-59.png" href="#">บันทึกรูป QR</a>
+      </div>
+      <div class="slip" id="slipBox" hidden>
+        <input class="slip-input" type="file" id="slipInput" accept="image/jpeg,image/png">
+        <label class="btn slip-pick" id="slipPick" for="slipInput">แนบสลิป</label>
+        <img class="slip-preview" id="slipPreview" alt="สลิปที่แนบ" hidden>
+        <button class="btn btn-quiet" id="btnRetrySlip" type="button" hidden>ตรวจสลิปอีกครั้ง</button>
+      </div>
       <p class="status" id="payStatus" aria-live="polite"></p>
-      <p class="small">เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ</p>
+      <p class="small">เมื่อตรวจสลิปผ่าน พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ</p>
     </div>
     <button class="btn btn-quiet" id="btnBackFirst" type="button">กลับไปดูคำตอบเดิม</button>
   </div>
@@ -528,13 +552,13 @@ async function showScene(name){
 /* ================= state ================= */
 const STORE = 'stillwater.vera.v1';
 const STORE_TTL = 24 * 60 * 60 * 1000;
-const state = { question:'', context:'', order:null, card:null, paymentId:null, deeper:null, pollTimer:null };
+const state = { question:'', context:'', order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null, pollTimer:null };
 
 function save(){
   try{
     localStorage.setItem(STORE, JSON.stringify({
       order: state.order, card: state.card, paymentId: state.paymentId,
-      deeper: state.deeper, savedAt: Date.now()
+      paid: state.paid, deeper: state.deeper, stage: state.stage, savedAt: Date.now()
     }));
   }catch(e){}
 }
@@ -781,7 +805,9 @@ async function startDraw(){
   state.card = data.card;
   state.order = data.order || null;
   state.paymentId = null;
+  state.paid = null;
   state.deeper = null;
+  state.stage = 'first';
   save();
 
   await loadImage($('drawImage'), cardUrl(state.card));
@@ -811,6 +837,20 @@ async function showFirst(){
   trackEvent('invitation_shown');
 }
 
+/* Fill scene 4 without animation (back button / resumed session). */
+function fillFirstStatic(){
+  const card = state.card;
+  if(!card || $('firstLines').children.length) return;
+  $('firstImage').src = cardUrl(card);
+  $('firstImage').alt = card.name || '';
+  $('firstName').textContent = card.name || '';
+  splitLines(card.text).slice(0, 6).forEach((line) => {
+    const p = document.createElement('p'); p.className = 'ln is-in'; p.textContent = line; $('firstLines').appendChild(p);
+  });
+  $('firstInvite').querySelectorAll('.ln').forEach((n) => n.classList.add('is-in'));
+  $('btnToOffer').disabled = !state.order;
+}
+
 /* ================= 5. THE OFFERING ================= */
 function resetOffering(){
   stopPolling();
@@ -819,20 +859,38 @@ function resetOffering(){
   $('payQr').hidden = true;
   $('payQr').removeAttribute('src');
   $('payQrPayload').hidden = true;
-  $('payStatus').textContent = '';
-  $('payStatus').classList.remove('is-error');
+  $('payHint').hidden = true;
+  $('payQrActions').hidden = true;
+  $('slipBox').hidden = true;
+  resetSlip();
+  setPayStatus('');
+}
+
+function resetSlip(){
+  state.slipFile = null;
+  $('slipInput').value = '';
+  $('slipPick').textContent = 'แนบสลิป';
+  $('slipPick').classList.remove('is-busy');
+  $('slipPreview').hidden = true;
+  $('slipPreview').classList.remove('is-checking');
+  $('btnRetrySlip').hidden = true;
 }
 
 function goOffering(){
   buttonSound('deeper');
   trackEvent('deeper_clicked');
-  if(!state.paymentId) resetOffering();
+  if(!state.paymentId && $('slipBox').hidden) resetOffering();
+  state.stage = 'offering'; save();
   showScene('offering');
 }
 
-function setPayStatus(text, isError){
-  $('payStatus').textContent = text;
-  $('payStatus').classList.toggle('is-error', Boolean(isError));
+/* tone: '' | 'error' | 'calm' | 'ok' */
+function setPayStatus(text, tone){
+  const el = $('payStatus');
+  el.textContent = text;
+  el.classList.toggle('is-error', tone === 'error' || tone === true);
+  el.classList.toggle('is-calm', tone === 'calm');
+  el.classList.toggle('is-ok', tone === 'ok');
 }
 
 async function createPayment(){
@@ -848,17 +906,94 @@ async function createPayment(){
     });
     const data = await res.json().catch(() => ({}));
     if(!res.ok) throw new Error(data.error || 'ยังไม่สามารถเปิดช่องทางชำระเงินได้');
-    const paymentId = data.paymentId || data.chargeId;
-    if(!paymentId || (!data.qr && !data.qrPayload)) throw new Error('ยังไม่ได้รับ QR สำหรับชำระเงิน');
-    state.paymentId = paymentId;
-    save();
+    if(!data.qr && !data.qrPayload) throw new Error('ยังไม่ได้รับ QR สำหรับชำระเงิน');
     showQr(data);
-    setPayStatus(data.mode === 'test' ? 'โหมดเทส สแกน QR แล้วยืนยันการจ่าย' : 'สแกน QR พร้อมเพย์ 59 บาท');
-    startPolling();
+    if(data.flow === 'slip'){
+      // PromptPay to Stillwater's own account → customer attaches the slip.
+      $('payHint').hidden = false;
+      if(data.qr){ $('btnSaveQr').href = data.qr; $('payQrActions').hidden = false; }
+      $('slipBox').hidden = false;
+      setPayStatus(data.mode === 'test' ? 'โหมดเทส: ระบบตรวจสลิปเป็นแบบจำลอง' : '');
+    }else{
+      const paymentId = data.paymentId || data.chargeId;
+      if(!paymentId) throw new Error('ยังไม่ได้รับ QR สำหรับชำระเงิน');
+      state.paymentId = paymentId;
+      save();
+      setPayStatus(data.mode === 'test' ? 'โหมดเทส สแกน QR แล้วยืนยันการจ่าย' : 'สแกน QR พร้อมเพย์ 59 บาท');
+      startPolling();
+    }
   }catch(error){
     $('btnPay').disabled = false;
-    setPayStatus(error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', true);
+    setPayStatus(error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
   }
+}
+
+/* ---------- slip upload (PromptPay + EasySlip) ---------- */
+const SLIP_MAX = 4 * 1024 * 1024;
+const SLIP_BAD_FILE = 'รูปสลิปต้องเป็น JPG หรือ PNG ขนาดไม่เกิน 4MB ค่ะ';
+
+function onSlipChosen(){
+  const file = $('slipInput').files && $('slipInput').files[0];
+  if(!file) return;
+  if(!/^image\/(jpeg|png)$/.test(file.type) || file.size > SLIP_MAX || file.size === 0){
+    resetSlip();
+    setPayStatus(SLIP_BAD_FILE, 'error');
+    return;
+  }
+  state.slipFile = file;
+  const prev = $('slipPreview');
+  if(prev.src && prev.src.startsWith('blob:')) URL.revokeObjectURL(prev.src);
+  prev.src = URL.createObjectURL(file);
+  prev.hidden = false;
+  submitSlip();
+}
+
+async function submitSlip(){
+  if(!state.slipFile || !state.order) return;
+  buttonSound('pay');
+  trackEvent('slip_submitted');
+  $('btnRetrySlip').hidden = true;
+  $('slipPick').classList.add('is-busy');
+  $('slipPreview').classList.add('is-checking');
+  setPayStatus('พี่กำลังตรวจสลิปให้นะคะ…', 'calm');
+  let data = {}, ok = false;
+  try{
+    const form = new FormData();
+    form.append('order', state.order);
+    form.append('slip', state.slipFile, state.slipFile.name || 'slip');
+    const res = await fetch('/api/payment/verify-slip', { method:'POST', body: form });
+    data = await res.json().catch(() => ({}));
+    ok = res.ok && data.ok && typeof data.paid === 'string';
+  }catch(e){ data = { reason:'service' }; }
+  $('slipPreview').classList.remove('is-checking');
+  $('slipPick').classList.remove('is-busy');
+
+  if(ok){
+    state.paid = data.paid;
+    state.stage = 'paid';
+    save();
+    trackEvent('payment_paid', { method:'slip' });
+    $('slipPick').hidden = true;
+    setPayStatus('ได้รับแล้วค่ะ ขอบคุณนะคะ พี่กำลังเปิดไพ่ให้', 'ok');
+    await wait(1400);
+    $('slipPick').hidden = false;
+    openFull();
+    return;
+  }
+  trackEvent('slip_failed', { reason: data.reason || 'unknown' });
+  const msg = data.error || 'ระบบตรวจสลิปยังไม่พร้อมค่ะ ลองใหม่อีกครั้งในอีกสักครู่นะคะ';
+  if(data.reason === 'pending' || data.reason === 'quota' || data.reason === 'service'){
+    // Same slip may pass later (Bangkok Bank ~5 min) → keep it and offer a retry.
+    setPayStatus(msg, 'calm');
+    $('btnRetrySlip').hidden = false;
+    $('slipPick').textContent = 'แนบสลิปใหม่';
+  }else{
+    setPayStatus(msg, 'error');
+    state.slipFile = null;
+    $('slipInput').value = '';
+    $('slipPick').textContent = 'แนบสลิปใหม่';
+  }
+  if(/order_/.test(data.reason || '')){ $('slipBox').hidden = true; }
 }
 
 function showQr(data){
@@ -932,7 +1067,7 @@ async function fetchDeeper(){
   for(let attempt = 0; attempt < 5; attempt++){
     const res = await fetch('/api/deeper', {
       method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ order: state.order, charge: state.paymentId })
+      body: JSON.stringify(state.paid ? { order: state.order, paid: state.paid } : { order: state.order, charge: state.paymentId })
     });
     const data = await res.json().catch(() => ({}));
     if(res.ok) return data;
@@ -960,6 +1095,7 @@ async function openFull(){
     return showSafety(data.message);
   }
   state.deeper = data;
+  state.stage = 'full';
   save(); // same-browser reopen; TODO(storage): server-side reopen link
   await revealFull(data);
 }
@@ -1120,7 +1256,7 @@ function askAgain(){
   trackEvent('ask_again');
   stopPolling();
   clearStore();
-  Object.assign(state, { question:'', context:'', order:null, card:null, paymentId:null, deeper:null });
+  Object.assign(state, { question:'', context:'', order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null });
   $('questionInput').value = '';
   $('contextInput').value = '';
   resetDraw();
@@ -1155,7 +1291,9 @@ $('questionForm').addEventListener('submit', submitQuestion);
 $('btnDrawBack').addEventListener('click', () => goQuestion());
 $('btnToOffer').addEventListener('click', goOffering);
 $('btnPay').addEventListener('click', createPayment);
-$('btnBackFirst').addEventListener('click', () => { buttonSound(); showScene('first'); });
+$('slipInput').addEventListener('change', onSlipChosen);
+$('btnRetrySlip').addEventListener('click', submitSlip);
+$('btnBackFirst').addEventListener('click', () => { buttonSound(); fillFirstStatic(); showScene('first'); });
 $('btnFullRetry').addEventListener('click', () => openFull());
 $('btnSave').addEventListener('click', saveReading);
 $('btnShare').addEventListener('click', shareReading);
@@ -1170,7 +1308,27 @@ $('soundToggle').addEventListener('click', async () => {
 /* ================= payment return / same-browser resume ================= */
 (function resume(){
   const params = new URLSearchParams(location.search);
-  if(!params.get('payment')){ wait(400).then(() => revealExisting($('windowLines'), 520)); return; }
+  if(!params.get('payment')){
+    // Going to the bank app and back often reloads the tab on mobile →
+    // resume an unfinished paid step in the same browser.
+    const saved = load();
+    if(saved && saved.order && saved.card && ['offering','paid','full'].includes(saved.stage)){
+      Object.assign(state, { order: saved.order, card: saved.card, paymentId: saved.paymentId || null, paid: saved.paid || null, deeper: saved.deeper || null, stage: saved.stage });
+      $('soundToggle').classList.add('is-on');
+      fillFirstStatic();
+      if(state.deeper || state.paid){ openFull(); return; }
+      resetOffering();
+      showScene('offering');
+      if(!state.paymentId){ createPayment(); return; }
+      $('btnPay').hidden = true;
+      setPayStatus('กำลังตรวจการชำระเงิน…');
+      startPolling();
+      state.pollTick && state.pollTick();
+      return;
+    }
+    wait(400).then(() => revealExisting($('windowLines'), 520));
+    return;
+  }
   trackEvent('payment_returned');
   const pid = params.get('pid') || params.get('charge') || '';
   history.replaceState(null, '', location.pathname);

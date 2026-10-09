@@ -1,10 +1,10 @@
 /*
 POST /api/payment/create   Body: { order }   (order = signed token from /api/read)
-Response: { ok, paymentId, chargeId (legacy alias), orderId, qr, qrPayload, amount, mode }
+Response: { ok, flow: "slip"|"poll", paymentId, chargeId (legacy alias),
+            orderId, qr, qrPayload, amount, mode }
 
-Verifies the order token, then asks the payment provider (api/_lib/payment.js)
-for a ฿59 PromptPay QR bound to the verified orderId. Nothing else from the
-client is trusted. No provider-specific code here.
+Verifies the order token, then asks the active payment provider
+(api/_lib/payment.js) for a ฿59 PromptPay QR. No provider code here.
 */
 import { OrderError, parseBody, verifyOrder } from "../_lib/order.js";
 import { PaymentError, createPayment } from "../_lib/payment.js";
@@ -18,8 +18,9 @@ export default async function handler(req, res) {
     const p = await createPayment(order);
     return res.status(200).json({
       ok: true,
-      paymentId: p.paymentId,
-      chargeId: p.paymentId, // legacy alias
+      flow: p.flow,
+      paymentId: p.paymentId || null,
+      chargeId: p.paymentId || null, // legacy alias
       orderId: order.orderId,
       qr: p.qr || null,
       qrPayload: p.qrPayload || null,
@@ -28,9 +29,9 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     const known = error instanceof OrderError || error instanceof PaymentError;
-    if (!known) console.error("Stillwater /api/payment/create error:", error);
+    if (!known || error.status >= 500) console.error("Stillwater /api/payment/create error:", error.code || error);
     return res.status(known ? error.status : 500).json({
-      error: known ? error.message : "สร้างรายการชำระเงินไม่สำเร็จ"
+      error: known && error.status < 500 ? error.message : "ยังเปิดช่องทางชำระเงินไม่ได้ ลองใหม่อีกครั้งนะคะ"
     });
   }
 }

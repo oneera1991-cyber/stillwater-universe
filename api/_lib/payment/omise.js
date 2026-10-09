@@ -1,8 +1,10 @@
 /*
-Omise adapter (PromptPay). Only api/_lib/payment.js imports this file.
+Omise adapter (PromptPay via Omise charges) — INACTIVE option, select with
+PAYMENT_PROVIDER=omise. Only api/_lib/payment.js imports this file.
 Keys: OMISE_PUBLIC_KEY (sources) / OMISE_SECRET_KEY (charges).
 */
 
+export const FLOW = "poll";
 const API = "https://api.omise.co";
 
 function keys(PaymentError) {

@@ -2,15 +2,16 @@
 ====================================================
 STILLWATER — PAID 3-CARD READING  (POST /api/deeper)
 ====================================================
-Body:     { order, charge }   // order = token from /api/read,
-                              // charge = paymentId from /api/payment/create (alias: payment)
+Body:     { order, paid }     // slip flow (active): paid = token from /api/payment/verify-slip
+       or { order, charge }   // poll flow (Omise, inactive): charge = paymentId
 Response: { ok, safety, cards: [{ position, id, name, file, image, text } x3],
             final, closing, message }
 
 Gate (api/_lib/order.js → verifyPaidOrder):
   1. order token signature + expiry (question / context / card 1 come ONLY from it)
-  2. payment status fetched server-side via api/_lib/payment.js (provider-
-     agnostic): paid, amount 5900, currency THB, orderId === order.orderId
+  2. payment: a signed paid token bound to the same orderId (slip verified by
+     EasySlip server-side), or — poll flow — a server-side provider check:
+     paid, amount 5900, THB, orderId === order.orderId
 Then 3 cards are drawn server-side (crypto.randomInt, no card 1, no repeats).
 
 TODO(storage): one-time use / idempotency — today a replay of the same
@@ -61,6 +62,7 @@ export default async function handler(req, res) {
     const body = parseBody(req);
     const { order } = await verifyPaidOrder({
       orderToken: body.order,
+      paidToken: typeof body.paid === "string" && body.paid ? body.paid : null,
       paymentId: String(body.charge || body.payment || "")
     });
 

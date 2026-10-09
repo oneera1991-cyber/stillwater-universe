@@ -2,8 +2,16 @@
 LOCAL DEV SHIM — not deployed (see .vercelignore).
   node dev/server.mjs [port]
 Serves the repo statically and runs /api/** handlers with a tiny Vercel-like
-req/res shim. Mocks the payment provider (Omise HTTP API) by intercepting
-fetch() to https://api.omise.co — production code is untouched.
+req/res shim. Mocks the payment providers by intercepting fetch():
+  - https://api.easyslip.com  (active provider: PromptPay + EasySlip)
+  - https://api.omise.co      (inactive option: PAYMENT_PROVIDER=omise)
+Production code is untouched.
+
+Mock EasySlip scenarios are chosen by an ASCII marker inside the uploaded
+image bytes ("MOCK:<scenario>#<nonce>", e.g. appended after PNG IEND):
+  success (default) | wrong_amount | wrong_account | pending | unreadable |
+  quota | old. Re-uploading a slip that already succeeded → isDuplicate=true
+  (same transRef), like the real checkDuplicate=true.
 OpenAI is not called at all: /api/read and /api/deeper are stubs today.
 (If Stillwater's vera.js lands, run with OPENAI_API_KEY unset and use its
 setClientForTesting() mock, or extend the fetch interceptor below.)
@@ -21,9 +29,69 @@ import crypto from "node:crypto";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = Number(process.argv[2] || process.env.PORT || 3123);
 
-process.env.OMISE_PUBLIC_KEY ||= "pkey_test_mock";
-process.env.OMISE_SECRET_KEY ||= "skey_test_mock_" + crypto.randomBytes(8).toString("hex");
+if (process.env.PAYMENT_PROVIDER === "omise") {
+  process.env.OMISE_PUBLIC_KEY ||= "pkey_test_mock";
+  process.env.OMISE_SECRET_KEY ||= "skey_test_mock_" + crypto.randomBytes(8).toString("hex");
+}
+process.env.ORDER_SIGNING_KEY ||= crypto.randomBytes(32).toString("hex");
+process.env.PROMPTPAY_ID ||= "0000000000"; // obviously-fake mock PromptPay ID
+process.env.EASYSLIP_API_KEY ||= "mock-easyslip-key";
+process.env.EASYSLIP_MOCK = "1";
 delete process.env.OPENAI_API_KEY;
+
+/* ---------------- mock EasySlip v2 ---------------- */
+const seenTransRefs = new Set();
+const easyslipCalls = [];
+async function mockEasySlip(url, init) {
+  const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  const err = (status, code, message) => json(status, { success: false, error: { code, message } });
+  if (url.pathname !== "/v2/verify/bank" || init.method !== "POST") return err(404, "NOT_FOUND", "mock: unknown route");
+  if (String(init.headers?.Authorization || "") !== "Bearer " + process.env.EASYSLIP_API_KEY) return err(401, "INVALID_API_KEY", "API key is invalid");
+  const form = init.body;
+  if (!(form instanceof FormData)) return err(400, "VALIDATION_ERROR", "mock expects multipart FormData");
+  const image = form.get("image");
+  const fields = { matchAmount: form.get("matchAmount"), matchAccount: form.get("matchAccount"), checkDuplicate: form.get("checkDuplicate"), remark: form.get("remark") };
+  easyslipCalls.push(fields);
+  if (!image || typeof image.arrayBuffer !== "function") return err(400, "VALIDATION_ERROR", "At least one of payload, image, url, or base64 is required");
+  if (fields.matchAmount !== "59" || fields.matchAccount !== "true" || fields.checkDuplicate !== "true") {
+    return err(400, "VALIDATION_ERROR", "mock: expected matchAmount=59, matchAccount=true, checkDuplicate=true");
+  }
+  const bytes = Buffer.from(await image.arrayBuffer());
+  if (bytes.length > 4194304) return err(400, "IMAGE_SIZE_TOO_LARGE", "Image size exceeds 4MB limit");
+  await new Promise((r) => setTimeout(r, 1500)); // let the UI show "checking"
+  const marker = bytes.toString("latin1").match(/MOCK:([a-z_]+)#/);
+  const scenario = marker ? marker[1] : "success";
+  if (scenario === "pending") return err(404, "SLIP_PENDING", "Bangkok Bank slip is pending. Please wait a few minutes and try again.");
+  if (scenario === "unreadable") return err(404, "SLIP_NOT_FOUND", "No QR code found in the image");
+  if (scenario === "quota") return err(403, "QUOTA_EXCEEDED", "Your API quota has been exceeded");
+  const transRef = "MOCK" + crypto.createHash("sha256").update(bytes).digest("hex").slice(0, 20).toUpperCase();
+  const amount = scenario === "wrong_amount" ? 5.9 : 59;
+  const isDuplicate = seenTransRefs.has(transRef);
+  seenTransRefs.add(transRef);
+  return json(200, {
+    success: true,
+    message: "Bank slip verified successfully",
+    data: {
+      remark: fields.remark,
+      isDuplicate,
+      matchedAccount: scenario === "wrong_account" ? null : {
+        bank: { nameTh: "กสิกรไทย", nameEn: "KASIKORNBANK", code: "004", shortCode: "KBANK" },
+        nameTh: "บัญชีทดสอบ", nameEn: "MOCK ACCOUNT", type: "PERSONAL", bankNumber: "xxx-x-x0000-x"
+      },
+      amountInOrder: 59,
+      amountInSlip: amount,
+      isAmountMatched: amount === 59,
+      rawSlip: {
+        payload: "mock", transRef,
+        date: new Date(Date.now() - (scenario === "old" ? 3 * 864e5 : 60e3)).toISOString(),
+        countryCode: "TH",
+        amount: { amount, local: { amount, currency: "THB" } }, fee: 0, ref1: "", ref2: "", ref3: "",
+        sender: { bank: { id: "014", name: "ไทยพาณิชย์", short: "SCB" }, account: { name: { th: "ผู้โอน ทดสอบ" } } },
+        receiver: { bank: { id: "004", name: "กสิกรไทย", short: "KBANK" }, account: { name: { th: "บัญชีทดสอบ" } } }
+      }
+    }
+  });
+}
 
 /* ---------------- mock Omise ---------------- */
 const charges = new Map();
@@ -35,6 +103,7 @@ const QR_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init = {}) => {
   const url = new URL(typeof input === "string" ? input : input.url);
+  if (url.hostname === "api.easyslip.com") return mockEasySlip(url, init);
   if (url.hostname !== "api.omise.co") return realFetch(input, init);
   const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   const auth = String(init.headers?.Authorization || "");
@@ -73,15 +142,13 @@ function shimRes(res) {
   return res;
 }
 
-async function readBody(req) {
+async function readJsonBody(req) {
+  if (!String(req.headers["content-type"] || "").includes("application/json")) return undefined; // leave the stream (multipart etc.) for the handler
   const chunks = [];
   for await (const c of req) chunks.push(c);
   const raw = Buffer.concat(chunks).toString("utf8");
   if (!raw) return undefined;
-  if (String(req.headers["content-type"] || "").includes("application/json")) {
-    try { return JSON.parse(raw); } catch { return raw; }
-  }
-  return raw;
+  try { return JSON.parse(raw); } catch { return raw; }
 }
 
 const server = http.createServer(async (req, res) => {
@@ -89,6 +156,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://" + req.headers.host);
   req.query = Object.fromEntries(url.searchParams);
   try {
+    if (url.pathname === "/__mock/easyslip-calls") return res.status(200).json(easyslipCalls);
     if (url.pathname.startsWith("/__mock/")) {
       const c = charges.get(url.searchParams.get("payment"));
       if (!c) return res.status(404).json({ error: "no such mock charge" });
@@ -106,7 +174,7 @@ const server = http.createServer(async (req, res) => {
       const file = path.join(ROOT, rel + ".js");
       if (!file.startsWith(path.join(ROOT, "api"))) return res.status(404).end();
       await stat(file);
-      req.body = await readBody(req);
+      req.body = await readJsonBody(req);
       const mod = await import(pathToFileURL(file).href);
       return await mod.default(req, res);
     }
