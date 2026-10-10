@@ -21,7 +21,8 @@ trust the client for any of them.
 // Vera comes ONLY through api/_lib/reader.js: Stillwater's api/_lib/vera.js when
 // an OpenAI key is set, else the same-interface stub (local dev / tests).
 import { drawOne, generateFree, readerMode } from "./_lib/reader.js";
-import { deviceType, logEvent, sourceColumns } from "./_lib/log.js";
+import { cleanSid, deviceType, logEvent, sourceColumns } from "./_lib/log.js";
+import { classifyTopic } from "./_lib/topic.js";
 import { sanitizeSource } from "../lib/source.js";
 import { OrderError, parseBody, readingId, signOrder } from "./_lib/order.js";
 import { clientIp, rateLimit } from "./_lib/rate-limit.js";
@@ -41,9 +42,12 @@ export default async function handler(req, res) {
   const limited = rateLimit("read:" + clientIp(req), { limit: 8, windowMs: 10 * 60 * 1000 });
   if (!limited.ok) {
     res.setHeader("Retry-After", String(limited.retryAfter));
+    logEvent("read_free_error", { lang, sid: cleanSid(body.sid), device: deviceType(req.headers?.["user-agent"]), result: "failed", reason_detail: "rate_limited", http_status: 429 });
     return res.status(429).json({ error: t(lang, "errors.rate_limited"), code: "rate_limited" });
   }
 
+  let logCtx = null;
+  const tStart = Date.now();
   try {
     const question = typeof body.question === "string" ? body.question.trim().slice(0, MAX_QUESTION) : "";
     const context = typeof body.context === "string" ? body.context.trim().slice(0, MAX_CONTEXT) : "";
@@ -52,20 +56,24 @@ export default async function handler(req, res) {
     }
 
     const source = sanitizeSource(body.source); // server-side sanitize; sealed into the order token
+    const topic = classifyTopic(question, context); // log-only keyword rules, microseconds
     const logBase = {
       lang, ...sourceColumns(source), device: deviceType(req.headers?.["user-agent"]),
-      reader: readerMode(), question, context
+      reader: readerMode(), question, context, sid: cleanSid(body.sid), topic, q_len: question.length
     };
+    logCtx = logBase;
 
     const drawn = drawOne(); // the ONLY free-card draw (crypto.randomInt)
+    const t0 = Date.now();
     const result = await generateFree({ question, context, card: drawn.id, lang });
+    logBase.latency_ms = Date.now() - t0;
     if (result.usage) console.log("Stillwater /api/read usage:", JSON.stringify({ lang, fallback: result.fallback, attempts: result.attempts, usage: result.usage }));
 
     // Safety / needs_rewrite: show `message` as-is (fixed safety text or Vera's rewrite prompt), no card, no order.
     if (result.safety || result.needs_rewrite || !result.card) {
       const safety = !!result.safety;
       // Crisis questions are never stored: safety rows log question/context as "".
-      logEvent("read_free", { ...logBase, ...(safety ? { question: "", context: "" } : {}), safety, needs_rewrite: !safety, card1: "" }); // fire-and-forget
+      logEvent("read_free", { ...logBase, ...(safety ? { question: "", context: "", topic: "safety_case" } : {}), safety, needs_rewrite: !safety, card1: "", result: safety ? "safety" : "needs_rewrite" }); // fire-and-forget
       const message = (typeof result.message === "string" && result.message.trim()) ||
         (safety ? t(lang, "safety.paragraphs").join("\n\n") : t(lang, "rewrite.fallback"));
       return res.status(200).json({
@@ -81,10 +89,11 @@ export default async function handler(req, res) {
       card1: drawn.id,
       card1Name: card.name,
       card1Text: String(card.text),
-      openThread: result.open_thread
+      openThread: result.open_thread,
+      topic
     });
     const order = signed.token;
-    logEvent("read_free", { ...logBase, order_id: signed.order.orderId, card1: drawn.id, safety: false, needs_rewrite: false }); // fire-and-forget
+    logEvent("read_free", { ...logBase, order_id: signed.order.orderId, card1: drawn.id, safety: false, needs_rewrite: false, result: "ok" }); // fire-and-forget
 
     return res.status(200).json({
       ok: true,
@@ -101,6 +110,9 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error("Stillwater /api/read error:", error?.code || error);
+    // Safety-unknown failure: keep no question text, only the topic + cause.
+    logEvent("read_free_error", { ...(logCtx || { lang, sid: cleanSid(body.sid) }), question: "", context: "", result: "failed",
+      reason_detail: String(error?.code || error?.name || "error").slice(0, 60), latency_ms: Date.now() - tStart });
     const status = error instanceof OrderError ? error.status : 500;
     return res.status(status).json({ error: errorText(lang, error?.code === "config_missing" ? "config" : "read_failed"), code: "read_failed" });
   }

@@ -663,7 +663,11 @@ const wait = (ms) => new Promise((r) => setTimeout(r, reduceMotion ? Math.min(ms
 
 function trackEvent(name, data){
   try{ if(typeof window.va === 'function') window.va('event', { name, data: data || {} }); }catch(e){}
+  try{ if(TLOG_MAP[name]) tlog(TLOG_MAP[name], data); }catch(e){}
 }
+/* Vercel Analytics names → silent store events (see "silent telemetry" below). */
+const TLOG_MAP = { enter_clicked:'enter_tap', safety_shown:'safety_shown', needs_rewrite:'rewrite_shown', invitation_shown:'invitation_shown',
+  deeper_clicked:'offer_open', payment_started:'pay_click', full_card_shown:'full_card_shown', full_reading_shown:'full_done', reading_closed:'close', lang_switched:'lang_switch' };
 
 function cardUrl(card){
   if(!card) return '';
@@ -713,9 +717,11 @@ function loadImage(img, src){
 
 /* ================= scenes ================= */
 let currentScene = 'window';
+let sceneSince = Date.now();
 
 async function showScene(name){
   if(name === currentScene) return;
+  try{ const now = Date.now(); tlog('scene', { scene: name, from_scene: currentScene, dwell_ms: now - sceneSince }); sceneSince = now; }catch(e){}
   const from = $('scene-' + currentScene);
   const to = $('scene-' + name);
   currentScene = name;
@@ -741,7 +747,7 @@ function save(){
   try{
     localStorage.setItem(STORE, JSON.stringify({
       order: state.order, card: state.card, lang: state.lang, paymentId: state.paymentId,
-      paid: state.paid, deeper: state.deeper, fullStep: state.fullStep || 0, stage: state.stage, ratings: state.ratings, readingId: state.readingId, savedAt: Date.now()
+      paid: state.paid, deeper: state.deeper, fullStep: state.fullStep || 0, stage: state.stage, ratings: state.ratings, readingId: state.readingId, sid: tsid, savedAt: Date.now()
     }));
   }catch(e){}
 }
@@ -753,6 +759,68 @@ function load(){
   }catch(e){ return null; }
 }
 function clearStore(){ try{ localStorage.removeItem(STORE); }catch(e){} }
+
+/* ================= silent telemetry → /api/ev =================
+   Log-only (Palm 2026-10-10: collect data, never interrupt the customer). Nothing here
+   touches the UI; every call is wrapped in try/catch; sending uses sendBeacon (or fetch
+   keepalive) and is never awaited. tsid = anonymous random id for this tab's session
+   (sessionStorage; also kept with the saved order so a bank-app round trip keeps it). */
+const TLOG_T0 = Date.now();
+let tsid = '';
+try{ tsid = sessionStorage.getItem('stillwater.sid') || ''; }catch(e){}
+if(!/^[A-Za-z0-9_-]{6,40}$/.test(tsid)){
+  try{ tsid = crypto.randomUUID().replace(/-/g, ''); }
+  catch(e){ tsid = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12); }
+  try{ sessionStorage.setItem('stillwater.sid', tsid); }catch(e){}
+}
+const tq = [];
+let tTimer = 0, tErrors = 0, tHiddenAt = 0;
+function tlog(e, data){
+  try{
+    tq.push(Object.assign({ e, ts: new Date().toISOString() }, data || {}));
+    if(tq.length >= 25) tflush(); else if(!tTimer) tTimer = setTimeout(tflush, 4000);
+  }catch(err){}
+}
+function tflush(){
+  try{
+    clearTimeout(tTimer); tTimer = 0;
+    if(!tq.length) return;
+    const events = tq.splice(0, 40);
+    const payload = { sid: tsid, lang: uiLang, events };
+    if(state.order) payload.order = state.order; else payload.source = currentSource();
+    let body = JSON.stringify(payload);
+    if(body.length > 60000){ delete payload.order; payload.source = currentSource(); body = JSON.stringify(payload); }
+    let sent = false;
+    try{ sent = !!(navigator.sendBeacon && navigator.sendBeacon('/api/ev', new Blob([body], { type:'text/plain;charset=UTF-8' }))); }catch(e){}
+    if(!sent) fetch('/api/ev', { method:'POST', keepalive:true, headers:{ 'Content-Type':'text/plain;charset=UTF-8' }, body }).catch(() => {});
+    if(tq.length) tTimer = setTimeout(tflush, 500);
+  }catch(e){}
+}
+let tLeftAt = 0;
+function tLeave(kind){
+  const now = Date.now();
+  if(tLeftAt && now - tLeftAt < 3000){ tflush(); return; } // pagehide + visibilitychange fire together → one leave
+  tLeftAt = now;
+  tlog('leave', { scene: currentScene, dwell_ms: now - sceneSince, result: kind, step: state.fullStep || 0,
+    detail: 'stage=' + (state.stage || '') + ';total_ms=' + (now - TLOG_T0) });
+  tflush();
+}
+document.addEventListener('visibilitychange', () => {
+  try{
+    if(document.visibilityState === 'hidden'){ tHiddenAt = Date.now(); tLeave('hidden'); }
+    else if(tHiddenAt){ tlog('return', { scene: currentScene, dwell_ms: Date.now() - tHiddenAt }); tHiddenAt = 0; tLeftAt = 0; }
+  }catch(e){}
+});
+window.addEventListener('pagehide', () => { try{ tLeave('pagehide'); }catch(e){} });
+function tErr(msg, file, line){
+  try{
+    if(++tErrors > 10) return;
+    const f = String(file || '').split('/').pop().split('?')[0];
+    tlog('js_error', { scene: currentScene, detail: String(msg || '').slice(0, 220) + (f ? ' @' + f + ':' + (line || 0) : '') });
+  }catch(e){}
+}
+window.addEventListener('error', (e) => tErr(e && e.message, e && e.filename, e && e.lineno));
+window.addEventListener('unhandledrejection', (e) => tErr('unhandled: ' + ((e && e.reason && (e.reason.message || e.reason)) || '')));
 
 /* ================= traffic source (first-touch / last-touch) =================
    ?src= (friends, tiktok, ig, fb, line, fb_ads, youtube, or a custom tag),
@@ -943,6 +1011,7 @@ async function submitQuestion(event){
   $('contextInput').disabled = true;
   buttonSound('submit');
   trackEvent('question_submitted');
+  tlog('question_submitted', { q_len: question.length, detail: context ? 'context' : '' });
   await startDraw();
 }
 
@@ -963,19 +1032,22 @@ async function startDraw(){
   const minWait = wait(2600);
 
   let data, ok = false, status = 0;
+  const tRead = Date.now();
   try{
     const res = await fetch('/api/read', {
       method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ question: state.question, context: state.context || undefined, lang: uiLang, source: currentSource() })
+      body: JSON.stringify({ question: state.question, context: state.context || undefined, lang: uiLang, source: currentSource(), sid: tsid })
     });
     status = res.status;
     data = await res.json().catch(() => ({}));
     ok = res.ok;
   }catch(e){ data = {}; }
+  const readMs = Date.now() - tRead;
   await Promise.all([linesShown, minWait]);
 
   if(!ok){
     const code = data && data.code;
+    tlog('draw_failed', { http_status: status, reason: code || 'network', latency_ms: readMs });
     setText($('drawErrorText'),
       status === 429 || code === 'rate_limited' ? 'draw.rateLimited' :
       code === 'question_required' ? 'errors.question_required' : 'draw.failed');
@@ -1003,6 +1075,7 @@ async function startDraw(){
   state.deeper = null;
   state.ratings = {};
   state.readingId = data.reading_id || null;
+  state.slipAttempt = 0;
   state.stage = 'first';
   save();
 
@@ -1013,6 +1086,7 @@ async function startDraw(){
   await wait(1000);
   $('drawName').textContent = state.card.name || '';
   trackEvent('reading_completed', { mode: data.reading_mode || 'unknown' });
+  tlog('free_card_shown', { latency_ms: readMs, step: 1 });
   await wait(1500);
   showFirst();
 }
@@ -1099,15 +1173,17 @@ async function createPayment(){
   setPayStatus('pay.opening');
   buttonSound('pay');
   trackEvent('payment_started');
+  const tPay = Date.now();
   try{
     const res = await fetch('/api/payment/create', {
       method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ order: state.order })
+      body: JSON.stringify({ order: state.order, sid: tsid })
     });
     const data = await res.json().catch(() => ({}));
     if(!res.ok) throw new Error(data.code ? errorKey(data.code) : 'pay.createFailed');
     if(!data.qr && !data.qrPayload) throw new Error('pay.noQr');
     showQr(data);
+    tlog('qr_shown', { latency_ms: Date.now() - tPay, result: data.flow || '' });
     state.payee = data.flow === 'slip' && data.payee ? data.payee : null;
     renderPayee();
     if(data.flow === 'slip'){
@@ -1125,6 +1201,7 @@ async function createPayment(){
       startPolling();
     }
   }catch(error){
+    tlog('qr_failed', { reason: String((error && error.message) || 'network'), latency_ms: Date.now() - tPay });
     $('btnPay').disabled = false;
     // error.message is a strings key (network errors fall back to createFailed)
     setPayStatus(/^[a-z]+\.[A-Za-z_]+$/.test(error.message || '') ? error.message : 'pay.createFailed', 'error');
@@ -1139,11 +1216,13 @@ function onSlipChosen(){
   const file = $('slipInput').files && $('slipInput').files[0];
   if(!file) return;
   if(!/^image\/(jpeg|png)$/.test(file.type) || file.size > SLIP_MAX || file.size === 0){
+    tlog('slip_rejected_client', { slip_bytes: file.size, slip_type: file.type || 'unknown', reason: 'bad_file' });
     resetSlip();
     setPayStatus('slip.bad_file', 'error');
     return;
   }
   state.slipFile = file;
+  tlog('slip_chosen', { slip_bytes: file.size, slip_type: file.type });
   const prev = $('slipPreview');
   if(prev.src && prev.src.startsWith('blob:')) URL.revokeObjectURL(prev.src);
   prev.src = URL.createObjectURL(file);
@@ -1159,15 +1238,24 @@ async function submitSlip(){
   $('slipPick').classList.add('is-busy');
   $('slipPreview').classList.add('is-checking');
   setPayStatus('pay.checkingSlip', 'calm');
-  let data = {}, ok = false;
+  let data = {}, ok = false, slipStatus = 0;
+  const attempt = state.slipAttempt = (state.slipAttempt || 0) + 1;
+  const tSlip = Date.now();
+  tlog('slip_upload', { attempt, slip_bytes: state.slipFile.size, slip_type: state.slipFile.type });
   try{
     const form = new FormData();
     form.append('order', state.order);
+    form.append('sid', tsid);
+    form.append('attempt', String(attempt));
     form.append('slip', state.slipFile, state.slipFile.name || 'slip');
     const res = await fetch('/api/payment/verify-slip', { method:'POST', body: form });
+    slipStatus = res.status;
     data = await res.json().catch(() => ({}));
     ok = res.ok && data.ok && typeof data.paid === 'string';
   }catch(e){ data = { reason:'service' }; }
+  tlog('slip_result', { attempt, result: ok ? 'ok' : (data.reason || 'service'), reason: ok ? '' : (data.reason || 'service'),
+    reason_detail: slipStatus ? '' : 'network', http_status: slipStatus, latency_ms: Date.now() - tSlip });
+  tflush();
   $('slipPreview').classList.remove('is-checking');
   $('slipPick').classList.remove('is-busy');
 
@@ -1280,7 +1368,7 @@ async function fetchDeeper(){
   for(let attempt = 0; attempt < 5; attempt++){
     const res = await fetch('/api/deeper', {
       method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify(state.paid ? { order: state.order, paid: state.paid } : { order: state.order, charge: state.paymentId })
+      body: JSON.stringify(state.paid ? { order: state.order, paid: state.paid, sid: tsid } : { order: state.order, charge: state.paymentId, sid: tsid })
     });
     const data = await res.json().catch(() => ({}));
     if(res.ok) return data;
@@ -1294,10 +1382,14 @@ async function openFull(){
   resetFull();
   showScene('full');
   let data = state.deeper;
+  tlog('full_open', { result: data ? 'cached' : 'fetch', step: state.fullStep || 0 });
   if(!data){
+    const tFull = Date.now();
     try{
       data = await fetchDeeper();
+      tlog('full_card_shown', { step: 0, latency_ms: Date.now() - tFull, result: 'loaded' });
     }catch(error){
+      tlog('full_failed', { reason: String((error && error.message) || 'network'), latency_ms: Date.now() - tFull });
       setText($('fullErrorText'), /^[a-z]+\.[A-Za-z_]+$/.test(error.message || '') ? error.message : 'full.failed');
       $('fullError').hidden = false;
       return;
@@ -1369,13 +1461,13 @@ async function showChapter(card, i, { instant = false } = {}){
   await revealLines(c.reading, storyLines(card, i), { gap: 650 });
 }
 
-function waitNext(){
+function waitNext(step){
   const btn = $('btnNextCard');
   btn.hidden = false;
   btn.classList.remove('is-in');
   requestAnimationFrame(() => btn.classList.add('is-in'));
   return new Promise((resolve) => {
-    btn.addEventListener('click', () => { buttonSound(); btn.hidden = true; resolve(); }, { once: true });
+    btn.addEventListener('click', () => { buttonSound(); btn.hidden = true; tlog('next_card_tap', { step }); resolve(); }, { once: true });
   });
 }
 
@@ -1388,7 +1480,7 @@ async function revealFull(data){
   for(let i = 0; i < cards.length; i++){
     if(i < reached){ await showChapter(cards[i], i, { instant: true }); }
     else{
-      if(i > 0) await waitNext();
+      if(i > 0) await waitNext(i + 1);
       await showChapter(cards[i], i);
       state.fullStep = i + 1; save();
       trackEvent('full_card_shown', { step: i + 1 });
@@ -1453,13 +1545,14 @@ async function rate(stage, stars){
   buttonSound();
   let ok = false;
   try{
-    const body = { order: state.order, stage, stars };
+    const body = { order: state.order, stage, stars, sid: tsid };
     if(stage === 'full'){ if(state.paid) body.paid = state.paid; else if(state.paymentId) body.charge = state.paymentId; }
     const res = await fetch('/api/rate', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
     const data = await res.json().catch(() => ({}));
     ok = res.ok && data.ok;
   }catch(e){}
   row.classList.remove('is-busy');
+  tlog('rating', { stage, stars, result: ok ? 'ok' : 'failed' });
   if(ok){
     state.ratings = { ...(state.ratings || {}), [stage]: stars };
     save();
@@ -1476,10 +1569,11 @@ async function rate(stage, stars){
 
 /* Silent share tracking → /api/share (order token only; no UI, never awaited, errors ignored). */
 function logShare(channel, result){
+  tlog('share', { channel, result });
   if(!state.order) return;
   try{
     fetch('/api/share', { method:'POST', keepalive:true, headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ order: state.order, channel, result }) }).catch(() => {});
+      body: JSON.stringify({ order: state.order, channel, result, sid: tsid }) }).catch(() => {});
   }catch(e){}
 }
 
@@ -1513,12 +1607,13 @@ function closeReading(){
   buttonSound();
   trackEvent('reading_closed', { step: state.fullStep || 0 });
   if(state.order){
-    try{ fetch('/api/close', { method:'POST', keepalive:true, headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ order: state.order, step: state.fullStep || 0 }) }).catch(() => {}); }catch(e){}
+    try{ fetch('/api/close', { method:'POST', keepalive:true, headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ order: state.order, step: state.fullStep || 0, sid: tsid }) }).catch(() => {}); }catch(e){}
   }
+  tflush(); // send pending events while the order token is still known
   stopPolling();
   clearStore();
   resetRating('free'); resetRating('full');
-  Object.assign(state, { fullStep:0, readingId:null, ratings:{}, question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null });
+  Object.assign(state, { fullStep:0, readingId:null, ratings:{}, question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null, slipAttempt:0 });
   $('questionInput').value = '';
   $('contextInput').value = '';
   resetDraw();
@@ -1563,13 +1658,16 @@ function showSafety(message, lang){
 /* ================= events ================= */
 $('btnEnter').addEventListener('click', enter);
 $('questionForm').addEventListener('submit', submitQuestion);
-$('btnDrawBack').addEventListener('click', () => goQuestion());
+$('btnDrawBack').addEventListener('click', () => { tlog('back_tap', { scene: 'draw' }); goQuestion(); });
 $('btnToOffer').addEventListener('click', goOffering);
 $('btnPay').addEventListener('click', createPayment);
 $('slipInput').addEventListener('change', onSlipChosen);
-$('btnRetrySlip').addEventListener('click', submitSlip);
-$('btnBackFirst').addEventListener('click', () => { buttonSound(); fillFirstStatic(); showScene('first'); });
-$('btnFullRetry').addEventListener('click', () => openFull());
+$('btnRetrySlip').addEventListener('click', () => { tlog('slip_retry', { attempt: (state.slipAttempt || 0) + 1 }); submitSlip(); });
+$('btnSaveQr').addEventListener('click', () => tlog('qr_save'));
+$('payQr').addEventListener('contextmenu', () => tlog('qr_hold')); // long-press "save image" on mobile
+$('slipPick').addEventListener('click', () => tlog('slip_pick'));
+$('btnBackFirst').addEventListener('click', () => { tlog('back_tap', { scene: 'offering' }); buttonSound(); fillFirstStatic(); showScene('first'); });
+$('btnFullRetry').addEventListener('click', () => { tlog('full_retry'); openFull(); });
 $('btnShareSite').addEventListener('click', shareSite);
 $('btnClose').addEventListener('click', closeReading);
 $('langToggle').addEventListener('click', () => {
@@ -1579,6 +1677,7 @@ $('langToggle').addEventListener('click', () => {
 $('soundToggle').addEventListener('click', async () => {
   await unlockAudio();
   const next = !soundEnabled;
+  tlog('sound_toggle', { result: next ? 'on' : 'off' });
   setSound(next);
   if(next){ buttonSound(); startAmbient(); } else stopAmbient(false);
 });
@@ -1586,6 +1685,16 @@ $('soundToggle').addEventListener('click', async () => {
 /* ================= payment return / same-browser resume ================= */
 applyLang();
 captureSource();
+try{
+  const saved0 = load();
+  // Same order resumed in a new tab (bank-app round trip) → keep its session id.
+  if(saved0 && saved0.sid && /^[A-Za-z0-9_-]{6,40}$/.test(saved0.sid) && saved0.sid !== tsid && saved0.order && ['offering','paid','full'].includes(saved0.stage)){
+    tsid = saved0.sid; try{ sessionStorage.setItem('stillwater.sid', tsid); }catch(e){}
+  }
+  const vw = Math.round(window.innerWidth || 0);
+  tlog('page_view', { scene: currentScene, detail: 'path=' + location.pathname + (new URLSearchParams(location.search).get('payment') ? ';payment_return' : '') +
+    ';vw=' + (vw < 400 ? 's' : vw < 800 ? 'm' : 'l') + ';saved=' + ((saved0 && saved0.stage) || '') });
+}catch(e){}
 
 (function resume(){
   const params = new URLSearchParams(location.search);
@@ -1595,6 +1704,7 @@ captureSource();
     const saved = load();
     if(saved && saved.order && saved.card && ['offering','paid','full'].includes(saved.stage)){
       Object.assign(state, { order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || null, paid: saved.paid || null, deeper: saved.deeper || null, stage: saved.stage, ratings: saved.ratings || {}, readingId: saved.readingId || null, fullStep: saved.fullStep || 0 });
+      tlog('resume', { detail: 'stage=' + saved.stage, step: saved.fullStep || 0 });
       $('soundToggle').classList.add('is-on');
       fillFirstStatic();
       if(state.deeper || state.paid){ openFull(); return; }

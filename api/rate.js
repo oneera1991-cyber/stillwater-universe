@@ -16,7 +16,7 @@ Response: { ok: true, stage, stars, rating_key }   |   { ok: false, error, code 
 import { OrderError, parseBody, verifyOrder, verifyPaidOrder } from "./_lib/order.js";
 import { PaymentError } from "./_lib/payment.js";
 import { clientIp, rateLimit } from "./_lib/rate-limit.js";
-import { deviceType, logEvent, orderColumns } from "./_lib/log.js";
+import { cleanSid, deviceType, logEvent, orderColumns } from "./_lib/log.js";
 import { errorText, normLang, t } from "../i18n/strings.js";
 
 export const STAGES = ["free", "full"];
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     const rating_key = order.orderId + ":" + stage;
     logEvent("rating", { // fire-and-forget
       ...orderColumns(order), device: deviceType(req.headers?.["user-agent"]),
-      card1: order.card1, stage, stars, rating_key
+      card1: order.card1, stage, stars, rating_key, sid: cleanSid(body.sid)
     });
     return res.status(200).json({ ok: true, stage, stars, rating_key });
   } catch (error) {

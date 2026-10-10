@@ -105,13 +105,17 @@ export async function verifySlip(order, file) {
   if (impl.FLOW !== "slip") throw new PaymentError("ช่องทางนี้ไม่ใช้สลิป", 400, "not_supported");
   if (paymentTestMode()) {
     const bytes = file && file.bytes;
-    if (!promptpay.sniffImage(bytes) || bytes.length > promptpay.MAX_SLIP_BYTES) return { ok: false, reason: "bad_file" };
+    const type = promptpay.sniffImage(bytes);
+    const diag = { http_status: 0, latency_ms: 0, slip_bytes: bytes ? bytes.length : 0, slip_type: type || "other" };
+    if (!type || bytes.length > promptpay.MAX_SLIP_BYTES) return { ok: false, reason: "bad_file", reason_detail: type ? "too_large" : "not_image", diag };
     console.warn("PAYMENT_TEST_MODE: slip accepted without verification (order " + order.orderId + ")");
-    return { ok: true, ref: "TEST-" + randomBytes(6).toString("hex").toUpperCase(), amount: PRICE_SATANG, currency: CURRENCY, slipDate: new Date().toISOString() };
+    return { ok: true, ref: "TEST-" + randomBytes(6).toString("hex").toUpperCase(), amount: PRICE_SATANG, currency: CURRENCY, slipDate: new Date().toISOString(), test_mode: true, diag };
   }
   const r = await impl.verifySlip(order, file, ctx());
   if (r.ok) return r;
-  return { ok: false, reason: SLIP_REASONS.includes(r.reason) ? r.reason : "service" };
+  // reason_detail / diag are log-only (slip_verify event); the customer sees `reason` only.
+  const known = SLIP_REASONS.includes(r.reason);
+  return { ok: false, reason: known ? r.reason : "service", reason_detail: r.reason_detail || (known ? "" : String(r.reason || "")), diag: r.diag || null };
 }
 
 export async function getPaymentStatus(paymentId) {

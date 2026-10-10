@@ -17,7 +17,7 @@ Response: { ok: true, channel, result }   |   { ok: false, code }
 */
 import { OrderError, parseBody, verifyOrder } from "./_lib/order.js";
 import { clientIp, rateLimit } from "./_lib/rate-limit.js";
-import { deviceType, logEvent, orderColumns } from "./_lib/log.js";
+import { cleanSid, deviceType, logEvent, orderColumns } from "./_lib/log.js";
 
 export const SHARE_CHANNELS = ["native", "copy_link", "download_image", "line", "facebook", "x"];
 export const SHARE_RESULTS = ["completed", "cancelled", "failed", "unknown"];
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
   }
   logEvent("share", { // fire-and-forget
     ...orderColumns(order), device: deviceType(req.headers?.["user-agent"]),
-    card1: order.card1, share_channel: channel, share_result: result
+    card1: order.card1, share_channel: channel, share_result: result, sid: cleanSid(body.sid)
   });
   return res.status(200).json({ ok: true, channel, result });
 }

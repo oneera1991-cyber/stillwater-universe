@@ -26,7 +26,7 @@ import { POSITION_KEYS, cardById, drawThree, generateThree, readerMode } from ".
 import { OrderError, parseBody, readingId, verifyOrder, verifyPaidOrder } from "./_lib/order.js";
 import { PaymentError } from "./_lib/payment.js";
 import { errorText, normLang, t } from "../i18n/strings.js";
-import { deviceType, logEvent, orderColumns } from "./_lib/log.js";
+import { cleanSid, deviceType, logEvent, orderColumns } from "./_lib/log.js";
 
 
 export default async function handler(req, res) {
@@ -34,8 +34,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
   let lang = "th"; // until the order token is verified
+  const t0 = Date.now();
+  let body = {}, logOrder = null;
   try {
-    const body = parseBody(req);
+    body = parseBody(req);
     // Language for error messages = the order token's lang, even if payment fails.
     try { lang = normLang(verifyOrder(body.order).lang); } catch { /* verifyPaidOrder reports it */ }
     const { order } = await verifyPaidOrder({
@@ -44,6 +46,7 @@ export default async function handler(req, res) {
       paymentId: String(body.charge || body.payment || "")
     });
     lang = normLang(order.lang); // old tokens without lang → "th"
+    logOrder = order;
 
     const cards3 = drawThree(order.card1).map((c) => c.id); // the ONLY paid draw (crypto.randomInt)
 
@@ -59,6 +62,7 @@ export default async function handler(req, res) {
 
     if (result.safety) {
       const message = (typeof result.message === "string" && result.message.trim()) || t(lang, "safety.paragraphs").join("\n\n");
+      logEvent("read_full_error", { ...orderColumns(order), card1: order.card1, sid: cleanSid(body.sid), device: deviceType(req.headers?.["user-agent"]), result: "safety", latency_ms: Date.now() - t0 });
       return res.status(200).json({ ok: true, safety: true, lang, cards: [], final: "", closing: "", message });
     }
 
@@ -87,7 +91,8 @@ export default async function handler(req, res) {
 
     logEvent("read_full", { // fire-and-forget; TODO(storage): a replay redraws → another row
       ...orderColumns(order), device: deviceType(req.headers?.["user-agent"]),
-      card1: order.card1, cards3: cards3.join(","), reader: readerMode()
+      card1: order.card1, cards3: cards3.join(","), reader: readerMode(),
+      sid: cleanSid(body.sid), latency_ms: Date.now() - t0, result: "ok"
     });
     return res.status(200).json({
       ok: true, safety: false, lang, reading_id: readingId(order.orderId), cards,
@@ -96,6 +101,11 @@ export default async function handler(req, res) {
   } catch (error) {
     const known = error instanceof OrderError || error instanceof PaymentError;
     if (!known) console.error("Stillwater /api/deeper error:", error?.code || error);
+    logEvent("read_full_error", { // log-only; 402 = payment not confirmed (the page retries)
+      ...(logOrder ? orderColumns(logOrder) : { lang }), card1: logOrder ? logOrder.card1 : "",
+      sid: cleanSid(body?.sid), device: deviceType(req.headers?.["user-agent"]), result: "failed",
+      reason_detail: String(error?.code || error?.name || "error").slice(0, 60), http_status: known ? error.status : 500, latency_ms: Date.now() - t0
+    });
     return res.status(known ? error.status : 500).json({
       error: errorText(lang, known ? error.code : "deeper_failed"),
       code: known ? error.code : "deeper_failed"

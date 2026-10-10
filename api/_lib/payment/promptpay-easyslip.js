@@ -47,6 +47,11 @@ export const FLOW = "slip";
 export const EASYSLIP_URL = "https://api.easyslip.com/v2/verify/bank";
 export const MAX_SLIP_BYTES = 4 * 1024 * 1024; // EasySlip limit: 4,194,304 bytes
 const SLIP_CLOCK_SLACK_MS = 15 * 60 * 1000;
+/** EasySlip request timeout (ms). EASYSLIP_TIMEOUT_MS overrides (local tests); default 25 s. */
+export function easyslipTimeoutMs(env = process.env) {
+  const n = Number(env.EASYSLIP_TIMEOUT_MS);
+  return Number.isFinite(n) && n >= 100 && n <= 60_000 ? n : 25_000;
+}
 
 function promptpayId(PaymentError) {
   const id = String(process.env.PROMPTPAY_ID || "").replace(/[\s-]/g, "");
@@ -139,7 +144,7 @@ export async function rememberTransRef(/* transRef, orderId */) {
 
 export async function verifySlip(order, { bytes, mime }, { PRICE_THB, PRICE_SATANG, CURRENCY, PaymentError }) {
   const type = sniffImage(bytes);
-  if (!type || bytes.length > MAX_SLIP_BYTES) return { ok: false, reason: "bad_file" };
+  if (!type || bytes.length > MAX_SLIP_BYTES) return { ok: false, reason: "bad_file", reason_detail: type ? "too_large" : "not_image", diag: { slip_bytes: bytes ? bytes.length : 0, slip_type: type || "other" } };
   const key = easyslipKey(PaymentError);
   const mm = qrMode() === "maemanee" ? maemanee(PaymentError) : null;
   const ref = mm ? orderRef(order.orderId) : "";
@@ -152,18 +157,33 @@ export async function verifySlip(order, { bytes, mime }, { PRICE_THB, PRICE_SATA
   form.append("remark", order.orderId.slice(0, 255));
 
   let status = 0, body = null;
+  const t0 = Date.now();
+  // Log-only diagnostics (api/_lib/log.js slip_verify): never shown to the customer.
+  const diag = { http_status: 0, provider_code: "", provider_message: "", latency_ms: 0, slip_bytes: bytes.length, slip_type: type };
   try {
     const response = await fetch(EASYSLIP_URL, {
       method: "POST",
       headers: { Authorization: `Bearer ${key}` },
       body: form,
-      signal: AbortSignal.timeout(25_000)
+      signal: AbortSignal.timeout(easyslipTimeoutMs())
     });
     status = response.status;
+    diag.http_status = status;
     body = await response.json().catch(() => null);
+    diag.latency_ms = Date.now() - t0;
   } catch (error) {
+    diag.latency_ms = Date.now() - t0;
+    const timeout = error?.name === "TimeoutError" || error?.name === "AbortError";
     console.error("EasySlip request failed:", error?.name || error);
-    return { ok: false, reason: "service" };
+    return { ok: false, reason: "service", reason_detail: timeout ? "timeout" : "network", diag: { ...diag, provider_message: String(error?.cause?.code || error?.name || "") } };
+  }
+  diag.provider_code = String(body?.error?.code || "");
+  diag.provider_message = String(body?.error?.message || (body ? "" : "non_json_response")).slice(0, 200);
+  if (body?.success === true) {
+    const d = body.data || {};
+    if (typeof d.amountInSlip === "number") diag.slip_amount = d.amountInSlip;
+    const slipTime = Date.parse(d.rawSlip?.date || "");
+    if (Number.isFinite(slipTime) && Number.isFinite(order.issuedAt)) diag.slip_age_min = Math.round((slipTime - order.issuedAt) / 60000);
   }
 
   const r = interpretEasySlip(status, body, {
@@ -180,8 +200,8 @@ export async function verifySlip(order, { bytes, mime }, { PRICE_THB, PRICE_SATA
   }
   if (!r.ok) {
     if (r.reason === "service" || r.reason === "quota") console.error("EasySlip error:", r.code, status);
-    return r;
+    return { ...r, reason_detail: r.code || (r.reason === "service" ? "http_" + status : ""), diag };
   }
   await rememberTransRef(r.ref, order.orderId);
-  return r;
+  return { ...r, diag };
 }

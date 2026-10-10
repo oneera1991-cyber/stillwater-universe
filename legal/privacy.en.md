@@ -10,12 +10,13 @@ Stillwater is the data controller for the personal data you give us when you use
 
 - **Service log:** your question, any optional context you add, the cards drawn, your payment reference, an internal order reference, your star rating (if you give one), which option you chose when sharing the site link and whether the share went through (if any), and when you close the reading. Phone numbers, emails and LINE IDs are automatically removed from your question and context.
 - **Questions about self-harm:** these are not stored.
+- **Site usage:** which steps of the site you view and for how long, the buttons you tap, the result of each payment slip check, and technical error reports, linked by a random session ID that does not identify you, plus the general topic of your question (for example, love or work).
 - **Transfer slip data:** used to verify your payment.
 - **Visit data:** how you reached us (for example, the link or website that brought you), your general device type (mobile, tablet or desktop), and the language you use on the site.
 - **Technical data:** basic logs needed to run the site, kept short-term by our hosting platform.
 - **Anonymous visit statistics:** cookieless page-view counts from our hosting platform.
 
-**Data kept in your browser:** the site uses your browser's local storage, not cookies, to remember your language, how you reached us, your payment status and your paid reading. You can clear it at any time in your browser settings. We don't use advertising cookies or ad trackers.
+**Data kept in your browser:** the site uses your browser's local storage, not cookies, to remember your language, how you reached us, a random session ID, your payment status and your paid reading. You can clear it at any time in your browser settings. We don't use advertising cookies or ad trackers.
 
 **Fonts:** some of the site's fonts load from an external font service, which receives your IP address in order to deliver them.
 
@@ -42,7 +43,7 @@ Some providers may process data outside Thailand, with appropriate safeguards in
 
 ## How long we keep it
 
-- We delete your question, context and cards drawn within 90 days.
+- We delete your question, context, cards drawn and site usage data within 90 days.
 - Payment and transaction records required by accounting or tax law are kept for as long as the law requires.
 - Data tied to a complaint or refund that hasn't been resolved yet is kept until it is resolved.
 - Hosting platform technical logs are kept short-term.

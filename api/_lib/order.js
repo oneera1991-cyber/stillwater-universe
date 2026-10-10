@@ -169,7 +169,7 @@ export function newOrderId() {
   return "ord_" + crypto.randomBytes(12).toString("base64url");
 }
 
-export function signOrder({ orderId, question, context, card1, card1Name, card1Text, openThread, lang, source }) {
+export function signOrder({ orderId, question, context, card1, card1Name, card1Text, openThread, lang, source, topic }) {
   const order = {
     lang: normLang(lang),
     orderId: orderId || newOrderId(),
@@ -180,6 +180,7 @@ export function signOrder({ orderId, question, context, card1, card1Name, card1T
     card1Text: String(card1Text || ""),
     open_thread: openThread ? String(openThread) : null,
     source: sanitizeSource(source), // { first, last } traffic source (lib/source.js) — carried to paid events
+    topic: typeof topic === "string" ? topic.slice(0, 20) : "", // log-only question topic (api/_lib/topic.js)
     issuedAt: Date.now()
   };
   return { token: seal("order", order), order };

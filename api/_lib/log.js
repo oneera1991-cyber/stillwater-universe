@@ -11,6 +11,15 @@ Events
   rating            /api/rate         1–5 stars, stage "free" | "full"
   share             /api/share        "แชร์ Stillwater" tap on scene 6 (channel + result; site link only), silent
   close             /api/close        "ปิดการอ่าน" tap (end of reading), silent
+  read_free_error   /api/read         the free reading failed (latency, error code)
+  qr_created        /api/payment/create   QR issued (or failed: reason_detail)
+  slip_verify       /api/payment/verify-slip   EVERY slip check, ok or not: result, reason,
+                                      reason_detail, EasySlip http_status / provider_code /
+                                      provider_message, latency_ms, attempt, slip size/type
+  read_full_error   /api/deeper       the paid reading failed (code, latency)
+  c_*               /api/ev           client events (page view, scenes + dwell time, taps,
+                                      slip upload, JS errors, leave/return) — see api/ev.js
+  Every event carries `sid` (anonymous per-tab session id from the page) when known.
 
 Privacy
   - No IP address, no user agent. Only a coarse `device` (mobile/tablet/desktop/bot/unknown).
@@ -28,7 +37,13 @@ Reliability
   is still printed as a `STILLWATER_EVENT` line, so it survives in Vercel logs.
 
 Sinks (env LOG_SINK)
-  console  (default)  one JSON line per event: `STILLWATER_EVENT {...}` → Vercel logs
+  console  (default)  one JSON line per event: `STILLWATER_EVENT {...}` → Vercel logs.
+                      If Upstash Redis credentials are present (KV_REST_API_URL + KV_REST_API_TOKEN,
+                      or UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN — added by the Vercel
+                      Marketplace integration), every event is ALSO appended to the Redis list
+                      LOG_REDIS_KEY (default "vera:events") → durable store (redisSink).
+  redis               same as console + Redis (explicit); console only if creds are missing
+  console_only        console, never Redis
   sheets              Google Sheets append via a service account (see sheetsSink);
                       falls back to console if the credentials are missing
   none                drop everything
@@ -66,7 +81,29 @@ export const COLUMNS = [
   "stars",              // rating: 1–5
   "rating_key",         // rating: "<order_id>:<stage>" — latest row per key wins (overwrite)
   "share_channel",      // share: native | copy_link | download_image | line | facebook | x
-  "share_result"        // share: completed | cancelled | failed | unknown
+  "share_result",       // share: completed | cancelled | failed | unknown
+  // ---- added 2026-10-10 (durable event store; appended so old Sheet columns keep their place) ----
+  "sid",                // anonymous per-tab session id (random, from the page; never tied to a person)
+  "topic",              // read_free: question topic (api/_lib/topic.js) | safety_case
+  "q_len",              // read_free: question length (chars, before redaction)
+  "result",             // generic outcome: ok | failed | <reason>
+  "reason",             // slip_verify: pending | wrong_amount | wrong_account | duplicate | old_slip | unreadable | bad_file | quota | service | order_*
+  "reason_detail",      // finer cause: timeout | network | http_500 | provider code | too_large | not_image | rate_limited | ...
+  "http_status",        // provider HTTP status (EasySlip), or our own response status
+  "provider_code",      // EasySlip error.code (e.g. API_SERVER_ERROR, SLIP_NOT_FOUND)
+  "provider_message",   // EasySlip error.message (short, PII-redacted)
+  "latency_ms",         // server: provider / generation time; client: request round trip
+  "attempt",            // slip upload attempt number within this order (client counter)
+  "scene",              // client: scene entered / scene at leave
+  "from_scene",         // client: previous scene
+  "dwell_ms",           // client: time spent in from_scene (scene) or in the current scene (leave)
+  "step",               // full reading: card step 1–3 / "พี่เวราเล่าต่อค่ะ" tap number
+  "slip_bytes",         // slip file size (bytes)
+  "slip_type",          // image/jpeg | image/png | other
+  "slip_amount",        // amount read from the slip (THB) when EasySlip read it
+  "slip_age_min",       // minutes between the question (order issued) and the slip time
+  "detail",             // short free note (client JS error message, etc.), PII-redacted, ≤ 300 chars
+  "client_ts"           // client events: the browser's time of the event (ISO; client clock)
 ];
 
 /* ---------------- helpers ---------------- */
@@ -89,6 +126,12 @@ export function redactPII(text) {
     .replace(/(?:\+?66[\s-]?|\b0)\d(?:[\s-]?\d){7,8}\b/g, "[phone]")   // Thai mobile / landline
     .replace(/\+?\d(?:[\s-]?\d){8,14}/g, "[number]")                    // any other long digit run (ids, cards, phones)
     .replace(/(?:line\s*(?:id)?\s*[:：]?\s*)@?[a-z0-9._-]{3,}/gi, "[line id]");
+}
+
+/** Anonymous session id from the page: [A-Za-z0-9_-], ≤ 40 chars, else "". */
+export function cleanSid(v) {
+  const s = String(v ?? "");
+  return /^[A-Za-z0-9_-]{6,40}$/.test(s) ? s : "";
 }
 
 const flat = (v) => (v === true ? "TRUE" : v === false ? "FALSE" : v == null ? "" : typeof v === "number" ? v : String(v));
@@ -115,7 +158,7 @@ export function sourceColumns(source) {
 
 /** Common columns for events tied to a verified order token. */
 export function orderColumns(order) {
-  return { order_id: order?.orderId || "", lang: order?.lang || "", ...sourceColumns(order?.source) };
+  return { order_id: order?.orderId || "", lang: order?.lang || "", topic: typeof order?.topic === "string" ? order.topic : "", ...sourceColumns(order?.source) };
 }
 
 /** Build one row with every column (unknown keys are dropped). */
@@ -125,6 +168,8 @@ export function buildRow(event, fields = {}) {
   for (const [k, v] of Object.entries(fields || {})) if (k in row) row[k] = flat(v);
   if ("question" in (fields || {})) row.question = redactPII(fields.question).slice(0, 500);
   if ("context" in (fields || {})) row.context = redactPII(fields.context).slice(0, 1200);
+  if ("detail" in (fields || {})) row.detail = redactPII(fields.detail).slice(0, 300);
+  if ("provider_message" in (fields || {})) row.provider_message = redactPII(fields.provider_message).slice(0, 200);
   // Safety (self-harm / crisis) rows never keep the text, whatever the caller passed.
   if (fields?.safety === true) { row.question = ""; row.context = ""; }
   row.ts = new Date().toISOString();
@@ -248,14 +293,109 @@ export function sheetsSink({
   };
 }
 
+/* ---------------- Upstash Redis (REST) — durable event store ---------------- */
+
+/** Upstash REST credentials from env (Vercel Marketplace names first). Returns { url, token } or null. */
+export function redisFromEnv(env = process.env) {
+  const url = String(env.KV_REST_API_URL || env.UPSTASH_REDIS_REST_URL || "").trim().replace(/\/+$/, "");
+  const token = String(env.KV_REST_API_TOKEN || env.UPSTASH_REDIS_REST_TOKEN || "").trim();
+  return /^https:\/\//.test(url) && token ? { url, token } : (/^http:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(url) && token ? { url, token } : null);
+}
+
+/** Row without empty values (smaller list entries; the export restores every column). */
+export function compactRow(row) {
+  const out = {};
+  for (const [k, v] of Object.entries(row)) if (v !== "" && v != null) out[k] = v;
+  return out;
+}
+
+/**
+ * Redis sink: prints the console line FIRST (so the event is never lost), then
+ * RPUSH <key> <json> through the Upstash REST API with a short timeout.
+ * One command per event (free tier: 500K commands / month).
+ */
+export function redisSink({
+  credentials = redisFromEnv(),
+  key = process.env.LOG_REDIS_KEY || "vera:events",
+  fetch: doFetch = globalThis.fetch,
+  requestTimeoutMs = 1500,
+  echo = true
+} = {}) {
+  return {
+    name: "redis",
+    timeoutMs: 2500,
+    async write(row) {
+      if (echo) await consoleSink.write(row);
+      if (!credentials) throw new Error("redis not configured");
+      const r = await doFetch(credentials.url, {
+        method: "POST",
+        headers: { authorization: "Bearer " + credentials.token, "content-type": "application/json" },
+        body: JSON.stringify(["RPUSH", key, JSON.stringify(compactRow(row))]),
+        signal: AbortSignal.timeout(requestTimeoutMs)
+      });
+      if (!r.ok) throw new Error("redis rpush " + r.status);
+      const j = await r.json().catch(() => ({}));
+      if (j && j.error) throw new Error("redis rpush " + j.error);
+    },
+    async writeMany(rows) {
+      if (echo) for (const row of rows) await consoleSink.write(row);
+      if (!credentials) throw new Error("redis not configured");
+      const r = await doFetch(credentials.url, {
+        method: "POST",
+        headers: { authorization: "Bearer " + credentials.token, "content-type": "application/json" },
+        body: JSON.stringify(["RPUSH", key, ...rows.map((row) => JSON.stringify(compactRow(row)))]),
+        signal: AbortSignal.timeout(requestTimeoutMs)
+      });
+      if (!r.ok) throw new Error("redis rpush " + r.status);
+      const j = await r.json().catch(() => ({}));
+      if (j && j.error) throw new Error("redis rpush " + j.error);
+    }
+  };
+}
+
 function defaultSink() {
   const kind = String(process.env.LOG_SINK || "console").toLowerCase();
   if (kind === "none") return noneSink;
+  if (kind === "console_only") return consoleSink;
+  if (kind === "console" || kind === "redis" || kind === "kv") {
+    if (redisFromEnv()) return redisSink();
+    if (kind !== "console") console.warn("Stillwater log: LOG_SINK=" + kind + " but KV_REST_API_URL / KV_REST_API_TOKEN missing → console");
+    return consoleSink;
+  }
   if (kind === "sheets") {
     if (process.env.GOOGLE_SHEETS_ID && serviceAccountFromEnv()) return sheetsSink();
     console.warn("Stillwater log: LOG_SINK=sheets but GOOGLE_SHEETS_ID / service account env missing → console");
   }
   return consoleSink;
+}
+
+/**
+ * Several events at once (client beacons). Redis: ONE RPUSH with all rows (1 command).
+ * Same guarantees as logEvent: never throws, never rejects.
+ */
+export function logEvents(list, { timeoutMs } = {}) {
+  let timer;
+  try {
+    const rows = (Array.isArray(list) ? list : []).map(([event, fields]) => buildRow(event, fields));
+    if (!rows.length) return Promise.resolve();
+    const s = getSink();
+    timeoutMs ??= s.timeoutMs || 1500;
+    const write = Promise.resolve().then(async () => {
+      if (typeof s.writeMany === "function") return s.writeMany(rows);
+      for (const r of rows) await s.write(r);
+    });
+    const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve("timeout"), timeoutMs); });
+    const done = Promise.race([write, timeout])
+      .then((r) => { if (r === "timeout") console.warn("Stillwater log: sink timeout for batch of", rows.length); })
+      .catch((e) => { console.warn("Stillwater log: sink error for batch", e?.message || e); })
+      .finally(() => clearTimeout(timer));
+    try { waitUntil(done); } catch { /* not on Vercel */ }
+    return done;
+  } catch (e) {
+    clearTimeout(timer);
+    try { console.warn("Stillwater log: dropped batch", e?.message || e); } catch {}
+    return Promise.resolve();
+  }
 }
 
 let sink = null;

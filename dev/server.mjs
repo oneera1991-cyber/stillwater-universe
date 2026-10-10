@@ -10,7 +10,7 @@ Production code is untouched.
 Mock EasySlip scenarios are chosen by an ASCII marker inside the uploaded
 image bytes ("MOCK:<scenario>#<nonce>", e.g. appended after PNG IEND):
   success (default) | wrong_amount | wrong_account | pending | unreadable |
-  quota | old. Re-uploading a slip that already succeeded → isDuplicate=true
+  quota | old | timeout (hangs until EASYSLIP_TIMEOUT_MS) | down (HTTP 500 API_SERVER_ERROR). Re-uploading a slip that already succeeded → isDuplicate=true
   (same transRef), like the real checkDuplicate=true.
 OpenAI is not called at all: /api/read and /api/deeper are stubs today.
 (If Stillwater's vera.js lands, run with OPENAI_API_KEY unset and use its
@@ -25,7 +25,7 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import crypto from "node:crypto";
-import { setSink, consoleSink } from "../api/_lib/log.js";
+import { setSink, consoleSink, redisFromEnv, redisSink } from "../api/_lib/log.js";
 import { orderRef, MAEMANEE_BILLER_ID } from "../api/_lib/payment/maemanee.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -48,8 +48,16 @@ delete process.env.OPENAI_API_KEY;
 process.env.VERA_READER = "stub"; // never call OpenAI locally / in tests (see api/_lib/reader.js)
 
 /* ---------------- event log: console + in-memory (GET /__mock/events) ---------------- */
+// With KV_REST_API_URL / KV_REST_API_TOKEN set (e.g. dev/upstash-mock.mjs or a real Upstash DB),
+// rows ALSO go through the production redisSink — the same code path as on Vercel.
 const loggedEvents = [];
-setSink({ name: "dev", async write(row) { loggedEvents.push(row); if (process.env.LOG_QUIET !== "1") await consoleSink.write(row); } });
+const devRedis = redisFromEnv() ? redisSink({ echo: false }) : null;
+if (devRedis) console.log("dev: events also → Redis list", process.env.LOG_REDIS_KEY || "vera:events", "at", redisFromEnv().url);
+setSink({
+  name: "dev", timeoutMs: 2500,
+  async write(row) { loggedEvents.push(row); if (process.env.LOG_QUIET !== "1") await consoleSink.write(row); if (devRedis) await devRedis.write(row); },
+  async writeMany(rows) { for (const row of rows) { loggedEvents.push(row); if (process.env.LOG_QUIET !== "1") await consoleSink.write(row); } if (devRedis) await devRedis.writeMany(rows); }
+});
 
 /* ---------------- mock EasySlip v2 ---------------- */
 const seenTransRefs = new Set();
@@ -73,6 +81,15 @@ async function mockEasySlip(url, init) {
   await new Promise((r) => setTimeout(r, 1500)); // let the UI show "checking"
   const marker = bytes.toString("latin1").match(/MOCK:([a-z_]+)#/);
   const scenario = marker ? marker[1] : "success";
+  if (scenario === "timeout") { // hang until the caller's AbortSignal fires (EASYSLIP_TIMEOUT_MS)
+    return new Promise((_, reject) => {
+      const sig = init.signal;
+      if (!sig) return;
+      if (sig.aborted) return reject(sig.reason);
+      sig.addEventListener("abort", () => reject(sig.reason), { once: true });
+    });
+  }
+  if (scenario === "down") return err(500, "API_SERVER_ERROR", "Internal server error");
   if (scenario === "pending") return err(404, "SLIP_PENDING", "Bangkok Bank slip is pending. Please wait a few minutes and try again.");
   if (scenario === "unreadable") return err(404, "SLIP_NOT_FOUND", "No QR code found in the image");
   if (scenario === "quota") return err(403, "QUOTA_EXCEEDED", "Your API quota has been exceeded");
