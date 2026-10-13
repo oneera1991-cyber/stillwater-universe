@@ -502,6 +502,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
       <img class="qr" id="payQr" alt="QR พร้อมเพย์ 59 บาท" data-i18n-alt="offering.qrAlt" hidden>
       <p class="payee" id="payPayee" hidden></p>
       <code class="qr-payload" id="payQrPayload" hidden></code>
+      <a class="btn" id="btnPayhip" href="#" target="_blank" rel="noopener" data-i18n="offering.pay" hidden>เข้าสู่การชำระเงิน</a>
       <p class="hint" id="payHint" data-i18n="offering.hint" hidden>สแกน QR นี้ หรือบันทึกรูปไปเปิดในแอปธนาคาร
 โอน 59 บาท แล้วแนบสลิปด้านล่างนะคะ</p>
       <div class="qr-actions" id="payQrActions" hidden>
@@ -1136,6 +1137,7 @@ function resetOffering(){
   $('payHint').hidden = true;
   $('payQrActions').hidden = true;
   $('slipBox').hidden = true;
+  $('btnPayhip').hidden = true; state.payhip = false;
   resetSlip();
   setPayStatus('');
 }
@@ -1181,6 +1183,16 @@ async function createPayment(){
     });
     const data = await res.json().catch(() => ({}));
     if(!res.ok) throw new Error(data.code ? errorKey(data.code) : 'pay.createFailed');
+    if(data.checkoutUrl){
+      // Payhip: checkout in a new tab; the webhook confirms, we poll /api/pay-status.
+      state.paymentId = data.paymentId; state.payhip = true; save();
+      $('btnPay').hidden = true;
+      const a = $('btnPayhip'); a.href = data.checkoutUrl; a.hidden = false;
+      a.onclick = () => { tlog('pay_payhip_open', { latency_ms: Date.now() - tPay }); };
+      setPayStatus('');
+      startPolling();
+      return;
+    }
     if(!data.qr && !data.qrPayload) throw new Error('pay.noQr');
     showQr(data);
     tlog('qr_shown', { latency_ms: Date.now() - tPay, result: data.flow || '' });
@@ -1319,6 +1331,7 @@ function startPolling(){
     if(busy || !state.paymentId) return;
     if(Date.now() - started > 20 * 60 * 1000){
       stopPolling();
+      if(state.payhip){ tlog('pay_payhip_fail', { reason: 'timeout' }); $('btnPayhip').hidden = true; }
       setPayStatus('pay.qrExpired', true);
       state.paymentId = null; save();
       $('btnPay').hidden = false; $('btnPay').disabled = false; $('payQr').hidden = true;
@@ -1326,16 +1339,18 @@ function startPolling(){
     }
     busy = true;
     try{
-      const res = await fetch('/api/payment/status?payment=' + encodeURIComponent(state.paymentId));
+      const res = await fetch((state.payhip ? '/api/pay-status' : '/api/payment/status') + '?payment=' + encodeURIComponent(state.paymentId));
       const data = await res.json().catch(() => ({}));
       if(data.paid){
         stopPolling();
+        if(state.payhip){ tlog('pay_payhip_ok', { latency_ms: Date.now() - started }); $('btnPayhip').hidden = true; }
         setPayStatus('pay.pollOk');
         trackEvent('payment_paid');
         await wait(700);
         openFull();
       }else if(['failed','expired','reversed'].includes(data.status)){
         stopPolling();
+        if(state.payhip){ tlog('pay_payhip_fail', { reason: data.status }); $('btnPayhip').hidden = true; }
         state.paymentId = null; save();
         setPayStatus('pay.failed', true);
         $('btnPay').hidden = false; $('btnPay').disabled = false; $('payQr').hidden = true;

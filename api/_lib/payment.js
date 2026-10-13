@@ -19,6 +19,8 @@ routes (/api/payment/*) and /api/deeper depend ONLY on this interface:
 Adapters (process.env.PAYMENT_PROVIDER, default "promptpay"):
   - "promptpay" (ACTIVE): dynamic PromptPay QR (exact ฿59) to Stillwater's own
     account + EasySlip v2 slip verification → api/_lib/payment/promptpay-easyslip.js
+  - "payhip" (INACTIVE until Palm switches): Payhip checkout (new tab) + paid
+    webhook (/api/payhip-webhook) + polling (/api/pay-status) → api/_lib/payment/payhip.js
   - "omise" (INACTIVE, kept as an option): PromptPay via Omise charges,
     polled → api/_lib/payment/omise.js. Omise and Stripe both list
     tarot/fortune-telling as prohibited, so this is not the live path.
@@ -28,6 +30,7 @@ import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
 import * as omise from "./payment/omise.js";
 import * as promptpay from "./payment/promptpay-easyslip.js";
+import * as payhip from "./payment/payhip.js";
 
 export const PRICE_SATANG = 5900; // ฿59
 export const PRICE_THB = 59;
@@ -35,7 +38,7 @@ export const CURRENCY = "THB";
 export const PRODUCT = "STILLWATER_DEEPER_3";
 export const DEFAULT_PROVIDER = "promptpay";
 
-const ADAPTERS = { promptpay, omise };
+const ADAPTERS = { promptpay, easyslip: promptpay, omise, payhip };
 
 export class PaymentError extends Error {
   constructor(message, status = 502, code = "payment_error") {
@@ -49,7 +52,7 @@ export class PaymentError extends Error {
 export const SLIP_REASONS = ["pending", "wrong_amount", "wrong_account", "duplicate", "old_slip", "unreadable", "bad_file", "quota", "service"];
 
 function providerName() {
-  return String(process.env.PAYMENT_PROVIDER || DEFAULT_PROVIDER).toLowerCase();
+  return String(process.env.PAYMENT_PROVIDER || process.env.PAY_PROVIDER || DEFAULT_PROVIDER).trim().toLowerCase();
 }
 function adapter() {
   const impl = ADAPTERS[providerName()];

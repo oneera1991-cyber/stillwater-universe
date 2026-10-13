@@ -16,9 +16,12 @@ Events
   slip_verify       /api/payment/verify-slip   EVERY slip check, ok or not: result, reason,
                                       reason_detail, EasySlip http_status / provider_code /
                                       provider_message, latency_ms, attempt, slip size/type
+  payhip_webhook    /api/payhip-webhook   every Payhip webhook: result (stored | duplicate |
+                                      ignored | refunded | bad_signature | error), trans_ref
   read_full_error   /api/deeper       the paid reading failed (code, latency)
   c_*               /api/ev           client events (page view, scenes + dwell time, taps,
                                       slip upload, JS errors, leave/return) — see api/ev.js
+                                      Payhip: c_pay_payhip_open | c_pay_payhip_ok | c_pay_payhip_fail
   Every event carries `sid` (anonymous per-tab session id from the page) when known.
 
 Privacy
@@ -49,6 +52,8 @@ Sinks (env LOG_SINK)
   none                drop everything
   Tests use setSink() with an in-memory sink, or sheetsSink({ fetch }) with a mock.
 */
+
+export const PAYHIP_CLIENT_EVENTS = ["pay_payhip_open", "pay_payhip_ok", "pay_payhip_fail"];
 
 export const COLUMNS = [
   "ts",                 // ISO time (server)

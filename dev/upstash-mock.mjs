@@ -3,7 +3,7 @@ LOCAL STAND-IN for the Upstash Redis REST API (dev/tests only, never deployed).
   UPSTASH_MOCK_TOKEN=devtoken node dev/upstash-mock.mjs [port=8079] [dumpFile]
 Then: KV_REST_API_URL=http://127.0.0.1:8079 KV_REST_API_TOKEN=devtoken node dev/server.mjs
 Implements the subset Stillwater uses: POST / (one command as a JSON array) and
-POST /pipeline (array of commands): RPUSH, LRANGE, LLEN, LPOP, LTRIM, LINDEX, DEL, PING.
+POST /pipeline (array of commands): RPUSH, LRANGE, LLEN, LPOP, LTRIM, LINDEX, DEL, PING, SET (NX), GET, LREM.
 Responses follow Upstash: { result } or { error } (HTTP 400 on a bad command, 401 bad token).
 State is in memory; with dumpFile it is also written there (JSON) after every write.
 */
@@ -14,6 +14,7 @@ const PORT = Number(process.argv[2] || 8079);
 const DUMP = process.argv[3] || "";
 const TOKEN = process.env.UPSTASH_MOCK_TOKEN || "devtoken";
 const lists = new Map();
+const strings = new Map(); // SET/GET (Payhip adapter); EX ignored
 
 function idx(list, i) { i = Number(i); return i < 0 ? list.length + i : i; }
 function run(cmd) {
@@ -25,6 +26,9 @@ function run(cmd) {
     case "RPUSH": if (!args.length) throw new Error("ERR wrong number of arguments"); list.push(...args); lists.set(key, list); return list.length;
     case "LLEN": return list.length;
     case "LRANGE": { const a = Math.max(0, idx(list, args[0])), b = Math.min(list.length - 1, idx(list, args[1])); return b < a ? [] : list.slice(a, b + 1); }
+    case "SET": { const nx = args.slice(1).some((a) => a.toUpperCase() === "NX"); if (nx && strings.has(key)) return null; strings.set(key, args[0]); return "OK"; }
+    case "GET": return strings.get(key) ?? null;
+    case "LREM": { const v = args[1]; const i = list.indexOf(v); if (i < 0) return 0; list.splice(i, 1); lists.set(key, list); return 1; }
     case "LINDEX": return list[idx(list, args[0])] ?? null;
     case "LPOP": { const n = args[0] ? Number(args[0]) : 1; const out = list.splice(0, n); lists.set(key, list); return args[0] ? out : (out[0] ?? null); }
     case "LTRIM": { const a = Math.max(0, idx(list, args[0])), b = idx(list, args[1]); lists.set(key, b < a ? [] : list.slice(a, b + 1)); return "OK"; }

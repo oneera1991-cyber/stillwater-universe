@@ -37,6 +37,7 @@ export default async function handler(req, res) {
       orderId: order.orderId,
       qr: p.qr || null,
       qrPayload: p.qrPayload || null,
+      checkoutUrl: p.checkoutUrl || null,
       amount: p.amount / 100,
       mode: p.mode || "live",
       payee: p.flow === "slip" ? payeeNames() : null // { th, en } receiving account name(s), or null
