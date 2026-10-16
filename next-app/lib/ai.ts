@@ -69,7 +69,7 @@ The person's question / what is on their mind:
 
 Card essences drawn for this reading:
 ${cardEssences}
-${baziSection}
+${baziSection}${memorySection}${anchorSection}
 
 Instructions:
 ${lengthGuide}
