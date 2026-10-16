@@ -1,0 +1,97 @@
+{
+  "conventions": {
+    "calendar": "Gregorian civil birth date and local clock time",
+    "solarTime": "civil",
+    "dayBoundary": "midnight",
+    "timeZone": "Asia/Shanghai",
+    "sources": [
+      "https://github.com/6tail/tyme4py/blob/main/test/test_Eightchar.py",
+      "https://astrocopy.jackmeds.top/benchmark/",
+      "https://www.weather.gov.hk/tc/gts/astron2024/files/HKO_almanac_2024.pdf"
+    ]
+  },
+  "cases": [
+    {
+      "id": "known-four-pillars-2005",
+      "date": "2005-12-23",
+      "time": "08:37",
+      "expectedPillars": {
+        "year": "乙酉",
+        "month": "戊子",
+        "day": "辛巳",
+        "hour": "壬辰"
+      },
+      "reference": "tyme4py published Eight Characters test case; used as an independent implementation check"
+    },
+    {
+      "id": "midnight-day-boundary-1988",
+      "date": "1988-02-15",
+      "time": "23:30",
+      "expectedPillars": {
+        "year": "戊辰",
+        "month": "甲寅",
+        "day": "庚子"
+      },
+      "reference": "Independent convention benchmark reports Sect 2/midnight as 庚子 and Sect 1/23:00 as 辛丑"
+    },
+    {
+      "id": "li-chun-boundary-2024",
+      "boundary": "2024-02-04 16:27 Asia/Hong_Kong (HKO Almanac; minute precision)",
+      "before": { "date": "2024-02-04", "time": "16:26", "year": "癸卯", "month": "乙丑" },
+      "after": { "date": "2024-02-04", "time": "16:28", "year": "甲辰", "month": "丙寅" },
+      "reference": "HKO Almanac 2024 lists Spring Commences at 4 February 16:27 Hong Kong time"
+    },
+    {
+      "id": "jingzhe-bangkok-before-2024",
+      "date": "2024-03-05",
+      "time": "09:22",
+      "timezone": "Asia/Bangkok",
+      "utcOffset": "+07:00",
+      "dayBoundary": "midnight",
+      "solarTime": "civil",
+      "event": "Jingzhe",
+      "eventInstantUTC": "2024-03-05T02:22:28Z",
+      "expectedPillars": { "year": "甲辰", "month": "丙寅", "day": "戊辰", "hour": "丁巳" },
+      "reference": "TOEA Four Pillars Calculator, https://toea.com/bazi-calculator; entered local civil time 2024-03-05 09:22, UTC offset +07:00, 00:00 day boundary, true solar time off. TOEA displayed Jingzhe at 2024-03-05 02:22:28 UTC."
+    },
+    {
+      "id": "jingzhe-bangkok-after-2024",
+      "date": "2024-03-05",
+      "time": "09:24",
+      "timezone": "Asia/Bangkok",
+      "utcOffset": "+07:00",
+      "dayBoundary": "midnight",
+      "solarTime": "civil",
+      "event": "Jingzhe",
+      "eventInstantUTC": "2024-03-05T02:22:28Z",
+      "expectedPillars": { "year": "甲辰", "month": "丁卯", "day": "戊辰", "hour": "丁巳" },
+      "reference": "TOEA Four Pillars Calculator, https://toea.com/bazi-calculator; entered local civil time 2024-03-05 09:24, UTC offset +07:00, 00:00 day boundary, true solar time off. TOEA displayed Jingzhe at 2024-03-05 02:22:28 UTC."
+    },
+    {
+      "id": "lichun-new-york-before-2024",
+      "date": "2024-02-04",
+      "time": "03:26",
+      "timezone": "America/New_York",
+      "utcOffset": "-05:00",
+      "dayBoundary": "midnight",
+      "solarTime": "civil",
+      "event": "Li Chun",
+      "eventInstantUTC": "2024-02-04T08:26:49Z",
+      "expectedPillars": { "year": "癸卯", "month": "乙丑", "day": "戊戌", "hour": "甲寅" },
+      "reference": "TOEA Four Pillars Calculator, https://toea.com/bazi-calculator; entered local civil time 2024-02-04 03:26, UTC offset -05:00, 00:00 day boundary, true solar time off. TOEA displayed Li Chun at 2024-02-04 08:26:49 UTC."
+    },
+    {
+      "id": "lichun-new-york-after-2024",
+      "date": "2024-02-04",
+      "time": "03:28",
+      "timezone": "America/New_York",
+      "utcOffset": "-05:00",
+      "dayBoundary": "midnight",
+      "solarTime": "civil",
+      "event": "Li Chun",
+      "eventInstantUTC": "2024-02-04T08:26:49Z",
+      "expectedPillars": { "year": "甲辰", "month": "丙寅", "day": "戊戌", "hour": "甲寅" },
+      "reference": "TOEA Four Pillars Calculator, https://toea.com/bazi-calculator; entered local civil time 2024-02-04 03:28, UTC offset -05:00, 00:00 day boundary, true solar time off. TOEA displayed Li Chun at 2024-02-04 08:26:49 UTC."
+    }
+  ]
+}

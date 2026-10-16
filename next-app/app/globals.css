@@ -1,0 +1,325 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'Helvetica Neue', Arial, sans-serif;
+  --still-navy: #091522;
+  --still-ivory: #f1eadc;
+  --still-candle: #d8aa69;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: var(--still-navy);
+  color: var(--still-ivory);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--still-navy); }
+::-webkit-scrollbar-thumb { background: #2e2638; border-radius: 2px; }
+
+/* Thai font support */
+@layer base {
+  body {
+    font-family: var(--font-sans), 'Sarabun', 'Noto Sans Thai', sans-serif;
+  }
+}
+
+/* Glow effect */
+.glow-gold {
+  box-shadow: 0 0 24px rgba(201, 169, 110, 0.2);
+}
+
+.text-glow {
+  text-shadow: 0 0 20px rgba(201, 169, 110, 0.4);
+}
+
+/* Input focus */
+input:focus, textarea:focus {
+  outline: none;
+}
+
+.initial-experience {
+  background: var(--still-navy);
+  isolation: isolate;
+}
+
+.scene-atmosphere,
+.scene-candlelight {
+  z-index: -1;
+  background-position: center;
+  background-size: cover;
+  transition: opacity 900ms ease, transform 1400ms ease;
+}
+
+.scene-atmosphere {
+  opacity: 0.94;
+  background-image:
+    radial-gradient(ellipse at 50% 48%, rgba(21, 47, 66, 0.22), transparent 58%),
+    linear-gradient(145deg, #07121d 3%, #102337 48%, #0a1520 100%);
+  animation: slow-scene-drift 24s ease-in-out infinite alternate;
+}
+
+[data-scene='doorway'] .scene-atmosphere {
+  opacity: 1;
+  background-image:
+    linear-gradient(180deg, rgba(7, 18, 29, 0.26) 0%, rgba(7, 18, 29, 0.12) 26%, rgba(7, 18, 29, 0.42) 68%, rgba(7, 18, 29, 0.78) 100%),
+    radial-gradient(ellipse 68% 30% at 50% 50%, rgba(5, 16, 27, 0.24) 0%, transparent 100%),
+    radial-gradient(ellipse 82% 48% at 50% 51%, rgba(5, 16, 27, 0.6) 0%, rgba(5, 16, 27, 0.36) 44%, rgba(5, 16, 27, 0.08) 100%),
+    linear-gradient(90deg, rgba(7, 18, 29, 0.3), transparent 24%, transparent 76%, rgba(7, 18, 29, 0.3)),
+    url('/images/vera/scene-01-portal.png');
+  background-position: center, center, center, center, center 52%;
+  background-size: cover;
+}
+
+.doorway-scene {
+  gap: clamp(1.5rem, 4vh, 2.5rem);
+}
+
+.doorway-tagline {
+  margin-bottom: -0.3rem;
+  color: #f0d9ae;
+  font-size: clamp(0.65rem, 2.5vw, 0.78rem);
+  font-weight: 500;
+  letter-spacing: clamp(0.16em, 1.2vw, 0.34em);
+  text-shadow: 0 1px 14px rgba(3, 12, 20, 0.9);
+}
+
+.doorway-title {
+  color: #fffaf0;
+  font-family: Georgia, Cambria, serif;
+  font-size: clamp(2.5rem, 11vw, 4.25rem);
+  font-weight: 400;
+  letter-spacing: clamp(0.12em, 2.2vw, 0.24em);
+  line-height: 1.1;
+  text-shadow: 0 2px 26px rgba(3, 12, 20, 0.95);
+}
+
+.doorway-supporting {
+  color: #f1eadc;
+  font-size: clamp(0.9rem, 3vw, 1rem);
+  line-height: 1.7;
+  text-shadow: 0 1px 14px rgba(3, 12, 20, 0.95);
+}
+
+.doorway-button {
+  min-width: 12rem;
+  min-height: 3.5rem;
+  border-color: rgba(240, 217, 174, 0.78);
+  background: rgba(7, 18, 29, 0.88);
+  color: #fffaf0;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  box-shadow: 0 8px 30px rgba(3, 12, 20, 0.28);
+  backdrop-filter: blur(6px);
+}
+
+.doorway-button:hover,
+.doorway-button:focus-visible {
+  border-color: #f0d9ae;
+  background: rgba(7, 18, 29, 0.94);
+  color: #f0d9ae;
+  box-shadow: 0 0 30px rgba(216, 170, 105, 0.22);
+}
+
+.scene-candlelight {
+  opacity: 0.8;
+  background-image:
+    radial-gradient(ellipse at 51% 72%, rgba(203, 151, 86, 0.16), transparent 27%),
+    radial-gradient(ellipse at 82% 25%, rgba(188, 169, 139, 0.07), transparent 28%);
+  mix-blend-mode: screen;
+}
+
+[data-scene='welcome'] .scene-atmosphere {
+  opacity: 1;
+  background-image:
+    linear-gradient(180deg, rgba(9, 21, 34, 0.12) 0%, rgba(9, 21, 34, 0.06) 32%, rgba(9, 21, 34, 0.2) 51%, rgba(9, 21, 34, 0.86) 78%, #091522 100%),
+    linear-gradient(90deg, rgba(9, 21, 34, 0.12), transparent 24%, transparent 76%, rgba(9, 21, 34, 0.12)),
+    url('/images/vera/scene-02-vera-welcome.png');
+  background-position: center, center, center 50%;
+  background-size: cover;
+}
+
+@media (min-width: 768px) {
+  [data-scene='welcome'] .scene-atmosphere {
+    background-position: center, center, center 45%;
+  }
+}
+
+[data-scene='form'] .scene-atmosphere {
+  background-image:
+    radial-gradient(ellipse at 50% 18%, rgba(182, 130, 72, 0.1), transparent 36%),
+    linear-gradient(160deg, #091522 0%, #172333 55%, #0a1520 100%);
+}
+
+.welcome-scene {
+  min-height: calc(100svh - 5rem);
+  justify-content: flex-end;
+  gap: clamp(0.75rem, 2.2vh, 1.25rem);
+  padding: 2rem clamp(1rem, 4vw, 1.5rem) 1.5rem;
+}
+
+.welcome-copy {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 32rem;
+  color: #f1eadc;
+  text-align: center;
+}
+
+.welcome-tagline {
+  margin-bottom: clamp(0.5rem, 1.5vh, 0.85rem);
+  color: #f0d9ae;
+  font-family: var(--font-sans), Arial, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  text-shadow: 0 1px 12px rgba(3, 12, 20, 0.9);
+}
+
+.welcome-heading {
+  color: #fffaf0;
+  font-family: Georgia, Cambria, serif;
+  font-size: clamp(1.65rem, 6vw, 2.25rem);
+  font-weight: 300;
+  line-height: 1.25;
+  text-shadow: 0 2px 20px rgba(3, 12, 20, 0.95);
+}
+
+.welcome-leading {
+  margin-top: 0.55rem;
+  color: #f0d9ae;
+  font-family: Georgia, Cambria, serif;
+  font-size: clamp(1.05rem, 4vw, 1.25rem);
+  line-height: 1.5;
+  text-shadow: 0 1px 14px rgba(3, 12, 20, 0.95);
+}
+
+.welcome-promise {
+  margin-top: clamp(0.65rem, 1.8vh, 1rem);
+  color: rgba(241, 234, 220, 0.94);
+  font-family: var(--font-sans), Arial, sans-serif;
+  font-size: clamp(0.84rem, 2.7vw, 0.96rem);
+  font-weight: 300;
+  line-height: 1.7;
+  text-shadow: 0 1px 12px rgba(3, 12, 20, 0.95);
+}
+
+.welcome-ready-button {
+  position: relative;
+  z-index: 1;
+  min-width: 12rem;
+  min-height: 3.5rem;
+}
+
+.form-scene-image {
+  position: relative;
+  width: calc(100% + 2.5rem);
+  height: clamp(13rem, 38vh, 21rem);
+  margin-inline: -1.25rem;
+  background-image: linear-gradient(to bottom, transparent 55%, var(--still-navy) 100%), url('/images/vera/scene-03-tarot-form.png');
+  background-position: center 24%;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.birthdate-picker-button {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  z-index: 2;
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  transform: translateY(-50%);
+  place-items: center;
+  border: 1px solid rgba(216, 170, 105, 0.42);
+  border-radius: 0.25rem;
+  color: var(--still-candle);
+  background: rgba(10, 22, 33, 0.55);
+}
+
+.birthdate-native-picker {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.experience-button {
+  min-height: 3.25rem;
+  border: 1px solid rgba(216, 170, 105, 0.58);
+  padding: 0.95rem 2rem;
+  color: var(--still-ivory);
+  background: rgba(10, 22, 33, 0.42);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  transition: color 350ms ease, background-color 350ms ease, border-color 350ms ease, box-shadow 350ms ease;
+}
+
+.experience-button:hover,
+.experience-button:focus-visible {
+  color: #091522;
+  border-color: var(--still-candle);
+  background: var(--still-candle);
+  box-shadow: 0 0 28px rgba(216, 170, 105, 0.2);
+}
+
+.form-label {
+  color: #d6c9b2;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.form-field {
+  width: 100%;
+  border: 1px solid rgba(206, 185, 151, 0.22);
+  border-radius: 2px;
+  padding: 0.85rem 0.95rem;
+  color: var(--still-ivory);
+  background: rgba(8, 19, 29, 0.66);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  transition: border-color 250ms ease, background-color 250ms ease;
+}
+
+.form-field::placeholder { color: rgba(221, 215, 204, 0.42); }
+.form-field:focus { border-color: rgba(216, 170, 105, 0.72); background: rgba(8, 19, 29, 0.86); }
+.form-field:focus-visible { outline: 2px solid rgba(216, 170, 105, 0.35); outline-offset: 2px; }
+
+@keyframes slow-scene-drift {
+  from { transform: scale(1.015) translate3d(0, 0, 0); }
+  to { transform: scale(1.06) translate3d(-0.5%, 0.35%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Card flip */
+.card-face {
+  backface-visibility: hidden;
+}

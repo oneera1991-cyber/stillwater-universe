@@ -1,0 +1,190 @@
+{
+  "id": "major-arcana-22",
+  "name": "Major Arcana",
+  "version": 1,
+  "provenance": {
+    "repository": "https://github.com/oneera1991-cyber/stillwater-universe",
+    "ref": "c8c14c1d8f634cecd1cdbd5f6f364526d7fdf256",
+    "file": "api/read.js",
+    "blob": "029a43ff208b60603781f7c025fd632e27d7e7fa",
+    "meaningsField": "meaning"
+  },
+  "cards": [
+    {
+      "id": 0,
+      "name": "The Fool",
+      "image": "/cards/major-arcana/fool.jpg",
+      "meaning": {
+        "th": "การเริ่มต้น การก้าวออกจากสิ่งเดิม ความเสี่ยง ความเป็นไปได้"
+      }
+    },
+    {
+      "id": 1,
+      "name": "The Magician",
+      "image": "/cards/major-arcana/magician.jpg",
+      "meaning": {
+        "th": "เจตจำนง ความสามารถ การลงมือทำ การใช้สิ่งที่มีอยู่ให้เกิดผล"
+      }
+    },
+    {
+      "id": 2,
+      "name": "The High Priestess",
+      "image": "/cards/major-arcana/priestess.jpg",
+      "meaning": {
+        "th": "สิ่งที่ยังไม่เปิดเผย สัญชาตญาณ ความเงียบ ความจริงที่ต้องรอให้ปรากฏ"
+      }
+    },
+    {
+      "id": 3,
+      "name": "The Empress",
+      "image": "/cards/major-arcana/empress.jpg",
+      "meaning": {
+        "th": "การเติบโต การหล่อเลี้ยง ความอุดมสมบูรณ์ สิ่งที่กำลังก่อตัว"
+      }
+    },
+    {
+      "id": 4,
+      "name": "The Emperor",
+      "image": "/cards/major-arcana/emperor.jpg",
+      "meaning": {
+        "th": "โครงสร้าง การควบคุม ความรับผิดชอบ ความมั่นคง"
+      }
+    },
+    {
+      "id": 5,
+      "name": "The Hierophant",
+      "image": "/cards/major-arcana/hierophant.jpg",
+      "meaning": {
+        "th": "กฎ ระบบ ความเชื่อ คำแนะนำ สิ่งที่มีแบบแผน"
+      }
+    },
+    {
+      "id": 6,
+      "name": "The Lovers",
+      "image": "/cards/major-arcana/lovers.jpg",
+      "meaning": {
+        "th": "ทางเลือก ความสัมพันธ์ การตัดสินใจ สิ่งที่ต้องเลือกด้วยใจและความจริง"
+      }
+    },
+    {
+      "id": 7,
+      "name": "The Chariot",
+      "image": "/cards/major-arcana/chariot.jpg",
+      "meaning": {
+        "th": "การเคลื่อนไหว ความมุ่งมั่น การควบคุมทิศทาง การเดินหน้า"
+      }
+    },
+    {
+      "id": 8,
+      "name": "Strength",
+      "image": "/cards/major-arcana/strength.jpg",
+      "meaning": {
+        "th": "ความเข้มแข็ง การควบคุมอารมณ์ ความอดทน พลังภายใน"
+      }
+    },
+    {
+      "id": 9,
+      "name": "The Hermit",
+      "image": "/cards/major-arcana/hermit.jpg",
+      "meaning": {
+        "th": "การถอยกลับ การค้นหาคำตอบภายใน ความชัดเจน ความเงียบ"
+      }
+    },
+    {
+      "id": 10,
+      "name": "Wheel of Fortune",
+      "image": "/cards/major-arcana/wheel.jpg",
+      "meaning": {
+        "th": "การเปลี่ยนแปลง วัฏจักร จุดเปลี่ยน จังหวะที่กำลังเคลื่อน"
+      }
+    },
+    {
+      "id": 11,
+      "name": "Justice",
+      "image": "/cards/major-arcana/justice.jpg",
+      "meaning": {
+        "th": "ความจริง ความสมดุล ผลจากการตัดสินใจ ความชัดเจน"
+      }
+    },
+    {
+      "id": 12,
+      "name": "The Hanged Man",
+      "image": "/cards/major-arcana/hanged.jpg",
+      "meaning": {
+        "th": "การหยุดรอ มุมมองใหม่ การปล่อยบางอย่าง การเปลี่ยนวิธีมอง"
+      }
+    },
+    {
+      "id": 13,
+      "name": "Death",
+      "image": "/cards/major-arcana/death.jpg",
+      "meaning": {
+        "th": "การสิ้นสุด การเปลี่ยนผ่าน การตัดของเดิมเพื่อเข้าสู่สิ่งใหม่"
+      }
+    },
+    {
+      "id": 14,
+      "name": "Temperance",
+      "image": "/cards/major-arcana/temperance.jpg",
+      "meaning": {
+        "th": "การปรับสมดุล การค่อยเป็นค่อยไป การประสานสิ่งต่าง ๆ ให้ลงตัว"
+      }
+    },
+    {
+      "id": 15,
+      "name": "The Devil",
+      "image": "/cards/major-arcana/devil.jpg",
+      "meaning": {
+        "th": "พันธะ ความยึดติด แรงดึงดูด รูปแบบที่หลุดออกได้ยาก"
+      }
+    },
+    {
+      "id": 16,
+      "name": "The Tower",
+      "image": "/cards/major-arcana/tower.jpg",
+      "meaning": {
+        "th": "การเปลี่ยนแปลงฉับพลัน ความจริงที่เปิดออก การพังของสิ่งที่ไม่มั่นคง"
+      }
+    },
+    {
+      "id": 17,
+      "name": "The Star",
+      "image": "/cards/major-arcana/star.jpg",
+      "meaning": {
+        "th": "ความหวัง การฟื้นตัว ความเชื่อในอนาคต ความสงบหลังความวุ่นวาย"
+      }
+    },
+    {
+      "id": 18,
+      "name": "The Moon",
+      "image": "/cards/major-arcana/moon.jpg",
+      "meaning": {
+        "th": "ความไม่แน่ใจ สิ่งที่ยังมองไม่ชัด ความกลัว ภาพที่ยังไม่ครบ"
+      }
+    },
+    {
+      "id": 19,
+      "name": "The Sun",
+      "image": "/cards/major-arcana/sun.jpg",
+      "meaning": {
+        "th": "ความชัดเจน การเปิดเผย ความสำเร็จ พลังชีวิต"
+      }
+    },
+    {
+      "id": 20,
+      "name": "Judgement",
+      "image": "/cards/major-arcana/judgement.jpg",
+      "meaning": {
+        "th": "การตระหนักรู้ การตัดสินใจ การกลับมาของเรื่องเดิม การเรียกให้เลือก"
+      }
+    },
+    {
+      "id": 21,
+      "name": "The World",
+      "image": "/cards/major-arcana/world.jpg",
+      "meaning": {
+        "th": "การจบวงจร ความสมบูรณ์ การปิดบทหนึ่งและเข้าสู่อีกบท"
+      }
+    }
+  ]
+}

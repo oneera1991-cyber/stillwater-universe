@@ -1,0 +1,2359 @@
+{
+  "schemaVersion": "1.1.0",
+  "datasetId": "stillwater-major-arcana-22",
+  "datasetTitle": "Stillwater with Vera — Major Arcana Knowledge Base (English + Thai)",
+  "language": "en",
+  "tradition": {
+    "id": "rider-waite-smith",
+    "primarySource": {
+      "author": "Arthur Edward Waite",
+      "title": "The Pictorial Key to the Tarot",
+      "publicationYear": 1911
+    },
+    "sources": [
+      {
+        "sourceId": "waite-part-ii",
+        "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+        "url": "https://en.wikisource.org/wiki/The_Pictorial_Key_to_the_Tarot/Part_2"
+      },
+      {
+        "sourceId": "waite-part-iii",
+        "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+        "url": "https://en.wikisource.org/wiki/The_Pictorial_Key_to_the_Tarot/Part_3"
+      }
+    ],
+    "methodNote": "Traditional meanings and symbolism are separated from Stillwater's modern interpretation. Waite's wording may be archaic, divergent, gendered, or context-specific; do not silently normalize it. A source omission is not evidence of a traditional reversed meaning."
+  },
+  "statusDefinitions": {
+    "source_verified": "Checked against the cited original-language source. It does not certify the Thai translation or Stillwater interpretation.",
+    "user_approved": "Explicitly approved by the user.",
+    "draft": "Stillwater's proposed modern interpretation or narrative guidance; requires testing.",
+    "pending_review": "Requires review before production use."
+  },
+  "cards": [
+    {
+      "id": "major-00-the-fool",
+      "number": 0,
+      "name": {
+        "en": "The Fool",
+        "th": "เดอะฟูล"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Folly; mania; extravagance; intoxication; delirium; frenzy; bewrayment.",
+            "sourceKeywordsEn": [
+              "Folly",
+              "mania",
+              "extravagance",
+              "intoxication",
+              "delirium",
+              "frenzy",
+              "bewrayment."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "Zero. The Fool"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความเขลา; ความคลุ้มคลั่งหรือเสียสติ; ความฟุ่มเฟือยเกินควร; ความมึนเมา; อาการเพ้อ; ความบ้าคลั่ง; การเปิดเผยความลับหรือการทรยศความไว้วางใจ (คำโบราณ)"
+          },
+          "symbolism": {
+            "summaryTh": "A traveler stands near a cliff with a dog, rose, staff, and bundle; Waite describes the image as the spirit in search of experience.",
+            "summaryEn": "A traveler stands near a cliff with a dog, rose, staff, and bundle; Waite describes the image as the spirit in search of experience.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "Zero. The Fool"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Negligence; absence; distribution; carelessness; apathy; nullity; vanity.",
+            "sourceKeywordsEn": [
+              "Negligence",
+              "absence",
+              "distribution",
+              "carelessness",
+              "apathy",
+              "nullity",
+              "vanity."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "Zero. The Fool — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "การละเลย; การไม่มีอยู่; การแจกจ่าย; ความประมาท; ความเฉยเมย; ความไร้ค่า; ความทะนงตน"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "Zero. The Fool"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "พิจารณาว่าการตัดสินใจใหม่เกิดจากการสำรวจโอกาสอย่างมีสติ หรือจากความหุนหันและการมองข้ามความเสี่ยง.",
+          "summaryEn": "Consider whether a new decision comes from open-minded exploration or impulsiveness and overlooked risks.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าการไม่เตรียมตัว การละเลยหน้าที่ หรือการไม่รับผิดชอบต่อผลของการกระทำกำลังสร้างปัญหาหรือไม่.",
+          "summaryEn": "Examine whether lack of preparation, neglect, or avoidance of responsibility is creating problems.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Archaic 'bewrayment' and reversed 'distribution' are ambiguous; do not use as customer-facing prose without review.",
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-01-the-magician",
+      "number": 1,
+      "name": {
+        "en": "The Magician",
+        "th": "เดอะเมจิเชียน"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Skill; diplomacy; address; subtlety; sickness; pain; loss; disaster; snares of enemies; self-confidence; will; the Querent, if male.",
+            "sourceKeywordsEn": [
+              "Skill",
+              "diplomacy",
+              "address",
+              "subtlety",
+              "sickness",
+              "pain",
+              "loss",
+              "disaster",
+              "snares of enemies",
+              "self-confidence",
+              "will",
+              "the Querent, if male."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "1. The Magician"
+            },
+            "status": "source_verified",
+            "summaryTh": "ทักษะ; การเจรจาอย่างมีชั้นเชิง; วาทศิลป์; ความละเอียดแยบคาย; ความเจ็บป่วย; ความเจ็บปวด; การสูญเสีย; ภัยพิบัติ; กับดักของศัตรู; ความมั่นใจในตนเอง; เจตจำนง; ผู้ถามไพ่ หากเป็นชายตามถ้อยคำต้นฉบับ"
+          },
+          "symbolism": {
+            "summaryTh": "A figure stands at a table with the four suit emblems, an infinity symbol above, and one hand raised while the other points down.",
+            "summaryEn": "A figure stands at a table with the four suit emblems, an infinity symbol above, and one hand raised while the other points down.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "1. The Magician"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Physician; Magus; mental disease; disgrace; disquiet.",
+            "sourceKeywordsEn": [
+              "Physician",
+              "Magus",
+              "mental disease",
+              "disgrace",
+              "disquiet."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "1. The Magician — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "แพทย์; นักมายากล; ความเจ็บป่วยทางจิต; ความเสื่อมเสีย; ความไม่สงบใจ"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "1. The Magician"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "พิจารณาว่าคุณกำลังใช้ทักษะ การสื่อสาร และทรัพยากรที่มีเพื่อทำให้สิ่งที่ตั้งใจเกิดขึ้นหรือไม่.",
+          "summaryEn": "Consider whether you are using your skills, communication, and resources to make your intention happen.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าความมั่นใจกลายเป็นการควบคุมสถานการณ์เกินจริง หรือมีปัญหาที่คุณกำลังจัดการอย่างไม่รอบคอบหรือไม่.",
+          "summaryEn": "Examine whether confidence has turned into overcontrol or a problem is being handled carelessly.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-02-the-high-priestess",
+      "number": 2,
+      "name": {
+        "en": "The High Priestess",
+        "th": "เดอะไฮพรีสเทส"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Secrets; mystery; the future as yet unrevealed; the woman who interests the Querent, if male; the Querent herself, if female; silence; tenacity; mystery; wisdom; science.",
+            "sourceKeywordsEn": [
+              "Secrets",
+              "mystery",
+              "the future as yet unrevealed",
+              "silence",
+              "tenacity",
+              "wisdom",
+              "science."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "2. The High Priestess"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความลับ; ปริศนา; อนาคตที่ยังไม่เปิดเผย; ความเงียบ; ความมุ่งมั่น; ปัญญา; วิทยาการ"
+          },
+          "symbolism": {
+            "summaryTh": "The image includes a lunar crown, crescent, cross, partly veiled Tora scroll, two pillars, and a veil patterned with palms and pomegranates.",
+            "summaryEn": "The image includes a lunar crown, crescent, cross, partly veiled Tora scroll, two pillars, and a veil patterned with palms and pomegranates.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "2. The High Priestess"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Passion; moral or physical ardour; conceit; surface knowledge.",
+            "sourceKeywordsEn": [
+              "Passion",
+              "moral or physical ardour",
+              "conceit",
+              "surface knowledge."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "2. The High Priestess — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความปรารถนาอันแรงกล้าทางใจหรือกาย; ความทะนงตน; ความรู้เพียงผิวเผิน"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "2. The High Priestess"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "ยังมีข้อมูลไม่ครบหรือบางเรื่องยังไม่เปิดเผย ควรแยกสิ่งที่รู้จริงออกจากสิ่งที่คาดเดา.",
+          "summaryEn": "Some information may still be missing or undisclosed. Separate what you know from what you assume.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าความมั่นใจหรือแรงปรารถนากำลังทำให้คุณมองข้อมูลเพียงบางส่วนเป็นข้อสรุปหรือไม่.",
+          "summaryEn": "Examine whether confidence or desire is making you treat partial information as a complete conclusion.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-03-the-empress",
+      "number": 3,
+      "name": {
+        "en": "The Empress",
+        "th": "ดิเอมเพรส"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Fruitfulness; action; initiative; length of days; the unknown; clandestine; difficulty; doubt; ignorance.",
+            "sourceKeywordsEn": [
+              "Fruitfulness",
+              "action",
+              "initiative",
+              "length of days",
+              "the unknown",
+              "clandestine",
+              "difficulty",
+              "doubt",
+              "ignorance."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "3. The Empress"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความอุดมผล; การลงมือทำ; ความริเริ่ม; อายุยืน; สิ่งที่ไม่รู้; เรื่องลับหรือปกปิด; ความยากลำบาก; ความสงสัย; ความไม่รู้"
+          },
+          "symbolism": {
+            "summaryTh": "A woman sits on a throne surrounded by nature and vegetation, with a Venus symbol and grain motifs.",
+            "summaryEn": "A woman sits on a throne surrounded by nature and vegetation, with a Venus symbol and grain motifs.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "3. The Empress"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Light; truth; the unravelling of involved matters; public rejoicings; according to another reading, vacillation.",
+            "sourceKeywordsEn": [
+              "Light",
+              "truth",
+              "the unravelling of involved matters",
+              "public rejoicings",
+              "according to another reading, vacillation."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "3. The Empress — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความกระจ่าง; ความจริง; การคลี่คลายเรื่องซับซ้อน; การเฉลิมฉลองในที่สาธารณะ; อีกแนวอ่านหนึ่งคือความลังเลเปลี่ยนใจ"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "3. The Empress"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "พิจารณาว่าสิ่งที่คุณกำลังดูแลหรือเริ่มต้นมีพื้นที่และทรัพยากรเพียงพอที่จะเติบโตหรือไม่.",
+          "summaryEn": "Consider whether what you are nurturing or beginning has enough space and resources to grow.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ทบทวนว่าความไม่แน่ใจหรือการปล่อยให้เรื่องค้างคากำลังขัดขวางการลงมือทำหรือไม่.",
+          "summaryEn": "Review whether uncertainty or leaving matters unresolved is blocking action.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-04-the-emperor",
+      "number": 4,
+      "name": {
+        "en": "The Emperor",
+        "th": "ดิเอมเพอเรอร์"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Stability; power; protection; realization; a great person; aid; reason; conviction; authority; will.",
+            "sourceKeywordsEn": [
+              "Stability",
+              "power",
+              "protection",
+              "realization",
+              "a great person",
+              "aid",
+              "reason",
+              "conviction",
+              "authority",
+              "will."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "4. The Emperor"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความมั่นคง; อำนาจ; การคุ้มครอง; การทำให้เป็นจริง; บุคคลสำคัญ; ความช่วยเหลือ; เหตุผล; ความเชื่อมั่น; อำนาจหน้าที่; เจตจำนง"
+          },
+          "symbolism": {
+            "summaryTh": "An emperor sits on a stone throne marked with ram heads and holds a sceptre; the background is mountainous and barren.",
+            "summaryEn": "An emperor sits on a stone throne marked with ram heads and holds a sceptre; the background is mountainous and barren.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "4. The Emperor"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Benevolence; compassion; credit; confusion to enemies; obstruction; immaturity.",
+            "sourceKeywordsEn": [
+              "Benevolence",
+              "compassion",
+              "credit",
+              "confusion to enemies",
+              "obstruction",
+              "immaturity."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "4. The Emperor — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความเอื้อเฟื้อ; ความเห็นอกเห็นใจ; ความน่าเชื่อถือ; ความสับสนแก่ฝ่ายศัตรู; การขัดขวาง; ความไม่เป็นผู้ใหญ่"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "4. The Emperor"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "พิจารณาว่าคุณกำลังวางขอบเขต สร้างระบบ และรับผิดชอบต่อการตัดสินใจอย่างชัดเจนหรือไม่.",
+          "summaryEn": "Consider whether you are setting boundaries, building structure, and taking responsibility for decisions.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าความต้องการควบคุมหรือการยึดติดกับกฎกำลังขัดขวางความร่วมมือหรือไม่.",
+          "summaryEn": "Examine whether the need for control or rigid rules is obstructing cooperation.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-05-the-hierophant",
+      "number": 5,
+      "name": {
+        "en": "The Hierophant",
+        "th": "เดอะไฮโรแฟนต์"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Marriage; alliance; captivity; servitude; according to another account, mercy and goodness; inspiration; the man to whom the Querent has recourse.",
+            "sourceKeywordsEn": [
+              "Marriage",
+              "alliance",
+              "captivity",
+              "servitude",
+              "mercy",
+              "goodness",
+              "inspiration",
+              "the person to whom the Querent has recourse."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "5. The Hierophant"
+            },
+            "status": "source_verified",
+            "summaryTh": "การแต่งงาน; พันธมิตร; การถูกจองจำ; การเป็นผู้รับใช้; อีกแนวอ่านหนึ่งคือความเมตตาและความดีงาม; แรงบันดาลใจ; ชายผู้ที่ผู้ถามไพ่ไปขอคำปรึกษาตามถ้อยคำต้นฉบับ"
+          },
+          "symbolism": {
+            "summaryTh": "A religious authority sits between two pillars, raises a hand in blessing, and faces followers; the image relates to tradition and teaching.",
+            "summaryEn": "A religious authority sits between two pillars, raises a hand in blessing, and faces followers; the image relates to tradition and teaching.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "5. The Hierophant"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Society; good understanding; concord; over-kindness; weakness.",
+            "sourceKeywordsEn": [
+              "Society",
+              "good understanding",
+              "concord",
+              "overkindness",
+              "weakness."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "5. The Hierophant — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "สังคม; ความเข้าใจอันดี; ความสามัคคี; ความใจดีเกินควร; ความอ่อนแอ"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "5. The Hierophant"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "พิจารณาว่าคำแนะนำจากผู้มีประสบการณ์ กติกา หรือข้อตกลงร่วมกันช่วยให้คุณเดินหน้าได้อย่างไร.",
+          "summaryEn": "Consider how experienced guidance, shared rules, or mutual agreements may help you move forward.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ทบทวนว่าการทำตามกลุ่มหรือเอาใจคนอื่นมากเกินไปกำลังทำให้คุณละทิ้งขอบเขตของตัวเองหรือไม่.",
+          "summaryEn": "Review whether following the group or pleasing others too much is making you abandon your boundaries.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-06-the-lovers",
+      "number": 6,
+      "name": {
+        "en": "The Lovers",
+        "th": "เดอะเลิฟเวอร์ส"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Attraction; love; beauty; trials overcome.",
+            "sourceKeywordsEn": [
+              "Attraction",
+              "love",
+              "beauty",
+              "trials overcome."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "6. The Lovers"
+            },
+            "status": "source_verified",
+            "summaryTh": "แรงดึงดูด; ความรัก; ความงาม; การผ่านบททดสอบ"
+          },
+          "symbolism": {
+            "summaryTh": "A man and woman stand beneath an angel, with trees behind them; the image evokes relationship, choice, and responsibility.",
+            "summaryEn": "A man and woman stand beneath an angel, with trees behind them; the image evokes relationship, choice, and responsibility.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "6. The Lovers"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Failure; foolish designs; according to another account, marriage frustrated and contrarieties of all kinds.",
+            "sourceKeywordsEn": [
+              "Failure",
+              "foolish designs",
+              "marriage frustrated",
+              "contrarieties of all kinds."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "6. The Lovers — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความล้มเหลว; แผนการที่ไม่รอบคอบ; อีกแนวอ่านกล่าวถึงการแต่งงานที่ไม่สมหวังและความขัดแย้งนานัปการ"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "6. The Lovers"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "พิจารณาว่าความสัมพันธ์หรือการตัดสินใจตั้งอยู่บนความรู้สึกที่ตรงกัน ค่านิยมร่วมกัน และการเลือกของทั้งสองฝ่ายหรือไม่.",
+          "summaryEn": "Consider whether this relationship or decision rests on mutual feelings, shared values, and choices made by both people.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าความไม่ลงรอยหรือการเลือกโดยไม่คิดรอบด้านกำลังทำให้แผนสะดุดหรือไม่.",
+          "summaryEn": "Examine whether incompatibility or an ill-considered choice is disrupting the plan.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-07-the-chariot",
+      "number": 7,
+      "name": {
+        "en": "The Chariot",
+        "th": "เดอะชาเรียต"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Succour; providence; war; triumph; presumption; vengeance; trouble.",
+            "sourceKeywordsEn": [
+              "Succour",
+              "providence",
+              "war",
+              "triumph",
+              "presumption",
+              "vengeance",
+              "trouble."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "7. The Chariot"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความช่วยเหลือ; พรคุ้มครอง; อีกทั้งสงคราม; ชัยชนะ; ความทะนงตน; การแก้แค้น; ความยุ่งยาก"
+          },
+          "symbolism": {
+            "summaryTh": "A warrior stands in a chariot with contrasting sphinxes and a starry canopy, suggesting movement under control and conflicting drives.",
+            "summaryEn": "A warrior stands in a chariot with contrasting sphinxes and a starry canopy, suggesting movement under control and conflicting drives.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "7. The Chariot"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Riot; quarrel; dispute; litigation; defeat.",
+            "sourceKeywordsEn": [
+              "Riot",
+              "quarrel",
+              "dispute",
+              "litigation",
+              "defeat."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "7. The Chariot — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความวุ่นวาย; การทะเลาะ; ข้อพิพาท; คดีความ; ความพ่ายแพ้"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "7. The Chariot"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "กำหนดเป้าหมายให้ชัดและตรวจสอบว่าคุณกำลังใช้วินัย หรือเพียงเร่งไปข้างหน้าโดยไม่ประเมินสถานการณ์.",
+          "summaryEn": "Set a clear goal and examine whether discipline is guiding you or you are pushing ahead without assessing the situation.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าความเร่งรีบ ความขัดแย้ง หรือความต้องการเอาชนะกำลังทำให้คุณเสียการควบคุมหรือไม่.",
+          "summaryEn": "Examine whether haste, conflict, or the need to win is causing you to lose control.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-08-strength",
+      "number": 8,
+      "name": {
+        "en": "Strength",
+        "th": "สเตรงท์"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Power; energy; action; courage; magnanimity; complete success; honours.",
+            "sourceKeywordsEn": [
+              "Power",
+              "energy",
+              "action",
+              "courage",
+              "magnanimity",
+              "complete success",
+              "honours."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "8. Strength"
+            },
+            "status": "source_verified",
+            "summaryTh": "อำนาจ; พลัง; การกระทำ; ความกล้าหาญ; ความใจกว้าง; ความสำเร็จอย่างสมบูรณ์; เกียรติยศ"
+          },
+          "symbolism": {
+            "summaryTh": "A woman calmly handles a lion, with an infinity symbol above her head; the image emphasizes steady handling of power.",
+            "summaryEn": "A woman calmly handles a lion, with an infinity symbol above her head; the image emphasizes steady handling of power.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "8. Strength"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Despotism; abuse of power; weakness; discord; sometimes even disgrace.",
+            "sourceKeywordsEn": [
+              "Despotism",
+              "abuse of power",
+              "weakness",
+              "discord",
+              "sometimes disgrace."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "8. Strength — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "การกดขี่แบบเผด็จการ; การใช้อำนาจในทางมิชอบ; ความอ่อนแอ; ความขัดแย้ง; บางครั้งหมายถึงความเสื่อมเสีย"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "8. Strength"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "ใช้ความกล้าหาญและความอดทนจัดการสถานการณ์ โดยไม่จำเป็นต้องบังคับหรือเอาชนะทุกอย่าง.",
+          "summaryEn": "Use courage and patience without needing to force or defeat everything.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าความกลัว ความอ่อนล้า หรือการใช้อำนาจกดดันกำลังทำให้สถานการณ์เสียสมดุลหรือไม่.",
+          "summaryEn": "Examine whether fear, exhaustion, or coercive power is throwing the situation off balance.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-09-the-hermit",
+      "number": 9,
+      "name": {
+        "en": "The Hermit",
+        "th": "เดอะเฮอร์มิท"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Prudence; circumspection; treason; dissimulation; roguery; corruption.",
+            "sourceKeywordsEn": [
+              "Prudence",
+              "circumspection",
+              "treason",
+              "dissimulation",
+              "roguery",
+              "corruption."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "9. The Hermit"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความรอบคอบ; ความระมัดระวัง; โดยเฉพาะอย่างยิ่ง การทรยศ; การปกปิดความจริง; การฉ้อฉล; การทุจริต"
+          },
+          "symbolism": {
+            "summaryTh": "An elderly figure stands on high ground holding a lantern with a star inside and a staff; the image relates to careful reflection.",
+            "summaryEn": "An elderly figure stands on high ground holding a lantern with a star inside and a staff; the image relates to careful reflection.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "9. The Hermit"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Concealment; disguise; policy; fear; unreasoned caution.",
+            "sourceKeywordsEn": [
+              "Concealment",
+              "disguise",
+              "policy",
+              "fear",
+              "unreasoned caution."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "9. The Hermit — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "การปกปิด; การปลอมแปลง; กลยุทธ์; ความกลัว; ความระมัดระวังที่ขาดเหตุผล"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "9. The Hermit"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "เว้นระยะจากเสียงรบกวนเพื่อพิจารณาข้อมูล แต่ยังต้องกลับมาเผชิญสถานการณ์จริง.",
+          "summaryEn": "Step back from noise to review information, while still returning to face the real situation.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าการเก็บตัวกำลังช่วยให้คิดชัดขึ้น หรือกลายเป็นการหลบเลี่ยงและความกลัวที่ไม่มีเหตุผลเพียงพอ.",
+          "summaryEn": "Examine whether withdrawal is helping you think clearly or becoming avoidance and unsupported fear.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-10-wheel-of-fortune",
+      "number": 10,
+      "name": {
+        "en": "Wheel of Fortune",
+        "th": "วีลออฟฟอร์จูน"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Destiny; fortune; success; elevation; luck; felicity.",
+            "sourceKeywordsEn": [
+              "Destiny",
+              "fortune",
+              "success",
+              "elevation",
+              "luck",
+              "felicity."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "10. Wheel of Fortune"
+            },
+            "status": "source_verified",
+            "summaryTh": "โชคชะตา; โชคลาภ; ความสำเร็จ; การยกระดับ; โชคดี; ความสุขสม"
+          },
+          "symbolism": {
+            "summaryTh": "A wheel is surrounded by letters and symbols, with creatures in the corners; the image evokes cycles and changes of fortune.",
+            "summaryEn": "A wheel is surrounded by letters and symbols, with creatures in the corners; the image evokes cycles and changes of fortune.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "10. Wheel of Fortune"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Increase; abundance; superfluity.",
+            "sourceKeywordsEn": [
+              "Increase",
+              "abundance",
+              "superfluity."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "10. Wheel of Fortune — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "การเพิ่มขึ้น; ความอุดมสมบูรณ์; ความล้นเกิน"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "10. Wheel of Fortune"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "มองหาโอกาสและการเปลี่ยนแปลง พร้อมพิจารณาว่าคุณควบคุมส่วนใดได้และส่วนใดต้องปรับตัว.",
+          "summaryEn": "Look for opportunities and change while distinguishing what you can control from what requires adaptation.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าทรัพยากรหรือโอกาสที่เพิ่มขึ้นกำลังกลายเป็นความเกินพอดีหรือไม่.",
+          "summaryEn": "Examine whether increased resources or opportunities are becoming excessive.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-11-justice",
+      "number": 11,
+      "name": {
+        "en": "Justice",
+        "th": "จัสติซ"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Equity; rightness; probity; executive; triumph of the deserving side in law.",
+            "sourceKeywordsEn": [
+              "Equity",
+              "rightness",
+              "probity",
+              "executive",
+              "triumph of the deserving side in law."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "11. Justice"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความเป็นธรรม; ความถูกต้อง; ความซื่อสัตย์สุจริต; การใช้อำนาจตามหน้าที่; ชัยชนะของฝ่ายที่สมควรในคดีความ"
+          },
+          "symbolism": {
+            "summaryTh": "A seated figure holds a sword and scales between two pillars, suggesting judgment, evidence, and consequences.",
+            "summaryEn": "A seated figure holds a sword and scales between two pillars, suggesting judgment, evidence, and consequences.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "11. Justice"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Law in all its departments; legal complications; bigotry; bias; excessive severity.",
+            "sourceKeywordsEn": [
+              "Law in all its departments",
+              "legal complications",
+              "bigotry",
+              "bias",
+              "excessive severity."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "11. Justice — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "กฎหมายในทุกด้าน; ความยุ่งยากทางกฎหมาย; การยึดถือคติอย่างคับแคบ; อคติ; ความเข้มงวดเกินควร"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "11. Justice"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "ตรวจสอบข้อเท็จจริง หลักฐาน และความรับผิดชอบของแต่ละฝ่ายก่อนตัดสินใจ.",
+          "summaryEn": "Review facts, evidence, and each party's responsibility before deciding.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ระวังอคติ การใช้กฎอย่างแข็งกร้าว หรือความยุ่งยากจากข้อกำหนดที่ต้องตรวจสอบให้รอบคอบ.",
+          "summaryEn": "Watch for bias, excessive severity, or complications arising from rules.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-12-the-hanged-man",
+      "number": 12,
+      "name": {
+        "en": "The Hanged Man",
+        "th": "เดอะแฮงด์แมน"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Wisdom; circumspection; discernment; trials; sacrifice; intuition; divination; prophecy.",
+            "sourceKeywordsEn": [
+              "Wisdom",
+              "circumspection",
+              "discernment",
+              "trials",
+              "sacrifice",
+              "intuition",
+              "divination",
+              "prophecy."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "12. The Hanged Man"
+            },
+            "status": "source_verified",
+            "summaryTh": "ปัญญา; ความรอบคอบ; วิจารณญาณ; บททดสอบ; การเสียสละ; สัญชาตญาณ; การพยากรณ์; คำทำนาย"
+          },
+          "symbolism": {
+            "summaryTh": "A figure hangs upside down from a T-shaped structure with a relatively calm expression, suggesting suspension and another point of view.",
+            "summaryEn": "A figure hangs upside down from a T-shaped structure with a relatively calm expression, suggesting suspension and another point of view.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "12. The Hanged Man"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Selfishness; the crowd; body politic.",
+            "sourceKeywordsEn": [
+              "Selfishness",
+              "the crowd",
+              "body politic."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "12. The Hanged Man — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความเห็นแก่ตัว; ฝูงชน; องค์คณะหรือระบบการเมืองของพลเมือง"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "12. The Hanged Man"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "หยุดเร่งหาคำตอบและพิจารณาว่ามุมมองใหม่หรือสิ่งที่ต้องยอมเสียสละช่วยให้เข้าใจสถานการณ์หรือไม่.",
+          "summaryEn": "Pause the rush for an answer and consider whether a new perspective or sacrifice could clarify the situation.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าแรงกดดันจากกลุ่มหรือประโยชน์ส่วนตัวกำลังขัดขวางการพิจารณาอย่างเป็นอิสระหรือไม่.",
+          "summaryEn": "Examine whether group pressure or self-interest is preventing independent judgment.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-13-death",
+      "number": 13,
+      "name": {
+        "en": "Death",
+        "th": "เดธ"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "End; mortality; destruction; corruption; also, for a man, the loss of a benefactor; for a woman, many contrarieties; for a maid, failure of marriage projects.",
+            "sourceKeywordsEn": [
+              "End",
+              "mortality",
+              "destruction",
+              "corruption",
+              "loss of a benefactor",
+              "contrarieties",
+              "failure of marriage projects in Waite's historical wording."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "13. Death"
+            },
+            "status": "source_verified",
+            "summaryTh": "การสิ้นสุด; ความตาย; การทำลายล้าง; ความเสื่อมสลาย; อีกทั้งการสูญเสียผู้มีพระคุณ (สำหรับชายตามต้นฉบับ); ความขัดแย้งนานาประการ (สำหรับหญิง); การไม่สมหวังในแผนแต่งงาน (สำหรับหญิงสาว)"
+          },
+          "symbolism": {
+            "summaryTh": "A skeleton in armour rides a white horse carrying a banner; figures of different stations appear before it and the sun is visible between towers.",
+            "summaryEn": "A skeleton in armour rides a white horse carrying a banner; figures of different stations appear before it and the sun is visible between towers.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "13. Death"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Inertia; sleep; lethargy; petrifaction; somnambulism; hope destroyed.",
+            "sourceKeywordsEn": [
+              "Inertia",
+              "sleep",
+              "lethargy",
+              "petrifaction",
+              "somnambulism",
+              "hope destroyed."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "13. Death — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความเฉื่อยชา; การหลับใหล; ความซึมเซา; การกลายเป็นหิน; การละเมอเดิน; ความหวังที่พังทลาย"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "13. Death"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "พิจารณาว่าสิ่งใดสิ้นสุดลงหรือไม่สามารถดำเนินต่อในรูปแบบเดิมได้ และอะไรจำเป็นต้องเปลี่ยนตามความจริงนั้น.",
+          "summaryEn": "Consider what has ended or can no longer continue in its old form, and what needs to change.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าความเฉื่อยชาหรือการยึดติดกับความหวังกำลังทำให้คุณติดอยู่กับสถานการณ์เดิมหรือไม่.",
+          "summaryEn": "Examine whether inertia or clinging to hope is keeping you stuck.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Waite's gender- and marital-status-specific predictions are historical source content, not universal modern claims.",
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-14-temperance",
+      "number": 14,
+      "name": {
+        "en": "Temperance",
+        "th": "เทมเพอแรนซ์"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Economy; moderation; frugality; management; accommodation.",
+            "sourceKeywordsEn": [
+              "Economy",
+              "moderation",
+              "frugality",
+              "management",
+              "accommodation."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "14. Temperance"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความประหยัด; ความพอดี; ความมัธยัสถ์; การบริหารจัดการ; การปรับให้เข้ากัน"
+          },
+          "symbolism": {
+            "summaryTh": "An angel pours liquid between two cups near water and a path, suggesting blending and adjustment.",
+            "summaryEn": "An angel pours liquid between two cups near water and a path, suggesting blending and adjustment.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "14. Temperance"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Things connected with churches, religions, sects, the priesthood; sometimes even the priest who will marry the Querent; also disunion, unfortunate combinations, competing interests.",
+            "sourceKeywordsEn": [
+              "Churches",
+              "religions",
+              "sects",
+              "priesthood",
+              "disunion",
+              "unfortunate combinations",
+              "competing interests."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "14. Temperance — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "เรื่องเกี่ยวกับโบสถ์ ศาสนา นิกาย หรือคณะสงฆ์; บางครั้งหมายถึงบาทหลวงผู้ทำพิธีแต่งงานให้ผู้ถามไพ่; อีกทั้งความแตกแยก การจับคู่ที่ไม่ลงตัว และผลประโยชน์ที่แข่งขันกัน"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "14. Temperance"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "ปรับจังหวะและทรัพยากรให้เหมาะสม มองหาวิธีประสานสิ่งที่ต่างกันโดยไม่ละเลยข้อจำกัด.",
+          "summaryEn": "Adjust pace and resources; reconcile differences without ignoring constraints.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าผลประโยชน์ที่ขัดกันหรือการผสมสิ่งที่ไม่เข้ากันกำลังสร้างความไม่ลงรอยหรือไม่.",
+          "summaryEn": "Examine whether competing interests or an unsuitable combination is creating discord.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-15-the-devil",
+      "number": 15,
+      "name": {
+        "en": "The Devil",
+        "th": "เดอะเดวิล"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Ravage; violence; vehemence; extraordinary efforts; force; fatality; that which is predestined but is not for this reason evil.",
+            "sourceKeywordsEn": [
+              "Ravage",
+              "violence",
+              "vehemence",
+              "extraordinary efforts",
+              "force",
+              "fatality",
+              "that which is predestined but is not for this reason evil."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "15. The Devil"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความเสียหายร้ายแรง; ความรุนแรง; ความดุดัน; ความพยายามอย่างยิ่ง; พลัง; เคราะห์กรรม; สิ่งที่ถูกกำหนดไว้ล่วงหน้าแต่ไม่ได้หมายความว่าเป็นความชั่วเสมอไป"
+          },
+          "symbolism": {
+            "summaryTh": "A devil-like figure stands above two chained people; the image evokes bondage, not proof of supernatural control over the querent.",
+            "summaryEn": "A devil-like figure stands above two chained people; the image evokes bondage, not proof of supernatural control over the querent.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "15. The Devil"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Evil fatality; weakness; pettiness; blindness.",
+            "sourceKeywordsEn": [
+              "Evil fatality",
+              "weakness",
+              "pettiness",
+              "blindness."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "15. The Devil — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "เคราะห์ร้าย; ความอ่อนแอ; ความใจแคบ; ความมืดบอด"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "15. The Devil"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "ตรวจสอบว่าแรงปรารถนา ความกลัว หรือรูปแบบพฤติกรรมใดกำลังมีอิทธิพลต่อการตัดสินใจมากเกินไป.",
+          "summaryEn": "Examine whether desire, fear, or a behavioral pattern is exerting too much influence over your decisions.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ระวังการมองไม่เห็นทางเลือก การยอมจำนนต่อแรงกดดัน หรือการลดคุณค่าของตัวเองและผู้อื่น.",
+          "summaryEn": "Watch for blindness to alternatives, surrender to pressure, or diminishing people's worth.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-16-the-tower",
+      "number": 16,
+      "name": {
+        "en": "The Tower",
+        "th": "เดอะทาวเวอร์"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Misery; distress; indigence; adversity; calamity; disgrace; deception; ruin; in particular, unforeseen catastrophe.",
+            "sourceKeywordsEn": [
+              "Misery",
+              "distress",
+              "indigence",
+              "adversity",
+              "calamity",
+              "disgrace",
+              "deception",
+              "ruin",
+              "unforeseen catastrophe."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "16. The Tower"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความทุกข์ยาก; ความเดือดร้อน; ความขัดสน; เคราะห์ร้าย; ภัยพิบัติ; ความเสื่อมเสีย; การหลอกลวง; ความพินาศ; โดยเฉพาะเหตุร้ายที่เกิดขึ้นโดยไม่คาดคิด"
+          },
+          "symbolism": {
+            "summaryTh": "Lightning strikes a tower and dislodges its crown; Waite symbolically connects the image with the collapse of false structures.",
+            "summaryEn": "Lightning strikes a tower and dislodges its crown; Waite symbolically connects the image with the collapse of false structures.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "16. The Tower"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "According to one account, the same in a lesser degree; also oppression; imprisonment; tyranny.",
+            "sourceKeywordsEn": [
+              "The same in a lesser degree",
+              "oppression",
+              "imprisonment",
+              "tyranny."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "16. The Tower — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "ตามแนวอ่านหนึ่งคือความหมายเดียวกันแต่เบากว่า; อีกทั้งการกดขี่; การจำคุก; การใช้อำนาจแบบทรราช"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "16. The Tower"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "ตรวจสอบว่าปัญหาหรือข้อเท็จจริงใดกำลังทำให้สิ่งที่เคยเชื่อมั่นไม่มั่นคง และเตรียมรับมือกับผลที่อาจเกิดขึ้น.",
+          "summaryEn": "Examine what problem or fact is undermining something you relied on, and prepare for possible consequences.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "พิจารณาว่าปัญหากำลังดำเนินอยู่ในระดับจำกัด หรือการกดทับปัญหาทำให้แก้ไขยากขึ้นหรือไม่.",
+          "summaryEn": "Consider whether the problem is continuing in a limited form or suppression is making it harder to address.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-17-the-star",
+      "number": 17,
+      "name": {
+        "en": "The Star",
+        "th": "เดอะสตาร์"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Loss; theft; privation; abandonment; another reading says hope and bright prospects.",
+            "sourceKeywordsEn": [
+              "Loss",
+              "theft",
+              "privation",
+              "abandonment",
+              "another reading: hope and bright prospects."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "17. The Star"
+            },
+            "status": "source_verified",
+            "summaryTh": "การสูญเสีย; การโจรกรรม; การขาดแคลน; การถูกทอดทิ้ง; อีกแนวอ่านหนึ่งกล่าวถึงความหวังและอนาคตที่สดใส"
+          },
+          "symbolism": {
+            "summaryTh": "A figure kneels by water and pours from two vessels beneath a large star and smaller stars.",
+            "summaryEn": "A figure kneels by water and pours from two vessels beneath a large star and smaller stars.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "17. The Star"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Arrogance; haughtiness; impotence.",
+            "sourceKeywordsEn": [
+              "Arrogance",
+              "haughtiness",
+              "impotence."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "17. The Star — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความหยิ่งยโส; ความทะนงตน; ความไร้กำลัง"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "17. The Star"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "มองหาสิ่งที่ช่วยให้คุณฟื้นความหวังอย่างมีเหตุผล และกำหนดก้าวเล็ก ๆ ที่ทำได้จริง.",
+          "summaryEn": "Look for what can restore grounded hope and identify a practical next step.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าความทะนงตนหรือความรู้สึกว่าตัวเองทำอะไรไม่ได้กำลังปิดกั้นความช่วยเหลือหรือไม่.",
+          "summaryEn": "Examine whether pride or helplessness is blocking support.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Waite gives divergent upright readings, including loss and hope; preserve the ambiguity.",
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-18-the-moon",
+      "number": 18,
+      "name": {
+        "en": "The Moon",
+        "th": "เดอะมูน"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Hidden enemies; danger; calumny; darkness; terror; deception; occult forces; error.",
+            "sourceKeywordsEn": [
+              "Hidden enemies",
+              "danger",
+              "calumny",
+              "darkness",
+              "terror",
+              "deception",
+              "occult forces",
+              "error."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "18. The Moon"
+            },
+            "status": "source_verified",
+            "summaryTh": "ศัตรูที่ซ่อนเร้น; อันตราย; การใส่ร้าย; ความมืดมน; ความหวาดกลัว; การหลอกลวง; อำนาจลี้ลับ; ความผิดพลาด"
+          },
+          "symbolism": {
+            "summaryTh": "The moon shines over a landscape with a dog, wolf, two towers, and a creature emerging from water; the scene conveys ambiguity.",
+            "summaryEn": "The moon shines over a landscape with a dog, wolf, two towers, and a creature emerging from water; the scene conveys ambiguity.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "18. The Moon"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Instability; inconstancy; silence; lesser degrees of deception and error.",
+            "sourceKeywordsEn": [
+              "Instability",
+              "inconstancy",
+              "silence",
+              "lesser degrees of deception and error."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "18. The Moon — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความไม่มั่นคง; ความแปรปรวน; ความเงียบ; การหลอกลวงและความผิดพลาดในระดับที่เบาลง"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "18. The Moon"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "อย่าเพิ่งสรุปจากข้อมูลที่ไม่ครบ ตรวจสอบสิ่งที่เห็นจริงและสิ่งที่คุณกำลังคาดเดา.",
+          "summaryEn": "Do not conclude too quickly from incomplete information. Check observation against assumption.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าความไม่แน่นอนหรือข้อมูลคลาดเคลื่อนยังทำให้คุณเปลี่ยนใจหรือเข้าใจสถานการณ์ผิดหรือไม่.",
+          "summaryEn": "Examine whether uncertainty or misleading information is causing inconsistency or misunderstanding.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-19-the-sun",
+      "number": 19,
+      "name": {
+        "en": "The Sun",
+        "th": "เดอะซัน"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Material happiness; fortunate marriage; contentment.",
+            "sourceKeywordsEn": [
+              "Material happiness",
+              "fortunate marriage",
+              "contentment."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "19. The Sun"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความสุขทางวัตถุ; การแต่งงานที่เป็นมงคล; ความพึงพอใจ"
+          },
+          "symbolism": {
+            "summaryTh": "A child rides a white horse beneath the sun, with a red banner and sunflowers behind; brightness and openness dominate the image.",
+            "summaryEn": "A child rides a white horse beneath the sun, with a red banner and sunflowers behind; brightness and openness dominate the image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "19. The Sun"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "The same in a lesser sense.",
+            "summaryTh": "ความหมายเดียวกับไพ่ตั้งตรง แต่มีระดับน้อยกว่า",
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3",
+              "entry": "19. The Sun — Reversed"
+            },
+            "status": "source_verified",
+            "availability": "source_provided",
+            "sourceKeywordsEn": [
+              "The same in a lesser sense."
+            ]
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "19. The Sun"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "รับรู้สิ่งที่กำลังไปได้ดีอย่างเป็นรูปธรรม และพิจารณาว่าจะต่อยอดผลลัพธ์นั้นอย่างไร.",
+          "summaryEn": "Recognize what is working well in concrete terms and consider how to build on it.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "หากใช้สถานะกลับหัว ให้ถือว่าเป็นการประยุกต์ร่วมสมัย ไม่ใช่ความหมายของ Waite; ตรวจสอบว่าความคาดหวังหรือความมั่นใจเกินจริงบดบังข้อจำกัดหรือไม่.",
+          "summaryEn": "If reversed, treat this as modern synthesis, not Waite's meaning; examine whether expectations or overconfidence obscure limitations.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review.",
+          "The Waite reversed entry is The same in a lesser sense; the separate Stillwater modern interpretation remains a draft."
+        ]
+      }
+    },
+    {
+      "id": "major-20-judgement",
+      "number": 20,
+      "name": {
+        "en": "Judgement",
+        "th": "จัดจ์เมนต์"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Change of position; renewal; outcome; another account specifies total loss though lawsuit; final decision.",
+            "sourceKeywordsEn": [
+              "Change of position",
+              "renewal",
+              "outcome",
+              "another account: total loss though lawsuit",
+              "final decision."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "20. Judgement"
+            },
+            "status": "source_verified",
+            "summaryTh": "การเปลี่ยนสถานะ; การเริ่มต้นใหม่; ผลลัพธ์; อีกแหล่งหนึ่งระบุว่าขาดทุนทั้งหมดแม้ชนะคดี; คำตัดสินสุดท้าย"
+          },
+          "symbolism": {
+            "summaryTh": "An angel blows a trumpet above people rising from graves, evoking awakening, response, and review of the past.",
+            "summaryEn": "An angel blows a trumpet above people rising from graves, evoking awakening, response, and review of the past.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "20. Judgement"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Weakness; pusillanimity; simplicity; also deliberation; decision; sentence.",
+            "sourceKeywordsEn": [
+              "Weakness",
+              "pusillanimity",
+              "simplicity",
+              "deliberation",
+              "decision",
+              "sentence."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "20. Judgement — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความอ่อนแอ; ความขลาดเขลา; ความเรียบง่าย; การไตร่ตรอง; การตัดสินใจ; คำพิพากษา"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "20. Judgement"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "ทบทวนสิ่งที่ผ่านมาอย่างตรงไปตรงมา แล้วตัดสินใจจากสิ่งที่ได้เรียนรู้ ไม่ใช่จากการหลีกเลี่ยงอดีต.",
+          "summaryEn": "Review the past honestly and decide based on what you have learned rather than avoiding it.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าความลังเล ความกลัวการตัดสิน หรือการตัดสินใจที่ไม่รอบคอบกำลังทำให้คุณไม่ก้าวต่อหรือไม่.",
+          "summaryEn": "Examine whether hesitation, fear of judgment, or an ill-considered decision is preventing progress.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Waite's entry contains divergent readings; preserve them instead of forcing one simple definition.",
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    },
+    {
+      "id": "major-21-the-world",
+      "number": 21,
+      "name": {
+        "en": "The World",
+        "th": "เดอะเวิลด์"
+      },
+      "tradition": "rider-waite-smith",
+      "meaning": {
+        "upright": {
+          "traditional": {
+            "summaryEn": "Assured success; recompense; voyage; route; emigration; flight; change of place.",
+            "sourceKeywordsEn": [
+              "Assured success",
+              "recompense",
+              "voyage",
+              "route",
+              "emigration",
+              "flight",
+              "change of place."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "21. The World"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความสำเร็จที่แน่นอน; การได้รับผลตอบแทน; การเดินทาง; เส้นทาง; การย้ายถิ่น; การหลบหนี; การเปลี่ยนสถานที่"
+          },
+          "symbolism": {
+            "summaryTh": "A figure stands within a wreath, surrounded by four symbolic creatures in the corners, suggesting completion and passage into another stage.",
+            "summaryEn": "A figure stands within a wreath, surrounded by four symbolic creatures in the corners, suggesting completion and passage into another stage.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "21. The World"
+            },
+            "status": "source_verified"
+          }
+        },
+        "reversed": {
+          "traditional": {
+            "summaryEn": "Inertia; fixity; stagnation; permanence.",
+            "sourceKeywordsEn": [
+              "Inertia",
+              "fixity",
+              "stagnation",
+              "permanence."
+            ],
+            "source": {
+              "sourceId": "waite-part-iii",
+              "section": "Part III, §3 — The Greater Arcana and Their Divinatory Meanings",
+              "entry": "21. The World — Reversed"
+            },
+            "status": "source_verified",
+            "summaryTh": "ความเฉื่อยชา; ความยึดติดไม่เปลี่ยนแปลง; การหยุดนิ่ง; ความคงทน"
+          },
+          "symbolism": {
+            "summaryTh": "Waite อธิบายสัญลักษณ์ของภาพไพ่โดยรวม ไม่ได้ให้ชุดสัญลักษณ์แยกสำหรับภาพกลับหัว",
+            "summaryEn": "Waite discusses the card's symbolism as a whole and does not provide a separate symbolic description for the reversed image.",
+            "source": {
+              "sourceId": "waite-part-ii",
+              "section": "Part II, §2 — The Trumps Major and Their Inner Symbolism",
+              "entry": "21. The World"
+            },
+            "status": "source_verified"
+          }
+        }
+      },
+      "modernInterpretation": {
+        "upright": {
+          "summaryTh": "ประเมินสิ่งที่ทำสำเร็จแล้วและสิ่งที่ยังต้องปิดให้เรียบร้อย ก่อนเริ่มบทต่อไป.",
+          "summaryEn": "Assess what you have completed and what still needs closure before beginning the next stage.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        },
+        "reversed": {
+          "summaryTh": "ตรวจสอบว่าความยึดติดกับความคุ้นเคยหรือการหยุดอยู่กับที่กำลังขัดขวางการเปลี่ยนแปลงหรือไม่.",
+          "summaryEn": "Examine whether attachment to familiarity or staying in place is blocking change.",
+          "status": "draft",
+          "note": "Stillwater synthesis, not Waite's original meaning."
+        }
+      },
+      "veraNarrativeGuidance": {
+        "principles": [
+          "State the central point plainly and connect it to the user's actual question.",
+          "Be direct without shaming or inventing facts not supplied by the user.",
+          "Distinguish traditional source meaning, modern interpretation, and unknown facts.",
+          "Do not promise outcomes or assert another person's feelings as facts."
+        ],
+        "status": "draft"
+      },
+      "review": {
+        "traditionalMeanings": "pending_review",
+        "symbolism": "source_verified",
+        "modernInterpretation": "draft",
+        "sourceLinks": "source_verified",
+        "productionReady": false,
+        "openIssues": [
+          "Thai translations are editorial drafts and require human review."
+        ]
+      }
+    }
+  ],
+  "runtimeContract": {
+    "draw": {
+      "deckId": "major-arcana-22",
+      "drawWithoutReplacementWithinReading": true,
+      "orientationProbability": {
+        "upright": 0.5,
+        "reversed": 0.5
+      },
+      "orientationIsIndependentPerCard": true
+    },
+    "aiInput": [
+      "card.id",
+      "card.name.en",
+      "orientation",
+      "meaning[orientation].traditional",
+      "meaning[orientation].symbolism",
+      "modernInterpretation[orientation]",
+      "veraNarrativeGuidance"
+    ],
+    "rules": [
+      "The draw engine's orientation is authoritative; the model must not change it.",
+      "Use only the meaning object matching the drawn orientation.",
+      "Keep source-derived meanings separate from modern interpretation.",
+      "Do not assert third-party feelings, intentions, or future actions as facts without evidence.",
+      "If Waite does not supply a reversed meaning, mark the source gap and label any interpretation as modern synthesis.",
+      "Do not expose archaic source keyword lists as polished customer-facing readings without editorial transformation."
+    ]
+  },
+  "datasetReview": {
+    "cardCount": 22,
+    "meaningSets": 44,
+    "scope": "All 22 Major Arcana have upright and reversed data slots; source omissions are explicitly marked.",
+    "readyToConnectToRandomizer": false,
+    "reason": [
+      "Modern interpretations and narrative guidance are drafts, not approved production content.",
+      "Some Waite entries contain archaic terms or divergent readings.",
+      "The active app schema and tarot data-loading path must be inspected before integration.",
+      "Waite provides reversed entries for the 22 Major Arcana in Part III section 3, but some are qualified or offer alternative accounts that must be preserved accurately."
+    ],
+    "nextStep": "Review the Thai translations, modern interpretation drafts, and source-sensitive entries before any runtime mapping."
+  }
+}
