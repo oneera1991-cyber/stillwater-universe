@@ -1,0 +1,28 @@
+
+> stillwater@0.1.0 build
+> next build
+
+⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+  ▲ Next.js 14.2.35
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+Failed to compile.
+
+./lib/promptpay.ts:57:67
+Type error: This regular expression flag is only available when targeting 'es6' or later.
+
+[0m [90m 55 |[39m [36mfunction[39m nameKey(value[33m:[39m unknown)[33m:[39m string {[0m
+[0m [90m 56 |[39m   [36mreturn[39m [33mString[39m(value [33m||[39m [32m''[39m)[33m.[39mtoLowerCase()[0m
+[0m[31m[1m>[22m[39m[90m 57 |[39m     [33m.[39mreplace([35m/^(นาย|นาง|นางสาว|น\.ส\.|mr\.?|mrs\.?|ms\.?|miss)\s*/u[39m[33m,[39m [32m''[39m)[0m
+[0m [90m    |[39m                                                                   [31m[1m^[22m[39m[0m
+[0m [90m 58 |[39m     [33m.[39mreplace([35m/[\s.]+/g[39m[33m,[39m [32m' '[39m)[33m.[39mtrim()[0m
+[0m [90m 59 |[39m }[0m
+[0m [90m 60 |[39m[0m
+Next.js build worker exited with code: 1 and signal: null
