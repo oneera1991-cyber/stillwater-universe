@@ -1,0 +1,2 @@
+import { requestLoginCode, sendLoginCode } from '../_lib/membership.js';
+export default async function handler(req,res){if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});try{const b=typeof req.body==='object'&&req.body?req.body:JSON.parse(req.body||'{}');const out=await requestLoginCode(b.email);const delivery=await sendLoginCode(b.email,out.code);return res.json({ok:true,delivered:delivery.delivered,devCode:delivery.devCode});}catch(e){return res.status(400).json({ok:false,code:e?.message||'login_code_failed'});}}

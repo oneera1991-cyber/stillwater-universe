@@ -1,71 +1,52 @@
-const PRICE = 5900;
+/*
+POST /api/payment/create   Body: { order }   (order = signed token from /api/read)
+Response: { ok, flow: "slip"|"poll", paymentId, chargeId (legacy alias),
+            orderId, qr, qrPayload, amount, mode, payee: {th, en} | null }
+Errors:   { error (localized by the ORDER's lang), code }
 
-function keys() {
-  const publicKey = process.env.OMISE_PUBLIC_KEY;
-  const secretKey = process.env.OMISE_SECRET_KEY;
-  if (!publicKey || !secretKey) {
-    const error = new Error("ยังไม่ได้ตั้งค่า OMISE_PUBLIC_KEY / OMISE_SECRET_KEY ใน Vercel");
-    error.status = 500;
-    throw error;
-  }
-  return { publicKey, secretKey };
-}
-
-async function omise(path, key, body) {
-  const response = await fetch("https://api.omise.co" + path, {
-    method: "POST",
-    headers: {
-      Authorization: "Basic " + Buffer.from(key + ":").toString("base64"),
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: new URLSearchParams(body)
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    const error = new Error(data.message || "Omise error");
-    error.status = 502;
-    throw error;
-  }
-  return data;
-}
+Verifies the order token, then asks the active payment provider
+(api/_lib/payment.js) for a ฿59 PromptPay QR. No provider code here.
+*/
+import { OrderError, parseBody, verifyOrder } from "../_lib/order.js";
+import { PaymentError, createPayment, payeeNames } from "../_lib/payment.js";
+import { errorText } from "../../i18n/strings.js";
+import { cleanSid, deviceType, logEvent, orderColumns } from "../_lib/log.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
-
+  let lang = "th"; // until the order token is verified
+  const body = parseBody(req);
+  const t0 = Date.now();
+  let order = null;
+  const logQr = (extra) => logEvent("qr_created", { // fire-and-forget, log-only
+    ...(order ? orderColumns(order) : { lang }), card1: order ? order.card1 : "",
+    device: deviceType(req.headers?.["user-agent"]), sid: cleanSid(body.sid), latency_ms: Date.now() - t0, ...extra
+  });
   try {
-    const { publicKey, secretKey } = keys();
-    const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-    const source = await omise("/sources", publicKey, {
-      amount: String(PRICE),
-      currency: "THB",
-      type: "promptpay"
-    });
-    const charge = await omise("/charges", secretKey, {
-      amount: String(PRICE),
-      currency: "THB",
-      source: source.id,
-      description: "Stillwater 3 Cards",
-      metadata: JSON.stringify({
-        firstCard: String(body.firstCard?.id || "").slice(0, 80),
-        product: "STILLWATER_DEEPER_3"
-      })
-    });
-    const qr = charge.source?.scannable_code?.image?.download_uri || "";
-    if (!qr) {
-      return res.status(502).json({ error: "Omise ไม่ได้ส่ง QR กลับมา" });
-    }
+    order = verifyOrder(body.order);
+    lang = order.lang;
+    const p = await createPayment(order);
+    logQr({ result: "ok", reason_detail: p.mode === "test" ? "test" : "" });
     return res.status(200).json({
       ok: true,
-      chargeId: charge.id,
-      qr,
-      amount: 59,
-      mode: secretKey.includes("_test_") ? "test" : "live"
+      flow: p.flow,
+      paymentId: p.paymentId || null,
+      chargeId: p.paymentId || null, // legacy alias
+      orderId: order.orderId,
+      qr: p.qr || null,
+      qrPayload: p.qrPayload || null,
+      checkoutUrl: p.checkoutUrl || null,
+      amount: p.amount / 100,
+      mode: p.mode || "live",
+      payee: p.flow === "slip" ? payeeNames() : null // { th, en } receiving account name(s), or null
     });
   } catch (error) {
-    return res.status(error.status || 500).json({
-      error: error.message || "สร้างรายการชำระเงินไม่สำเร็จ"
-    });
+    const known = error instanceof OrderError || error instanceof PaymentError;
+    if (!known || error.status >= 500) console.error("Stillwater /api/payment/create error:", error.code || error);
+    const code = known && error.status < 500 ? error.code : "payment_create_failed";
+    logQr({ result: "failed", reason_detail: String(error?.code || error?.name || "error").slice(0, 60), http_status: known ? error.status : 500 });
+    return res.status(known ? error.status : 500).json({ error: errorText(lang, code), code });
   }
 }

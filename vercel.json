@@ -1,1 +1,21 @@
-{"version":2}
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/terms",
+      "destination": "/terms.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy.html"
+    }
+  ],
+  "functions": {
+    "api/read.js": {
+      "includeFiles": "api/_lib/card-meanings*.json"
+    },
+    "api/deeper.js": {
+      "includeFiles": "api/_lib/card-meanings*.json"
+    }
+  }
+}

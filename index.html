@@ -3,11 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04040d">
 <title>Stillwater</title>
 
+<!-- Thai: Noto Sans Thai (LOOPLESS, same family as the live site), self-hosted + preloaded
+     so a looped system fallback never shows. NOT "Noto Sans Thai Looped", NOT Sarabun. -->
+<link rel="preload" href="/fonts/noto-sans-thai-thai.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/noto-sans-thai-latin.woff2" as="font" type="font/woff2" crossorigin>
+<!-- Latin display: Cormorant Garamond (unchanged) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Noto+Sans+Thai:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap" rel="stylesheet">
+
+<script>
+/* Avoid a flash of Thai copy for English visitors before the module applies strings. */
+(function(){
+  var l = null;
+  try{ l = localStorage.getItem('stillwater.lang'); }catch(e){}
+  if(l !== 'th' && l !== 'en') l = /^th/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'th' : 'en';
+  document.documentElement.lang = l;
+  if(l !== 'th') document.documentElement.classList.add('lang-pending');
+})();
+</script>
 
 <!-- Vercel Analytics -->
 <script>
@@ -18,2950 +35,1825 @@ window.va = window.va || function () {
 <script defer src="/_vercel/insights/script.js"></script>
 
 <style>
-*,
-*::before,
-*::after{
-  box-sizing:border-box;
-  margin:0;
-  padding:0;
-}
+/* =========================================================
+   BASE — shared world (background, Vera, buttons).
+   Scene-specific styles are scoped under #scene-<id> below.
+   No global media queries restyle scenes.
+========================================================= */
+/* Noto Sans Thai — variable (wght 100–900), Google Fonts v29 files, OFL (fonts/OFL.txt).
+   font-display:block → short invisible period instead of a looped fallback. */
+@font-face{font-family:'Noto Sans Thai';font-style:normal;font-weight:100 900;font-display:block;
+  src:url(/fonts/noto-sans-thai-thai.woff2) format('woff2');
+  unicode-range:U+02D7,U+0303,U+0331,U+0E01-0E5B,U+200C-200D,U+25CC}
+@font-face{font-family:'Noto Sans Thai';font-style:normal;font-weight:100 900;font-display:block;
+  src:url(/fonts/noto-sans-thai-latin-ext.woff2) format('woff2');
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Noto Sans Thai';font-style:normal;font-weight:100 900;font-display:block;
+  src:url(/fonts/noto-sans-thai-latin.woff2) format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* Form controls don't inherit fonts by default → force the page stack (buttons, inputs, placeholders). */
+button,input,textarea,select{font-family:inherit}
+::placeholder{font-family:inherit}
 
 :root{
   --deep:#04040d;
-  --space:#08091a;
-  --indigo:#15133a;
-  --violet:#241747;
   --cream:#f5f0e6;
   --text:rgba(232,236,255,.94);
   --soft:rgba(205,214,244,.72);
   --line:rgba(190,202,255,.22);
-  --glow:rgba(150,175,255,.34);
-
-  --serif:'Cormorant Garamond',Georgia,serif;
-  --sans:'Noto Sans Thai',system-ui,sans-serif;
+  /* Fallbacks are LOOPLESS Thai system fonts only (no system-ui: it can pick a looped Thai face). */
+  --thai-fallback:'Noto Sans Thai UI','Leelawadee UI','Sukhumvit Set','Thonburi';
+  --sans:'Noto Sans Thai',var(--thai-fallback),sans-serif;
+  /* Latin in Cormorant (serif fallbacks as before); any Thai character in a serif element falls through to Noto Sans Thai. */
+  --serif:'Cormorant Garamond',Georgia,'Times New Roman','Noto Serif','Noto Sans Thai',var(--thai-fallback),serif;
+  --scene-fade:1s;
 }
 
-html,
-body{
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  background:var(--deep);
-  color:var(--text);
-  font-family:var(--sans);
-  font-weight:300;
+html,body{
+  width:100%;height:100%;overflow:hidden;
+  background:var(--deep);color:var(--text);
+  font-family:var(--sans);font-weight:300;
   -webkit-font-smoothing:antialiased;
 }
 
-body{
-  position:relative;
-}
-
-canvas{
-  position:fixed;
-  inset:0;
-  width:100%;
-  height:100%;
-  pointer-events:none;
-}
-
+canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 #cosmos{z-index:0}
 #water-canvas{z-index:1}
-
 .fog{
-  position:fixed;
-  inset:30% 0 15%;
-  z-index:2;
-  pointer-events:none;
-  background:
-    radial-gradient(
-      ellipse at center,
-      rgba(95,105,190,.14),
-      transparent 68%
-    );
+  position:fixed;inset:30% 0 15%;z-index:2;pointer-events:none;
+  background:radial-gradient(ellipse at center,rgba(95,105,190,.14),transparent 68%);
   filter:blur(28px);
 }
 
-/* SOUND */
-
-.sound-toggle{
-  position:fixed;
-  top:max(1rem,env(safe-area-inset-top));
-  right:max(1rem,env(safe-area-inset-right));
-  z-index:100;
-
-  border:1px solid var(--line);
-  border-radius:999px;
-
-  background:rgba(10,12,30,.48);
-  backdrop-filter:blur(10px);
-
-  color:var(--soft);
-  font:400 .68rem var(--sans);
-  letter-spacing:.1em;
-
-  padding:.5rem .8rem;
-
-  cursor:pointer;
-
-  opacity:0;
-  pointer-events:none;
-
-  transition:.4s;
-}
-
-.sound-toggle.visible{
-  opacity:1;
-  pointer-events:auto;
-}
-
-/* SCREENS */
-
-.screen{
-  position:fixed;
-  inset:0;
-  z-index:10;
-
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-
-  padding:2rem 1.5rem;
-
-  opacity:0;
-  visibility:hidden;
-  pointer-events:none;
-
-  transition:
-    opacity 1.2s ease,
-    visibility 1.2s;
-}
-
-.screen.active{
-  opacity:1;
-  visibility:visible;
-  pointer-events:auto;
-}
-
-.screen.leaving{
-  opacity:0;
-  visibility:visible;
-  pointer-events:none;
-}
-
-/* BUTTON */
-
-.btn{
-  font:400 .82rem var(--sans);
-  letter-spacing:.13em;
-
-  color:var(--text);
-
-  background:rgba(15,18,45,.12);
-
-  border:1px solid var(--line);
-  border-radius:999px;
-
-  padding:.9rem 2rem;
-
-  cursor:pointer;
-
-  backdrop-filter:blur(7px);
-
-  transition:.35s;
-}
-
-.btn:hover,
-.btn:focus-visible{
-  border-color:rgba(215,220,255,.55);
-  background:rgba(100,115,200,.12);
-  box-shadow:0 0 28px rgba(130,150,240,.16);
-  outline:none;
-}
-
-.btn:active{
-  transform:scale(.98);
-}
-
-.btn:disabled{
-  opacity:.45;
-  cursor:default;
-}
-
-/* PORTAL */
-
+/* Portal: zoom + fade only */
 .portal{
-  position:fixed;
-  inset:0;
-  z-index:60;
-
-  pointer-events:none;
-
-  opacity:0;
-
-  background:
-    radial-gradient(
-      circle,
-      rgba(110,130,235,.2),
-      rgba(35,40,100,.45) 40%,
-      #04040d 75%
-    );
-
+  position:fixed;inset:0;z-index:60;pointer-events:none;opacity:0;
+  background:radial-gradient(circle,rgba(110,130,235,.2),rgba(35,40,100,.45) 40%,#04040d 75%);
   transform:scale(1.12);
 }
-
-.portal.active{
-  animation:portal 2.7s ease forwards;
-}
-
+.portal.is-on{animation:portal 2.2s ease forwards}
 @keyframes portal{
   0%{opacity:0}
-  25%{opacity:.85}
-  55%{
-    opacity:1;
-    transform:scale(.98);
-  }
-  100%{
-    opacity:0;
-    transform:scale(1);
-  }
+  30%{opacity:.9}
+  55%{opacity:1;transform:scale(.98)}
+  100%{opacity:0;transform:scale(1)}
 }
 
-/* LANDING */
-
-.landing{
-  text-align:center;
-  max-width:29rem;
+.top-controls{
+  position:fixed;z-index:100;display:flex;gap:.5rem;align-items:center;
+  top:max(1rem,env(safe-area-inset-top));right:max(1rem,env(safe-area-inset-right));
 }
-
-.title{
-  font:300 clamp(1.4rem,5vw,1.8rem) var(--serif);
-  letter-spacing:.42em;
-  text-indent:.42em;
-
-  color:rgba(225,230,255,.88);
-
-  margin-bottom:2.7rem;
+.lang-toggle{
+  border:1px solid var(--line);border-radius:999px;
+  background:rgba(10,12,30,.48);backdrop-filter:blur(10px);
+  color:rgba(205,214,244,.45);font:400 .68rem var(--sans);letter-spacing:.1em;
+  padding:.5rem .75rem;cursor:pointer;
 }
-
-.landing-line{
-  font-size:clamp(.95rem,2.8vw,1.08rem);
-  line-height:2;
-
-  color:var(--soft);
-
-  white-space:pre-line;
-
-  margin-bottom:3rem;
+.lang-toggle .on{color:var(--text)}
+.lang-toggle .sep{margin:0 .3rem;opacity:.5}
+.lang-toggle:focus-visible{outline:none;border-color:rgba(215,220,255,.55)}
+[data-i18n]{white-space:pre-line}
+.sound-toggle{
+  border:1px solid var(--line);border-radius:999px;
+  background:rgba(10,12,30,.48);backdrop-filter:blur(10px);
+  color:var(--soft);font:400 .68rem var(--sans);letter-spacing:.1em;
+  padding:.5rem .8rem;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .4s;
 }
+.sound-toggle.is-on{opacity:1;pointer-events:auto}
 
-/* VERA */
-
-#screen-vera{
-  justify-content:flex-start;
-  overflow-x:hidden;
-  overflow-y:auto;
-
-  -webkit-overflow-scrolling:touch;
-
-  padding-bottom:max(3rem,env(safe-area-inset-bottom));
+.btn{
+  font:400 .86rem var(--sans);letter-spacing:.08em;color:var(--text);
+  background:rgba(15,18,45,.18);border:1px solid var(--line);border-radius:999px;
+  padding:.9rem 1.9rem;cursor:pointer;backdrop-filter:blur(7px);
+  transition:border-color .35s,background .35s,box-shadow .35s,opacity .35s;
 }
+.btn:hover,.btn:focus-visible{
+  border-color:rgba(215,220,255,.55);background:rgba(100,115,200,.14);
+  box-shadow:0 0 28px rgba(130,150,240,.16);outline:none;
+}
+.btn:disabled{opacity:.45;cursor:default}
+.btn-quiet{font-size:.74rem;padding:.65rem 1.2rem;opacity:.75}
 
+[hidden]{display:none!important}
+.lang-pending #vera-app,.lang-pending .top-controls{visibility:hidden}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---------- scene frame (one page, one scene visible at a time) ---------- */
+/* The SOUND / TH-EN controls live in a top band (--bar). Every scene scrolls only
+   BELOW that band, so headings and reading text can never slide under the
+   controls; the scroll edge fades softly (mask) instead of a hard cut. The
+   background is on <body>, so the band shows the same sky. */
+:root{--bar:calc(max(1rem,env(safe-area-inset-top)) + 2.6rem)}
 .scene{
-  position:relative;
-
-  width:100%;
-  max-width:420px;
-
-  height:min(38vh,280px);
-
-  flex-shrink:0;
+  position:fixed;inset:0;top:var(--bar);z-index:10;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 1.4rem);
+          mask-image:linear-gradient(to bottom,transparent 0,#000 1.4rem);
+  overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transform:scale(1.04);
+  transition:opacity var(--scene-fade) ease,transform var(--scene-fade) ease,visibility var(--scene-fade);
+}
+.scene.is-active{opacity:1;visibility:visible;pointer-events:auto;transform:scale(1)}
+.scene.is-leaving{opacity:0;visibility:visible;pointer-events:none;transform:scale(.97)}
+.scene-inner{
+  min-height:100%;width:100%;max-width:28rem;margin:0 auto;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;
+  padding:1.6rem 1.4rem max(3.6rem,env(safe-area-inset-bottom));
 }
 
-.vera{
-  position:absolute;
-
-  left:50%;
-  bottom:16%;
-
-  transform:translateX(-50%);
-
-  width:45px;
-  height:105px;
-
-  opacity:0;
-
-  transition:opacity 2s;
+/* ---------- Vera: ONE locked figure (symbol #vera-figure), reused ---------- */
+.stage{position:relative;width:100%;flex-shrink:0}
+.stage .vera{
+  position:absolute;left:50%;bottom:16%;transform:translateX(-50%);
+  opacity:.82;filter:drop-shadow(0 0 14px rgba(145,170,255,.4));
 }
-
-.vera.visible{
-  opacity:.82;
-}
-
-.vera svg{
-  width:100%;
-  height:100%;
-
-  filter:
-    drop-shadow(
-      0 0 14px
-      rgba(145,170,255,.4)
-    );
-}
-
-.water-glow{
-  position:absolute;
-
-  left:50%;
-  bottom:5%;
-
-  transform:translateX(-50%);
-
-  width:140px;
-  height:45px;
-
-  border-radius:50%;
-
-  background:
-    radial-gradient(
-      ellipse,
-      rgba(140,175,255,.24),
-      transparent 70%
-    );
-
+.stage .water-glow{
+  position:absolute;left:50%;bottom:5%;transform:translateX(-50%);
+  width:140px;height:45px;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(140,175,255,.24),transparent 70%);
   filter:blur(8px);
-
-  opacity:0;
-
-  transition:opacity 2s;
 }
 
-.water-glow.visible{
-  opacity:1;
+/* ---------- text line reveal ---------- */
+.ln{opacity:0;transition:opacity 1s ease}
+.ln.is-in{opacity:1}
+
+/* ---------- card flip (shared component) ---------- */
+.flip{perspective:1100px;aspect-ratio:2/3}
+.flip-inner{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform 1s ease}
+.flip.is-flipped .flip-inner{transform:rotateY(180deg)}
+.flip .face{
+  position:absolute;inset:0;border-radius:10px;overflow:hidden;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  border:1px solid rgba(245,240,230,.6);box-shadow:0 14px 45px rgba(0,0,20,.6);
+}
+.flip .face-front{transform:rotateY(180deg);background:#0e0c22}
+.flip .face-front img{width:100%;height:100%;object-fit:cover;display:block}
+.card-back{
+  background:
+    radial-gradient(circle at 50% 46%,rgba(220,230,255,.85) 0 2px,rgba(170,195,255,.35) 3px,transparent 18%),
+    radial-gradient(ellipse at 50% 70%,rgba(110,130,235,.22),transparent 60%),
+    linear-gradient(170deg,#191540,#0b0a24 60%,#070716);
+}
+.card-back::after{
+  content:"";position:absolute;inset:7px;border-radius:6px;
+  border:1px solid rgba(215,222,255,.22);
 }
 
-.question-light{
-  position:absolute;
-
-  left:50%;
-  top:25%;
-
-  width:8px;
-  height:8px;
-
-  border-radius:50%;
-
-  background:#fff;
-
-  box-shadow:
-    0 0 22px 9px
-    rgba(190,215,255,.5);
-
-  opacity:0;
+/* ---------- star rating (shared component; placed in #scene-first and #scene-full) ---------- */
+.rate{width:100%;margin-top:1.6rem;padding-top:1.1rem;border-top:1px solid rgba(190,202,255,.12);opacity:0;transition:opacity 1s ease}
+.rate.is-in{opacity:1}
+.rate .rate-title{font:400 .82rem var(--sans);letter-spacing:.06em;color:var(--cream)}
+.rate .rate-q{font-size:.76rem;color:var(--soft);margin:.25rem 0 .5rem}
+.rate .stars{display:flex;justify-content:center;gap:.35rem}
+.rate .star{
+  background:none;border:0;cursor:pointer;padding:.2rem .25rem;
+  font-size:1.55rem;line-height:1;color:rgba(205,214,244,.28);transition:color .3s,transform .3s,text-shadow .3s;
 }
+.rate .star.on{color:#f3dfa2;text-shadow:0 0 14px rgba(243,223,162,.45)}
+.rate .star:focus-visible{outline:1px solid rgba(215,220,255,.55);border-radius:6px}
+.rate .stars:not(.is-busy) .star:hover{transform:scale(1.12)}
+.rate .stars.is-busy{opacity:.6;pointer-events:none}
+.rate .rate-note{font-size:.74rem;color:var(--soft);min-height:1.1rem;margin-top:.35rem}
+.rm .rate{transition:opacity .2s}
 
-.question-light.sending{
-  animation:drop 2.2s ease-in forwards;
+
+/* Reduced motion: JS sets html.rm from prefers-reduced-motion */
+.rm .scene,.rm .scene.is-active,.rm .scene.is-leaving{transform:none;transition:opacity .25s,visibility .25s}
+.rm .flip-inner{transition:none}
+.rm .ln{transition:opacity .2s}
+.rm .portal.is-on{animation:none}
+
+/* =========================================================
+   #scene-window — The Window
+========================================================= */
+#scene-window .stage{height:min(34vh,250px)}
+#scene-window .vera{width:45px;height:105px}
+#scene-window .title{
+  font:300 1.6rem var(--serif);letter-spacing:.42em;text-indent:.42em;
+  color:rgba(225,230,255,.88);margin:1.2rem 0 1.6rem;
 }
+#scene-window .lead{font-size:1rem;line-height:2;color:var(--soft);margin-bottom:2.2rem}
 
-@keyframes drop{
-  0%{
-    opacity:0;
-    top:18%;
-    transform:translateX(-50%) scale(.4);
-  }
-
-  15%{
-    opacity:1;
-    transform:translateX(-50%) scale(1.2);
-  }
-
-  62%{
-    opacity:.9;
-    top:72%;
-  }
-
-  85%{
-    opacity:.35;
-    top:84%;
-    transform:translateX(-50%) scale(2.8);
-    filter:blur(4px);
-  }
-
-  100%{
-    opacity:0;
-    top:90%;
-    transform:translateX(-50%) scale(4);
-    filter:blur(10px);
-  }
+/* =========================================================
+   #scene-question — The Question
+========================================================= */
+#scene-question .stage{height:150px}
+#scene-question .vera{width:35px;height:82px}
+#scene-question form{width:100%}
+#scene-question h2{font:400 1.2rem var(--sans);margin:.6rem 0 1.1rem}
+#scene-question .note{
+  font-size:.86rem;line-height:1.85;color:var(--cream);
+  border:1px solid rgba(245,240,230,.25);border-radius:12px;
+  background:rgba(30,26,60,.45);padding:.8rem 1rem;margin-bottom:1rem;
 }
-
-/* DIALOGUE */
-
-.dialogue{
-  width:100%;
-  max-width:27rem;
-
-  text-align:center;
-
-  min-height:4rem;
+#scene-question .input{
+  width:100%;resize:none;border-radius:12px;border:1px solid var(--line);
+  background:rgba(12,16,38,.58);color:var(--text);padding:.95rem 1rem;
+  font:300 1rem/1.65 var(--sans);outline:none;backdrop-filter:blur(8px);
 }
+#scene-question .input:focus{border-color:rgba(190,205,255,.48);box-shadow:0 0 0 2px rgba(140,160,230,.16)}
+#scene-question #questionInput{min-height:6rem}
+#scene-question #contextInput{min-height:4rem;font-size:.92rem}
+#scene-question .label{display:block;text-align:left;font-size:.78rem;color:var(--soft);margin:1rem 0 .45rem}
+#scene-question .rule{font-size:.76rem;line-height:1.8;color:var(--soft);margin:1rem 0 .2rem}
+#scene-question .btn{margin-top:1rem}
 
-.line{
-  font-size:clamp(.94rem,2.6vw,1.05rem);
-  line-height:1.9;
+/* =========================================================
+   #scene-draw — The Draw
+========================================================= */
+#scene-draw .stage{height:120px}
+#scene-draw .vera{width:32px;height:74px}
+#scene-draw .wait{font-size:.95rem;line-height:1.95;color:var(--soft);margin:.4rem 0 1.4rem}
+#scene-draw .flip{width:min(200px,54vw)}
+#scene-draw .flip img{height:100%}
+#scene-draw .flip:not(.is-flipped) .face-back{animation:breathe 3.2s ease-in-out infinite}
+@keyframes breathe{50%{box-shadow:0 0 38px rgba(150,175,255,.28)}}
+.rm #scene-draw .flip .face-back{animation:none}
+#scene-draw .card-name{font:400 1.3rem var(--serif);letter-spacing:.08em;margin-top:1.1rem;min-height:1.8rem}
+#scene-draw .error{font-size:.88rem;line-height:1.9;color:rgba(255,200,200,.88);margin-top:1rem}
 
-  color:var(--soft);
-
-  opacity:0;
-
-  transition:opacity 1.1s;
-
-  margin-bottom:.7rem;
+/* =========================================================
+   #scene-first — The First Answer
+========================================================= */
+#scene-first .stage{height:96px}
+#scene-first .vera{width:26px;height:60px}
+#scene-first .say{font:400 1.14rem/1.7 var(--sans);color:var(--cream);margin:0 0 1rem;letter-spacing:.01em}
+#scene-first .card-row{display:flex;flex-direction:column;align-items:center;margin-bottom:.8rem}
+#scene-first .card-img{
+  width:min(150px,40vw);height:auto;aspect-ratio:2/3;object-fit:cover;border-radius:10px;
+  border:1px solid rgba(245,240,230,.6);box-shadow:0 14px 45px rgba(0,0,20,.6);
 }
+#scene-first .card-name{font:400 1.25rem var(--serif);letter-spacing:.08em;margin-top:.8rem}
+#scene-first .answer{margin:.6rem 0 1.4rem}
+#scene-first .answer .ln{font-size:1rem;line-height:1.95;color:var(--text);margin-bottom:.35rem}
+#scene-first .invite{border-top:1px solid var(--line);padding-top:1.3rem;width:100%}
+#scene-first .invite .ln{font-size:.88rem;line-height:1.95;color:var(--soft)}
+#scene-first .invite .btn{margin-top:1.2rem}
 
-.line.visible{
-  opacity:1;
+/* =========================================================
+   #scene-offering — The Offering (locked ฿59)
+========================================================= */
+#scene-offering .stage{height:110px}
+#scene-offering .vera{width:30px;height:70px}
+#scene-offering h2{font:400 1.2rem var(--sans);line-height:1.7;margin:.3rem 0 .7rem}
+#scene-offering .copy{font-size:.9rem;line-height:1.95;color:var(--soft)}
+#scene-offering .ppf{font:400 .95rem var(--serif);letter-spacing:.2em;color:var(--soft);margin:.6rem 0 1rem}
+#scene-offering .locked{display:flex;gap:.7rem;justify-content:center;margin-bottom:1rem}
+#scene-offering .locked figure{width:min(84px,24vw)}
+#scene-offering .locked .card-back{
+  position:relative;aspect-ratio:2/3;border-radius:8px;border:1px solid rgba(245,240,230,.4);opacity:.75;
 }
-
-/* FORM */
-
-.form{
-  width:100%;
-  max-width:27rem;
-
-  margin-top:2rem;
-
-  opacity:0;
-
-  transform:translateY(12px);
-
-  pointer-events:none;
-
-  transition:1s;
+#scene-offering .locked svg{position:absolute;left:50%;top:50%;width:18px;height:18px;transform:translate(-50%,-50%);opacity:.85}
+#scene-offering .locked figcaption{font-size:.7rem;color:var(--soft);margin-top:.4rem}
+#scene-offering .pay-card{
+  width:100%;border:1px solid var(--line);border-radius:18px;
+  background:rgba(10,13,32,.5);backdrop-filter:blur(10px);padding:1.3rem 1rem;
 }
-
-.form.visible{
-  opacity:1;
-  transform:none;
-  pointer-events:auto;
-}
-
-.label{
-  display:block;
-
-  font-size:.8rem;
-
-  color:var(--soft);
-
-  margin-bottom:.7rem;
-}
-
-.input{
-  width:100%;
-  min-height:5.5rem;
-
-  resize:none;
-
-  border-radius:12px;
-
-  border:1px solid var(--line);
-
-  background:rgba(12,16,38,.58);
-
-  color:var(--text);
-
-  padding:1rem;
-
-  font:300 1rem/1.65 var(--sans);
-
-  outline:none;
-
-  backdrop-filter:blur(8px);
-}
-
-.input:focus{
-  border-color:rgba(190,205,255,.48);
-
-  box-shadow:
-    0 0 0 2px
-    rgba(140,160,230,.16);
-}
-
-.intention{
-  text-align:center;
-
-  color:var(--soft);
-
-  font-size:.77rem;
-
-  line-height:1.9;
-
-  margin-top:1.25rem;
-}
-
-.intention strong{
-  display:block;
-
-  color:var(--text);
-
-  font-weight:400;
-
-  margin-bottom:.25rem;
-}
-
-.submit{
-  display:block;
-  margin:1.15rem auto 0;
-}
-
-/* READING */
-
-.reading-wrap{
-  width:100%;
-  max-width:29rem;
-
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-
-  overflow-y:auto;
-
-  max-height:100%;
-
-  padding:1rem 0 2.5rem;
-
-  -webkit-overflow-scrolling:touch;
-}
-
-.reading-intro{
-  text-align:center;
-
-  color:var(--soft);
-
-  font-size:.92rem;
-
-  line-height:1.9;
-
-  opacity:0;
-
-  transition:opacity 1.1s;
-}
-
-.reading-intro.visible{
-  opacity:1;
-}
-
-.ritual-sub{
-  display:inline-block;
-
-  margin-top:.6rem;
-
-  font-size:.77rem;
-
-  color:var(--soft);
-}
-
-.card-shell{
-  width:min(220px,58vw);
-
-  aspect-ratio:2/3;
-
-  margin:1.2rem 0 1.8rem;
-
-  opacity:0;
-
-  transform:
-    translateY(20px)
-    scale(.92);
-
-  transition:1.4s;
-}
-
-.card-shell.revealed{
-  opacity:1;
-
-  transform:
-    translateY(0)
-    scale(1);
-}
-
-.card-face{
-  width:100%;
-  height:100%;
-
-  border:1px solid rgba(245,240,230,.7);
-
-  border-radius:10px;
-
-  overflow:hidden;
-
-  box-shadow:
-    0 14px 45px
-    rgba(0,0,20,.6);
-
-  background:#0e0c22;
-}
-
-.card-image{
-  width:100%;
-  height:100%;
-
-  display:block;
-
-  object-fit:cover;
-}
-
-.reading-text{
-  font-size:clamp(.9rem,2.5vw,1rem);
-
-  line-height:1.95;
-
-  color:var(--soft);
-
-  text-align:center;
-
-  opacity:0;
-
-  transition:opacity 1.3s;
-
-  padding:0 .3rem;
-}
-
-.reading-text.visible{
-  opacity:1;
-}
-
-/* INVITATION */
-
-.invitation{
-  width:100%;
-  max-width:28rem;
-
-  text-align:center;
-
-  margin-top:1.6rem;
-
-  padding:1.7rem 1rem 1rem;
-
-  opacity:0;
-
-  transform:translateY(12px);
-
-  transition:1.2s;
-
-  pointer-events:none;
-}
-
-.invitation.visible{
-  opacity:1;
-  transform:none;
-  pointer-events:auto;
-}
-
-.invitation-lights{
-  height:38px;
-
-  display:flex;
-
-  justify-content:center;
-
-  gap:18px;
-
-  margin-bottom:1.1rem;
-}
-
-.inv-light{
-  width:5px;
-  height:5px;
-
-  border-radius:50%;
-
-  background:rgba(235,240,255,.95);
-
-  box-shadow:
-    0 0 14px 5px
-    rgba(180,205,255,.55);
-
-  opacity:0;
-
-  transform:scale(.2);
-}
-
-.inv-light.show{
-  animation:starpoint 1.2s ease forwards;
-}
-
-.inv-light:nth-child(2).show{
-  animation-delay:.65s;
-}
-
-.inv-light:nth-child(3).show{
-  animation-delay:1.3s;
-}
-
-@keyframes starpoint{
-  0%{
-    opacity:0;
-    transform:scale(.2);
-  }
-
-  45%{
-    opacity:1;
-    transform:scale(1.5);
-  }
-
-  100%{
-    opacity:.85;
-    transform:scale(1);
-  }
-}
-
-.invitation h2{
-  font:400 1.25rem var(--serif);
-
-  color:var(--text);
-
-  margin-bottom:1rem;
-}
-
-.invitation p{
-  font-size:.88rem;
-
-  line-height:2;
-
-  color:var(--soft);
-
-  margin-bottom:1rem;
-}
-
-.deeper{
-  margin-top:.4rem;
-
-  padding:1rem 2.3rem;
-
-  font-size:.8rem;
-}
-
-/* PAYMENT */
-
-.payment-wrap{
-  width:100%;
-  max-width:28rem;
-
-  text-align:center;
-
-  overflow-y:auto;
-
-  padding:1rem 0 2rem;
-}
-
-.payment-kicker{
-  font:300 1rem var(--serif);
-
-  letter-spacing:.12em;
-
-  color:var(--soft);
-
-  margin-bottom:1.3rem;
-}
-
-.payment-title{
-  font:400 1.45rem var(--sans);
-
-  margin-bottom:1rem;
-}
-
-.payment-copy{
-  font-size:.86rem;
-
-  line-height:2;
-
-  color:var(--soft);
-
-  margin-bottom:1.4rem;
-}
-
-.price{
-  font:400 2rem var(--sans);
-
-  color:var(--cream);
-
-  margin:.5rem 0 1.4rem;
-}
-
-.payment-card{
-  border:1px solid var(--line);
-
-  border-radius:18px;
-
-  background:rgba(10,13,32,.48);
-
-  backdrop-filter:blur(10px);
-
-  padding:1.5rem 1.1rem;
-}
-
-.payment-status{
-  font-size:.78rem;
-
-  line-height:1.8;
-
-  color:var(--soft);
-
-  min-height:2rem;
-
-  margin-top:1rem;
-}
-
-.payment-error{
-  color:rgba(255,190,190,.85);
-}
-
-.payment-small{
-  font-size:.68rem;
-
-  color:rgba(190,200,225,.48);
-
-  line-height:1.7;
-
-  margin-top:1rem;
-}
-
-.back-btn{
-  margin-top:1rem;
-
-  font-size:.72rem;
-
-  padding:.65rem 1.2rem;
-
-  opacity:.75;
-}
-
-@media(max-width:800px){
-
-  #screen-vera{
-    min-height:100dvh;
-    height:100dvh;
-  }
-
-  #screen-vera .scene{
-    height:min(31vh,220px);
-  }
-
-  .vera{
-    height:80px;
-    width:35px;
-  }
-}
-
-@media(max-height:700px){
-
-  #screen-vera .scene{
-    height:180px;
-  }
-
-  .title{
-    margin-bottom:1.7rem;
-  }
-
-  .landing-line{
-    margin-bottom:2rem;
-  }
-}
-
-@media(prefers-reduced-motion:reduce){
-
-  *,
-  *::before,
-  *::after{
-    animation-duration:.01ms!important;
-    transition-duration:.2s!important;
-  }
-}
+#scene-offering .price{font:400 2rem var(--sans);color:var(--cream);margin-bottom:.6rem}
+#scene-offering .qr{display:block;width:220px;max-width:70vw;margin:1rem auto 0;background:#fff;padding:8px;border-radius:8px}
+#scene-offering .qr-payload{display:block;margin:1rem auto 0;font-size:.62rem;word-break:break-all;color:var(--soft)}
+#scene-offering .status{font-size:.8rem;line-height:1.8;color:var(--soft);min-height:1.6rem;margin-top:.9rem}
+#scene-offering .status.is-error{color:rgba(255,190,190,.88)}
+#scene-offering .small{font-size:.7rem;line-height:1.7;color:rgba(190,200,225,.55);margin-top:.6rem}
+#scene-offering .btn-quiet{margin-top:1rem}
+#scene-offering .payee{font-size:.82rem;line-height:1.7;color:var(--soft);margin-top:.7rem}
+#scene-offering .hint{font-size:.82rem;line-height:1.85;color:var(--soft);margin-top:.9rem}
+#scene-offering .qr-actions{display:flex;justify-content:center;margin-top:.2rem}
+#scene-offering .qr-actions .btn-quiet{margin-top:.6rem;text-decoration:none;display:inline-block}
+#scene-offering .slip{border-top:1px solid var(--line);margin-top:1.1rem;padding-top:1.1rem}
+#scene-offering .slip-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#scene-offering .slip-pick{display:inline-block}
+#scene-offering .slip-pick.is-busy{opacity:.45;pointer-events:none}
+#scene-offering .slip-preview{display:block;max-width:150px;max-height:200px;margin:1rem auto 0;border-radius:8px;border:1px solid var(--line);object-fit:contain}
+#scene-offering .slip-preview.is-checking{animation:slipcheck 1.6s ease-in-out infinite}
+@keyframes slipcheck{50%{opacity:.55}}
+.rm #scene-offering .slip-preview.is-checking{animation:none;opacity:.7}
+#scene-offering .status.is-calm{color:var(--cream)}
+#scene-offering .status.is-ok{color:rgba(190,240,215,.95)}
+
+/* =========================================================
+   #scene-full — The Full Reading
+========================================================= */
+#scene-full .stage{height:96px}
+#scene-full .vera{width:26px;height:60px}
+#scene-full .intro{font-size:.92rem;line-height:1.9;color:var(--soft);margin-bottom:1rem}
+#scene-full .story{width:100%}
+/* one section per card: heading, card, name, reading; a soft glow divider before the next card */
+#scene-full .chapter{display:flex;flex-direction:column;align-items:center;width:100%;margin-bottom:1.4rem;opacity:0;transform:translateY(14px) scale(.985);transition:opacity .9s ease,transform .9s ease}
+#scene-full .chapter.is-in{opacity:1;transform:none}
+.rm #scene-full .chapter{transform:none}
+#scene-full .glow-divider{width:72%;height:1px;margin:.4rem auto 2rem;border:0;
+  background:linear-gradient(90deg,transparent,rgba(235,220,180,.55),transparent);
+  box-shadow:0 0 14px 1px rgba(235,220,180,.22)}
+#scene-full .chapter .say{font:400 1.14rem/1.7 var(--sans);color:var(--cream);margin:0 0 1rem;letter-spacing:.01em}
+#scene-full .chapter .flip{width:min(190px,50vw);transition:filter .8s ease}
+#scene-full .chapter .flip img{height:100%}
+/* the card being read glows softly; earlier cards rest */
+#scene-full .chapter.is-current .flip{filter:drop-shadow(0 0 18px rgba(235,220,180,.28))}
+#scene-full .chapter:not(.is-current) .flip{filter:brightness(.86)}
+#scene-full .chapter .name{font:400 1.2rem var(--serif);letter-spacing:.08em;margin-top:.8rem;min-height:1.6rem}
+#scene-full .chapter .reading{width:100%;text-align:left;margin-top:.7rem}
+#scene-full .chapter .reading .ln{font-size:1rem;line-height:1.95;color:var(--text);margin-bottom:.55rem}
+#scene-full #btnNextCard{margin:.2rem 0 1.6rem}
+/* ending — the weightiest moment */
+#scene-full .ending{width:100%;margin-top:.4rem}
+#scene-full .ending .say{font:400 1.18rem/1.7 var(--sans);color:var(--cream);margin:0 0 1rem}
+#scene-full .ending .overview .ln{font-size:1rem;line-height:1.95;color:var(--text);margin-bottom:.55rem;text-align:left}
+#scene-full .ending .words{margin:1.2rem 0 .4rem}
+#scene-full .ending .words .ln{font-size:1.04rem;line-height:1.95;color:var(--cream)}
+#scene-full .ending .thanks{font-size:.95rem;line-height:1.9;color:var(--soft);margin-top:1.1rem}
+#scene-full .ending .return{font-size:.95rem;line-height:1.9;color:var(--soft);margin-top:.3rem}
+#scene-full .actions{display:flex;flex-direction:column;align-items:center;gap:.7rem;margin-top:1rem;width:100%}
+#scene-full .final-actions{width:100%;display:flex;flex-direction:column;align-items:center;gap:.7rem;margin-top:1.6rem;padding-top:1.6rem;border-top:1px solid var(--line)}
+#scene-full .share-note{font-size:.76rem;color:var(--soft);min-height:1.2rem;word-break:break-all;margin:0}
+#scene-full .error{font-size:.88rem;line-height:1.9;color:rgba(255,200,200,.88);margin:1rem 0}
+
+/* =========================================================
+   #scene-safety — calm screen, no CTA
+========================================================= */
+#scene-safety .stage{height:150px}
+#scene-safety .vera{width:35px;height:82px}
+#scene-safety .msg .ln{font-size:.96rem;line-height:2;color:var(--text);margin-bottom:1rem}
+#scene-safety a{color:var(--cream);text-underline-offset:3px}
+
+#membershipPanel{border-top:1px solid var(--line);margin-top:1.2rem;padding-top:1.2rem}
+#membershipPanel .member-fields{display:grid;gap:.65rem;margin:.8rem 0}
+#membershipPanel input{width:100%;box-sizing:border-box;background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--cream);border-radius:8px;padding:.75rem;font:inherit}
+#membershipPanel .member-note{font-size:.75rem;line-height:1.7;color:var(--soft);margin:.5rem 0}
+#membershipPanel .member-status{font-size:.8rem;line-height:1.7;min-height:1.4rem;color:var(--soft)}
+#membershipPanel .member-status.is-error{color:rgba(255,190,190,.88)}
+#membershipPanel .member-status.is-ok{color:rgba(190,240,215,.95)}
 </style>
 </head>
 
 <body>
 
-<canvas id="cosmos"></canvas>
-<canvas id="water-canvas"></canvas>
-
+<canvas class="world" id="cosmos"></canvas>
+<canvas class="world" id="water-canvas"></canvas>
 <div class="fog"></div>
-
 <div class="portal" id="portal"></div>
 
-<button
-  class="sound-toggle"
-  id="soundToggle"
-  type="button"
-  aria-pressed="false">
-  SOUND OFF
-</button>
+<div class="top-controls">
+  <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="false" data-i18n="ui.soundOff">SOUND OFF</button>
+  <button class="lang-toggle" id="langToggle" type="button" data-i18n-aria-label="ui.langToggleLabel" aria-label="เปลี่ยนภาษา / Change language"><span data-l="th">TH</span><span class="sep">/</span><span data-l="en">EN</span></button>
+</div>
 
-<!-- LANDING -->
+<!-- The ONE locked Vera figure (same artwork as the live page). Every scene <use>s it. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="vera-figure" viewBox="0 0 48 110">
+    <ellipse cx="24" cy="14" rx="7" ry="8" fill="rgba(190,200,235,.55)"/>
+    <path d="M24 22C18 28 14 40 15 55C16 70 18 85 20 98H28C30 85 32 70 33 55C34 40 30 28 24 22Z" fill="rgba(170,185,230,.35)"/>
+    <path d="M15 38C8 42 5 50 6 58C8 55 12 52 16 50M33 38C40 42 43 50 42 58C40 55 36 52 32 50" stroke="rgba(180,195,240,.25)" stroke-width="1.5"/>
+    <path d="M16 70Q24 78 32 70Q34 88 28 100Q24 104 20 100Q14 88 16 70Z" fill="rgba(140,160,220,.2)"/>
+    <ellipse cx="24" cy="105" rx="14" ry="3" fill="rgba(140,170,255,.12)"/>
+  </symbol>
+</svg>
 
-<section
-  class="screen active"
-  id="screen-landing">
+<main id="vera-app">
 
-  <div class="landing">
-
-    <h1 class="title">
-      Stillwater
-    </h1>
-
-    <p class="landing-line">บางคำตอบไม่ได้หายไปไหน
-เราแค่ยังไม่ได้หยุดฟัง</p>
-
-    <button
-      class="btn"
-      id="btnEnter"
-      type="button">
-      ENTER
-    </button>
-
+<!-- 1. THE WINDOW -->
+<section class="scene is-active" id="scene-window" aria-label="Stillwater">
+  <div class="scene-inner">
+    <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
+    <h1 class="title">Stillwater</h1>
+    <div class="lead" id="windowLines" data-i18n-lines="window.lines"></div>
+    <button class="btn" id="btnEnter" type="button" data-i18n="window.enter">พร้อมส่งคำถาม</button>
   </div>
-
 </section>
 
-<!-- VERA -->
-
-<section
-  class="screen"
-  id="screen-vera">
-
-  <div
-    class="scene"
-    aria-hidden="true">
-
-    <div
-      class="water-glow"
-      id="waterGlow">
-    </div>
-
-    <div
-      class="vera"
-      id="veraFigure">
-
-      <svg
-        viewBox="0 0 48 110"
-        fill="none">
-
-        <ellipse
-          cx="24"
-          cy="14"
-          rx="7"
-          ry="8"
-          fill="rgba(190,200,235,.55)"/>
-
-        <path
-          d="M24 22C18 28 14 40 15 55C16 70 18 85 20 98H28C30 85 32 70 33 55C34 40 30 28 24 22Z"
-          fill="rgba(170,185,230,.35)"/>
-
-        <path
-          d="M15 38C8 42 5 50 6 58C8 55 12 52 16 50M33 38C40 42 43 50 42 58C40 55 36 52 32 50"
-          stroke="rgba(180,195,240,.25)"
-          stroke-width="1.5"/>
-
-        <path
-          d="M16 70Q24 78 32 70Q34 88 28 100Q24 104 20 100Q14 88 16 70Z"
-          fill="rgba(140,160,220,.2)"/>
-
-        <ellipse
-          cx="24"
-          cy="105"
-          rx="14"
-          ry="3"
-          fill="rgba(140,170,255,.12)"/>
-
-      </svg>
-
-    </div>
-
-    <div
-      class="question-light"
-      id="questionLight">
-    </div>
-
+<!-- 2. THE QUESTION -->
+<section class="scene" id="scene-question" aria-labelledby="questionTitle" hidden>
+  <div class="scene-inner">
+    <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
+    <form id="questionForm" autocomplete="off" novalidate>
+      <h2 id="questionTitle" data-i18n="question.title">มีเรื่องอะไรที่ยังค้างอยู่ในใจ?</h2>
+      <p class="note" id="rewriteNote" role="alert" hidden></p>
+      <label class="sr-only" for="questionInput" data-i18n="question.label">คำถามของคุณ</label>
+      <textarea class="input" id="questionInput" maxlength="500" rows="3" placeholder="พิมพ์คำถามที่คุณอยากรู้ที่สุด..." data-i18n-placeholder="question.placeholder" required></textarea>
+      <label class="label" for="contextInput" data-i18n="question.contextLabel">เล่าเพิ่มอีกนิด (ไม่ต้องก็ได้)</label>
+      <textarea class="input" id="contextInput" maxlength="1200" rows="2" placeholder="เช่น เรื่องนี้เริ่มเมื่อไร ตอนนี้รู้สึกอย่างไร" data-i18n-placeholder="question.contextPlaceholder"></textarea>
+      <p class="rule" data-i18n="question.rule">พี่เวรายังไม่รับคำถามเรื่องสุขภาพ กฎหมาย
+และเรื่องเงินก้อนใหญ่นะคะ</p>
+      <button class="btn" id="btnAsk" type="submit" data-i18n="question.submit">พร้อมรับคำตอบ</button>
+    </form>
   </div>
-
-  <div class="dialogue">
-
-    <p
-      class="line"
-      id="line1">
-      หากคุณกำลังมีคำถามที่อยากให้จักรวาลช่วยตอบ
-    </p>
-
-    <p
-      class="line"
-      id="line2">
-      พี่เวราจะช่วยรับคำถามของคุณไว้<br>
-      แล้วขอให้พลังงานของจักรวาล<br>
-      นำคำตอบที่เหมาะกับคุณกลับมา
-    </p>
-
-  </div>
-
-  <form
-    class="form"
-    id="questionForm"
-    autocomplete="off">
-
-    <label
-      class="label"
-      for="questionInput">
-      คุณอยากถามอะไร?
-    </label>
-
-    <textarea
-      class="input"
-      id="questionInput"
-      maxlength="500"
-      rows="3"
-      placeholder="เขียนคำถามของคุณที่นี่…"
-      required></textarea>
-
-    <div class="intention">
-
-      <strong>ก่อนส่งคำถาม</strong>
-
-      หลับตาสักครู่<br>
-      หายใจเข้าช้า ๆ แล้วนึกถึงสิ่งที่คุณอยากรู้<br>
-      เมื่อพร้อมแล้ว<br>
-      ตั้งจิตให้ชัด แล้วฝากคำถามนี้ไว้กับ Stillwater
-
-    </div>
-
-    <button
-      class="btn submit"
-      type="submit">
-      พร้อมรับคำตอบแล้ว
-    </button>
-
-  </form>
-
 </section>
 
-<!-- READING -->
-
-<section
-  class="screen"
-  id="screen-reading">
-
-  <div class="reading-wrap">
-
-    <p
-      class="reading-intro"
-      id="readingIntro">
-
-      พี่เวราจะลองขอคำตอบจากจักรวาลให้คุณนะคะ…<br>
-
-      <span class="ritual-sub">
-        คำถามของคุณถูกฝากไว้แล้ว<br>
-        ตอนนี้ลองปล่อยให้คำตอบเดินทางมาหาคุณ
-      </span>
-
-    </p>
-
-    <div
-      class="card-shell"
-      id="cardShell">
-
-      <div class="card-face">
-
-        <img
-          class="card-image"
-          id="cardImage"
-          alt=""
-          width="780"
-          height="1170">
-
+<!-- 3. THE DRAW -->
+<section class="scene" id="scene-draw" aria-live="polite" hidden>
+  <div class="scene-inner">
+    <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
+    <div class="wait" id="drawLines" data-i18n-lines="draw.lines"></div>
+    <div class="flip" id="drawFlip">
+      <div class="flip-inner">
+        <div class="face face-back card-back"></div>
+        <div class="face face-front"><img id="drawImage" alt="" width="780" height="1170"></div>
       </div>
-
     </div>
-
-    <p
-      class="reading-text"
-      id="readingText">
-    </p>
-
-    <!-- STILLWATER INVITATION -->
-
-    <div
-      class="invitation"
-      id="invitation">
-
-      <div
-        class="invitation-lights"
-        aria-hidden="true">
-
-        <span class="inv-light"></span>
-        <span class="inv-light"></span>
-        <span class="inv-light"></span>
-
-      </div>
-
-      <h2>
-        คำตอบแรกคือสิ่งที่คุณควรรู้
-      </h2>
-
-      <p>
-        แต่บางครั้ง...<br>
-        คำตอบหนึ่งใบไม่ได้เล่าเรื่องทั้งหมด
-      </p>
-
-      <p>
-        พี่เวรายังสามารถถามต่อได้อีกครั้ง<br>
-        และครั้งนี้จะเปิดไพ่เพิ่ม 3 ใบ<br>
-        เพื่อดูสิ่งที่อยู่เบื้องหลังคำตอบแรก
-      </p>
-
-      <button
-        class="btn deeper"
-        id="btnDeeper"
-        type="button">
-
-        เปิดไพ่เพิ่ม 3 ใบ
-
-      </button>
-
+    <p class="card-name" id="drawName"></p>
+    <div id="drawError" hidden>
+      <p class="error" id="drawErrorText"></p>
+      <button class="btn btn-quiet" id="btnDrawBack" type="button" data-i18n="draw.back">กลับไปที่คำถาม</button>
     </div>
-
   </div>
-
 </section>
 
-<!-- PAYMENT -->
-
-<section
-  class="screen"
-  id="screen-payment">
-
-  <div class="payment-wrap">
-
-    <p class="payment-kicker">
-      STILLWATER
-    </p>
-
-    <h2 class="payment-title">
-      คำตอบยังมีอีกชั้นหนึ่ง
-    </h2>
-
-    <p class="payment-copy">
-      คุณกำลังจะเปิดไพ่เพิ่มอีก 3 ใบ<br>
-      พร้อมคำอ่านแบบเจาะลึกสำหรับคำถามของคุณ
-    </p>
-
-    <div class="payment-card">
-
-      <div class="price">
-        59 บาท
-      </div>
-
-      <button
-        class="btn"
-        id="btnPay"
-        type="button">
-
-        เข้าสู่การชำระเงิน
-
-      </button>
-
-      <img id="payQr" alt="" hidden style="width:220px;margin:1rem auto;display:none;background:#fff;padding:8px;border-radius:8px">
-
-      <p
-        class="payment-status"
-        id="paymentStatus">
-      </p>
-
-      <p class="payment-small">
-        เมื่อชำระเงินสำเร็จ Stillwater จะพาคุณกลับเข้าสู่ Ceremony เพื่อเปิดไพ่ต่อ
-      </p>
-
+<!-- 4. THE FIRST ANSWER -->
+<section class="scene" id="scene-first" hidden>
+  <div class="scene-inner">
+    <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
+    <h2 class="say" id="firstHeading" data-i18n="first.heading">ไพ่ใบนี้มีบางอย่างอยากบอกคุณ</h2>
+    <div class="card-row">
+      <img class="card-img" id="firstImage" alt="" width="780" height="1170">
+      <h2 class="card-name" id="firstName"></h2>
     </div>
-
-    <button
-      class="btn back-btn"
-      id="btnBackReading"
-      type="button">
-
-      กลับไปดูคำตอบเดิม
-
-    </button>
-
+    <div class="answer" id="firstLines"></div>
+    <div class="invite" id="firstInvite">
+      <div data-i18n-lines="first.invite"></div>
+      <button class="btn ln" id="btnToOffer" type="button" data-i18n="first.next">ให้พี่ถามต่อ</button>
+    </div>
+    <!-- optional free-stage rating (gentle, below the CTA) -->
+    <div class="rate" id="rate-free" data-stage="free">
+      <p class="rate-title" data-i18n="rate.title">ให้ดาวพี่เวรา</p>
+      <p class="rate-q" id="rate-free-q" data-i18n="rate.free"></p>
+      <div class="stars" role="radiogroup" aria-labelledby="rate-free-q">
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="1" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":1}' aria-label="1 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="2" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":2}' aria-label="2 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="3" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":3}' aria-label="3 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="4" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":4}' aria-label="4 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="5" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":5}' aria-label="5 ดาว">★</button>
+      </div>
+      <p class="rate-note" aria-live="polite"></p>
+    </div>
   </div>
-
 </section>
 
-<script>
+<!-- 5. THE OFFERING -->
+<section class="scene" id="scene-offering" hidden>
+  <div class="scene-inner">
+    <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
+    <h2 data-i18n="offering.title">บางคำถาม... ไพ่ใบเดียวอาจยังเล่าไม่หมด</h2>
+    <p class="copy" data-i18n="offering.copy">ให้พี่เปิดไพ่เพิ่มอีกสามใบ เพื่อดูเรื่องราวตั้งแต่อดีต ปัจจุบัน และแนวโน้มข้างหน้า</p>
+    <p class="ppf" data-i18n="offering.ppf">Past · Present · Future</p>
+    <div class="locked" aria-hidden="true">
+      <figure><div class="card-back"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(235,240,255,.9)" stroke-width="1.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><figcaption data-i18n="positions.past">อดีต</figcaption></figure>
+      <figure><div class="card-back"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(235,240,255,.9)" stroke-width="1.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><figcaption data-i18n="positions.present">ปัจจุบัน</figcaption></figure>
+      <figure><div class="card-back"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(235,240,255,.9)" stroke-width="1.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><figcaption data-i18n="positions.ahead">แนวโน้มข้างหน้า</figcaption></figure>
+    </div>
+    <div class="pay-card">
+      <div class="price" data-i18n="offering.price">฿59</div>
+      <button class="btn" id="btnPay" type="button" data-i18n="offering.pay">เข้าสู่การชำระเงิน</button>
+      <img class="qr" id="payQr" alt="QR พร้อมเพย์ 59 บาท" data-i18n-alt="offering.qrAlt" hidden>
+      <p class="payee" id="payPayee" hidden></p>
+      <code class="qr-payload" id="payQrPayload" hidden></code>
+      <a class="btn" id="btnPayhip" href="#" target="_blank" rel="noopener" data-i18n="offering.payPayhip" hidden>เข้าสู่การชำระเงิน</a>
+      <p class="hint" id="payHint" data-i18n="offering.hint" hidden>สแกน QR นี้ หรือบันทึกรูปไปเปิดในแอปธนาคาร
+โอน 59 บาท แล้วแนบสลิปด้านล่างนะคะ</p>
+      <div class="qr-actions" id="payQrActions" hidden>
+        <a class="btn btn-quiet" id="btnSaveQr" download="stillwater-promptpay-59.png" href="#" data-i18n="offering.saveQr">บันทึกรูป QR</a>
+      </div>
+      <div class="slip" id="slipBox" hidden>
+        <input class="slip-input" type="file" id="slipInput" accept="image/jpeg,image/png">
+        <label class="btn slip-pick" id="slipPick" for="slipInput" data-i18n="offering.attach">แนบสลิป</label>
+        <img class="slip-preview" id="slipPreview" alt="สลิปที่แนบ" data-i18n-alt="offering.slipAlt" hidden>
+        <button class="btn btn-quiet" id="btnRetrySlip" type="button" data-i18n="offering.retry" hidden>ตรวจสลิปอีกครั้ง</button>
+      </div>
+      <p class="status" id="payStatus" aria-live="polite"></p>
+      <p class="small" data-i18n="offering.small">เมื่อตรวจสลิปผ่าน พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ</p>
+    </div>
+    <button class="btn btn-quiet" id="btnUnlimited" type="button">Unlimited · ฿399 / 1 month</button>
+    <button class="btn btn-quiet" id="btnMemberLogin" type="button">Already a member? Sign in</button>
+    <div id="membershipPanel" hidden>
+      <h3 id="membershipHeading">Unlimited Membership</h3>
+      <p class="member-note" id="membershipNote">Pay first. After payment is confirmed, Vera will ask for your email and birth details.</p>
+      <div id="memberPaymentFields" hidden>
+        <img class="qr" id="memberQr" alt="PromptPay QR ฿399" hidden>
+        <a class="btn" id="memberPayhip" href="#" target="_blank" rel="noopener" hidden>Pay with card</a>
+        <div class="slip" id="memberSlipBox" hidden>
+          <input class="slip-input" type="file" id="memberSlipInput" accept="image/jpeg,image/png">
+          <label class="btn slip-pick" for="memberSlipInput">Attach payment slip</label>
+        </div>
+        <p class="member-status" id="memberPaymentStatus" aria-live="polite"></p>
+      </div>
+      <div class="member-fields" id="memberProfileFields" hidden>
+        <input id="memberEmail" type="email" autocomplete="email" placeholder="Email">
+        <input id="memberBirthDate" type="date" autocomplete="bday">
+        <input id="memberBirthTime" type="time">
+        <button class="btn" id="btnActivateMember" type="button">Activate Unlimited</button>
+      </div>
+      <div class="member-fields" id="memberLoginFields" hidden>
+        <input id="memberLoginEmail" type="email" autocomplete="email" placeholder="Email">
+        <button class="btn" id="btnSendLogin" type="button">Send login code</button>
+        <input id="memberLoginCode" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" hidden>
+        <button class="btn btn-quiet" id="btnVerifyLogin" type="button" hidden>Continue</button>
+      </div>
+      <p class="member-status" id="membershipStatus" aria-live="polite"></p>
+    </div>
+    <button class="btn btn-quiet" id="btnBackFirst" type="button" data-i18n="offering.back">กลับไปดูคำตอบเดิม</button>
+  </div>
+</section>
+
+<!-- 6. THE FULL READING -->
+<section class="scene" id="scene-full" hidden>
+  <div class="scene-inner">
+    <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
+    <p class="intro" id="fullIntro" data-i18n="full.opening">พี่กำลังเปิดสามใบให้คุณนะคะ</p>
+    <!-- Cards 2–4 of the 4-card story (card 1 = scene 4), one at a time: heading, card, name, reading; glow divider between. -->
+    <div class="story" id="fullStory"></div>
+    <button class="btn ln" id="btnNextCard" type="button" data-i18n="full.next" hidden>พี่เวราเล่าต่อค่ะ</button>
+    <!-- Ending, the weightiest moment: overview (reader final) → Vera's words (reader closing) → thanks → return line. -->
+    <div class="ending" id="fullFinal" hidden>
+      <div class="glow-divider" aria-hidden="true"></div>
+      <h3 class="say ln" id="endHeading" data-i18n="full.endingHeading">เมื่อมองไพ่ทั้งสี่ใบรวมกัน</h3>
+      <div class="overview" id="endOverview"></div>
+      <div class="words" id="endWords"></div>
+      <p class="thanks ln" id="endThanks" data-i18n="full.thanks">ขอบคุณจักรวาลที่ส่งคำตอบนี้มาให้คุณนะคะ</p>
+      <p class="return ln" id="endReturn" data-i18n="full.returnLine">หากมีเรื่องที่อยากถามจักรวาล กลับมาหาพี่เวราได้เสมอ</p>
+    </div>
+    <div id="fullError" hidden>
+      <p class="error" id="fullErrorText"></p>
+      <button class="btn btn-quiet" id="btnFullRetry" type="button" data-i18n="full.retry">ลองเปิดอีกครั้ง</button>
+    </div>
+    <div class="actions" id="fullActions" hidden>
+      <div class="rate" id="rate-full" data-stage="full">
+      <p class="rate-title" data-i18n="rate.title">ให้ดาวพี่เวรา</p>
+      <p class="rate-q" id="rate-full-q" data-i18n="rate.full"></p>
+      <div class="stars" role="radiogroup" aria-labelledby="rate-full-q">
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="1" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":1}' aria-label="1 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="2" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":2}' aria-label="2 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="3" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":3}' aria-label="3 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="4" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":4}' aria-label="4 ดาว">★</button>
+        <button class="star" type="button" role="radio" aria-checked="false" data-n="5" data-i18n-aria-label="rate.star" data-i18n-vars='{"n":5}' aria-label="5 ดาว">★</button>
+      </div>
+      <p class="rate-note" aria-live="polite"></p>
+    </div>
+      <div class="final-actions" id="finalActions">
+        <!-- Future: Instagram Story share button goes here (hidden hook, no placeholder shown). -->
+        <div class="ig-story-slot" id="igStorySlot" data-slot="instagram-story" hidden></div>
+        <button class="btn" id="btnShareSite" type="button" data-i18n="full.shareSite">แชร์ Stillwater</button>
+        <p class="share-note" id="shareNote" aria-live="polite"></p>
+        <button class="btn btn-quiet" id="btnClose" type="button" data-i18n="full.close">ปิดการอ่าน</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SAFETY (calm, no CTA) -->
+<section class="scene" id="scene-safety" role="alert" hidden>
+  <div class="scene-inner">
+    <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
+    <div class="msg" id="safetyMsg"></div>
+  </div>
+</section>
+
+</main>
+
+<script type="module">
+/* All user-facing copy lives in /i18n/strings.js (shared with the API). */
+import { t as tr, normLang, errorKey, LANGS } from '/i18n/strings.js';
+import { touchFromLanding, isSignal, TRACKING_PARAMS, SHARE_PATH } from '/lib/source.js';
+import { POSITION_ORDER, cardHeading, storyLines } from '/lib/story.js';
+import { createSound, LEVEL as AMBIENT_LEVEL } from '/lib/ambient.js';
+
 (function(){
-
 'use strict';
 
-/* =========================
-   ANALYTICS
-========================= */
+/* ================= helpers ================= */
+const $ = (id) => document.getElementById(id);
 
-function trackEvent(name,data){
+/* ================= language (UI) =================
+   uiLang drives every static/status string and is sent to /api/read.
+   A reading's own text (card text, final, closing, position labels) stays in
+   the language it was generated in (state.lang, sealed in the order token). */
+const LANG_STORE = 'stillwater.lang';
+function initialLang(){
+  try{ const v = localStorage.getItem(LANG_STORE); if(LANGS.includes(v)) return v; }catch(e){}
+  const nav = String((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase();
+  return nav.startsWith('th') ? 'th' : 'en';
+}
+let uiLang = initialLang();
+const t = (key, vars) => tr(uiLang, key, vars);
 
-  try{
+/* Bind an element to a strings key (re-rendered on language switch). */
+function setText(el, key, vars){
+  if(!key){ delete el.dataset.i18n; delete el.dataset.i18nVars; el.textContent = ''; return; }
+  el.dataset.i18n = key;
+  if(vars) el.dataset.i18nVars = JSON.stringify(vars); else delete el.dataset.i18nVars;
+  el.textContent = t(key, vars);
+}
+/* Line lists (arrays in strings, length may differ per language). Keeps the
+   revealed state so switching language mid-scene doesn't replay or hide lines. */
+function renderLineLists(){
+  document.querySelectorAll('[data-i18n-lines]').forEach((box) => {
+    const shown = !!box.querySelector('.ln.is-in');
+    const lines = t(box.dataset.i18nLines);
+    box.textContent = '';
+    (Array.isArray(lines) ? lines : [String(lines)]).forEach((line) => {
+      const p = document.createElement('p');
+      p.className = 'ln' + (shown ? ' is-in' : '');
+      p.textContent = line;
+      box.appendChild(p);
+    });
+  });
+}
+function applyLang(){
+  document.documentElement.lang = uiLang;
+  renderLineLists();
+  document.title = t('meta.title');
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    let vars;
+    try{ vars = el.dataset.i18nVars ? JSON.parse(el.dataset.i18nVars) : undefined; }catch(e){}
+    el.textContent = t(el.dataset.i18n, vars);
+  });
+  for(const attr of ['placeholder','alt','aria-label']){
+    document.querySelectorAll('[data-i18n-' + attr + ']').forEach((el) => {
+      let vars;
+      try{ vars = el.dataset.i18nVars ? JSON.parse(el.dataset.i18nVars) : undefined; }catch(e){}
+      el.setAttribute(attr, t(el.getAttribute('data-i18n-' + attr), vars));
+    });
+  }
+  document.querySelectorAll('#langToggle [data-l]').forEach((el) => el.classList.toggle('on', el.dataset.l === uiLang));
+  $('langToggle').setAttribute('aria-pressed', uiLang === 'en' ? 'true' : 'false');
+  if(currentScene === 'safety') renderSafety(true);
+  try{ renderPayee(); }catch(e){} // state may not exist yet on the first call
+  document.documentElement.classList.remove('lang-pending');
+}
+function setLang(lang){
+  uiLang = normLang(lang);
+  try{ localStorage.setItem(LANG_STORE, uiLang); }catch(e){}
+  applyLang();
+}
+const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+let reduceMotion = mq.matches;
+function applyMotionPref(){
+  reduceMotion = mq.matches;
+  document.documentElement.classList.toggle('rm', reduceMotion);
+}
+applyMotionPref();
+mq.addEventListener && mq.addEventListener('change', () => { applyMotionPref(); startWorld(); });
 
-    if(typeof window.va === 'function'){
+const wait = (ms) => new Promise((r) => setTimeout(r, reduceMotion ? Math.min(ms, 120) : ms));
 
-      window.va('event',{
-        name,
-        data:data || {}
-      });
+function trackEvent(name, data){
+  try{ if(typeof window.va === 'function') window.va('event', { name, data: data || {} }); }catch(e){}
+  try{ if(TLOG_MAP[name]) tlog(TLOG_MAP[name], data); }catch(e){}
+}
+/* Vercel Analytics names → silent store events (see "silent telemetry" below). */
+const TLOG_MAP = { enter_clicked:'enter_tap', safety_shown:'safety_shown', needs_rewrite:'rewrite_shown', invitation_shown:'invitation_shown',
+  deeper_clicked:'offer_open', payment_started:'pay_click', full_card_shown:'full_card_shown', full_reading_shown:'full_done', reading_closed:'close', lang_switched:'lang_switch' };
 
-    }
-
-  }catch(e){}
-
+function cardUrl(card){
+  if(!card) return '';
+  if(card.image && (/^https?:\/\//.test(card.image) || card.image.startsWith('/'))) return card.image;
+  return '/cards/web/' + String(card.file || card.image || '').replace(/^\/+/, '').replace(/^cards\/web\//, '');
 }
 
+function splitLines(text){
+  return String(text || '').split(/\n+/).map((s) => s.trim()).filter(Boolean);
+}
 
-/* =========================
-   HELPERS
-========================= */
+/* Line-by-line reveal (fade only). Builds <p class="ln"> safely with textContent. */
+async function revealLines(container, lines, { gap = 650, className = '' } = {}){
+  container.textContent = '';
+  const nodes = lines.map((line) => {
+    const p = document.createElement('p');
+    p.className = 'ln' + (className ? ' ' + className : '');
+    p.textContent = line;
+    container.appendChild(p);
+    return p;
+  });
+  for(const n of nodes){
+    await wait(30);
+    n.classList.add('is-in');
+    await wait(gap);
+  }
+  return nodes;
+}
+async function revealExisting(container, gap = 550){
+  for(const n of container.querySelectorAll('.ln')){
+    n.classList.add('is-in');
+    await wait(gap);
+  }
+}
+function hideExisting(container){
+  container.querySelectorAll('.ln').forEach((n) => n.classList.remove('is-in'));
+}
 
-const reduceMotion =
-  window.matchMedia(
-    '(prefers-reduced-motion: reduce)'
-  ).matches;
+function loadImage(img, src){
+  return new Promise((resolve) => {
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = src;
+    if(img.complete && img.naturalWidth) resolve(true);
+  });
+}
 
-const wait =
-  ms =>
-    new Promise(resolve =>
-      setTimeout(
-        resolve,
-        reduceMotion
-          ? Math.min(ms,220)
-          : ms
-      )
-    );
+/* ================= scenes ================= */
+let currentScene = 'window';
+let sceneSince = Date.now();
 
-const $ =
-  id =>
-    document.getElementById(id);
+async function showScene(name){
+  if(name === currentScene) return;
+  try{ const now = Date.now(); tlog('scene', { scene: name, from_scene: currentScene, dwell_ms: now - sceneSince }); sceneSince = now; }catch(e){}
+  const from = $('scene-' + currentScene);
+  const to = $('scene-' + name);
+  currentScene = name;
+  from.classList.add('is-leaving');
+  from.classList.remove('is-active');
+  to.hidden = false;
+  void to.offsetWidth;
+  to.scrollTop = 0;
+  to.classList.add('is-active');
+  document.body.dataset.scene = name;
+  await wait(reduceMotion ? 250 : 1000);
+  const fromName = from.id.replace('scene-','');
+  from.classList.remove('is-leaving');
+  if(currentScene !== fromName) from.hidden = true;
+}
 
+/* ================= state ================= */
+const STORE = 'stillwater.vera.v1';
+const STORE_TTL = 24 * 60 * 60 * 1000;
+const state = { fullStep:0, readingId:null, ratings:{}, question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null, pollTimer:null, memberToken:null, membershipPurchase:null, membershipPaid:null, membershipPaymentId:null };
 
-/* =========================
-   AUDIO
-   DEEP SPACE × WATER
-========================= */
+function save(){
+  try{
+    localStorage.setItem(STORE, JSON.stringify({
+      order: state.order, card: state.card, lang: state.lang, paymentId: state.paymentId,
+      paid: state.paid, deeper: state.deeper, memberToken: state.memberToken, membershipPurchase: state.membershipPurchase, membershipPaid: state.membershipPaid, membershipPaymentId: state.membershipPaymentId, fullStep: state.fullStep || 0, stage: state.stage, ratings: state.ratings, readingId: state.readingId, sid: tsid, savedAt: Date.now()
+    }));
+  }catch(e){}
+}
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if(!s || Date.now() - s.savedAt > STORE_TTL) return null;
+    return s;
+  }catch(e){ return null; }
+}
+function clearStore(){ try{ localStorage.removeItem(STORE); }catch(e){} }
 
-const AudioCtx =
-  window.AudioContext ||
-  window.webkitAudioContext;
+/* ================= silent telemetry → /api/ev =================
+   Log-only (Palm 2026-10-10: collect data, never interrupt the customer). Nothing here
+   touches the UI; every call is wrapped in try/catch; sending uses sendBeacon (or fetch
+   keepalive) and is never awaited. tsid = anonymous random id for this tab's session
+   (sessionStorage; also kept with the saved order so a bank-app round trip keeps it). */
+const TLOG_T0 = Date.now();
+let tsid = '';
+try{ tsid = sessionStorage.getItem('stillwater.sid') || ''; }catch(e){}
+if(!/^[A-Za-z0-9_-]{6,40}$/.test(tsid)){
+  try{ tsid = crypto.randomUUID().replace(/-/g, ''); }
+  catch(e){ tsid = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12); }
+  try{ sessionStorage.setItem('stillwater.sid', tsid); }catch(e){}
+}
+const tq = [];
+let tTimer = 0, tErrors = 0, tHiddenAt = 0;
+function tlog(e, data){
+  try{
+    tq.push(Object.assign({ e, ts: new Date().toISOString() }, data || {}));
+    if(tq.length >= 25) tflush(); else if(!tTimer) tTimer = setTimeout(tflush, 4000);
+  }catch(err){}
+}
+function tflush(){
+  try{
+    clearTimeout(tTimer); tTimer = 0;
+    if(!tq.length) return;
+    const events = tq.splice(0, 40);
+    const payload = { sid: tsid, lang: uiLang, events };
+    if(state.order) payload.order = state.order; else payload.source = currentSource();
+    let body = JSON.stringify(payload);
+    if(body.length > 60000){ delete payload.order; payload.source = currentSource(); body = JSON.stringify(payload); }
+    let sent = false;
+    try{ sent = !!(navigator.sendBeacon && navigator.sendBeacon('/api/ev', new Blob([body], { type:'text/plain;charset=UTF-8' }))); }catch(e){}
+    if(!sent) fetch('/api/ev', { method:'POST', keepalive:true, headers:{ 'Content-Type':'text/plain;charset=UTF-8' }, body }).catch(() => {});
+    if(tq.length) tTimer = setTimeout(tflush, 500);
+  }catch(e){}
+}
+let tLeftAt = 0;
+function tLeave(kind){
+  const now = Date.now();
+  if(tLeftAt && now - tLeftAt < 3000){ tflush(); return; } // pagehide + visibilitychange fire together → one leave
+  tLeftAt = now;
+  tlog('leave', { scene: currentScene, dwell_ms: now - sceneSince, result: kind, step: state.fullStep || 0,
+    detail: 'stage=' + (state.stage || '') + ';total_ms=' + (now - TLOG_T0) });
+  tflush();
+}
+document.addEventListener('visibilitychange', () => {
+  try{
+    if(document.visibilityState === 'hidden'){ tHiddenAt = Date.now(); tLeave('hidden'); }
+    else if(tHiddenAt){ tlog('return', { scene: currentScene, dwell_ms: Date.now() - tHiddenAt }); tHiddenAt = 0; tLeftAt = 0; }
+  }catch(e){}
+});
+window.addEventListener('pagehide', () => { try{ tLeave('pagehide'); }catch(e){} });
+function tErr(msg, file, line){
+  try{
+    if(++tErrors > 10) return;
+    const f = String(file || '').split('/').pop().split('?')[0];
+    tlog('js_error', { scene: currentScene, detail: String(msg || '').slice(0, 220) + (f ? ' @' + f + ':' + (line || 0) : '') });
+  }catch(e){}
+}
+window.addEventListener('error', (e) => tErr(e && e.message, e && e.filename, e && e.lineno));
+window.addEventListener('unhandledrejection', (e) => tErr('unhandled: ' + ((e && e.reason && (e.reason.message || e.reason)) || '')));
 
-let audioCtx = null;
-let master = null;
-let soundEnabled = false;
-let ambient = [];
+/* ================= traffic source (first-touch / last-touch) =================
+   ?src= (friends, tiktok, ig, fb, line, fb_ads, youtube, or a custom tag),
+   utm_*, fbclid/ttclid presence, else document.referrer → fb/ig/tiktok/line/
+   google/youtube/referral/direct. Sent to /api/read, sanitized again and
+   sealed into the order token there. */
+const SRC_FIRST = 'stillwater.src.first', SRC_LAST = 'stillwater.src.last';
+function readTouch(key){ try{ return JSON.parse(localStorage.getItem(key) || 'null'); }catch(e){ return null; } }
+function captureSource(){
+  const touch = touchFromLanding({ search: location.search, referrer: document.referrer, selfHost: location.host });
+  try{
+    if(!readTouch(SRC_FIRST)) localStorage.setItem(SRC_FIRST, JSON.stringify(touch));
+    if(isSignal(touch) || !readTouch(SRC_LAST)) localStorage.setItem(SRC_LAST, JSON.stringify(touch));
+  }catch(e){}
+  // Keep shared links clean: drop tracking params (other params, e.g. ?payment=, stay).
+  const params = new URLSearchParams(location.search);
+  if(TRACKING_PARAMS.some((k) => params.has(k))){
+    TRACKING_PARAMS.forEach((k) => params.delete(k));
+    const qs = params.toString();
+    history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+  }
+}
+function currentSource(){
+  const first = readTouch(SRC_FIRST), last = readTouch(SRC_LAST);
+  return first || last ? { first: first || last, last: last || first } : undefined;
+}
 
+/* ================= audio: "music + cosmos" (lib/ambient.js; synthesized, no files) ================= */
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null, snd = null, master = null, soundEnabled = false, suspendTimer = 0;
 
 function initAudio(){
-
-  if(audioCtx || !AudioCtx)
-    return;
-
+  if(audioCtx || !AudioCtx) return;
   audioCtx = new AudioCtx();
-
-  master =
-    audioCtx.createGain();
-
-  master.gain.value = 0;
-
-  master.connect(
-    audioCtx.destination
-  );
-
+  snd = createSound(audioCtx);
+  master = snd.master;
 }
-
-
 async function unlockAudio(){
-
   initAudio();
-
-  if(!audioCtx)
-    return;
-
-  if(audioCtx.state === 'suspended'){
-
-    try{
-      await audioCtx.resume();
-    }catch(e){}
-
-  }
-
+  if(audioCtx && audioCtx.state === 'suspended'){ try{ await audioCtx.resume(); }catch(e){} }
 }
-
-
 function setSound(on){
-
   soundEnabled = on;
-
-  $('soundToggle').textContent =
-    on ? 'SOUND ON' : 'SOUND OFF';
-
-  $('soundToggle')
-    .setAttribute(
-      'aria-pressed',
-      on ? 'true' : 'false'
-    );
-
-  if(!master)
-    return;
-
-  const now =
-    audioCtx.currentTime;
-
+  setText($('soundToggle'), on ? 'ui.soundOn' : 'ui.soundOff');
+  $('soundToggle').setAttribute('aria-pressed', on ? 'true' : 'false');
+  if(!master) return;
+  clearTimeout(suspendTimer);
+  const now = audioCtx.currentTime;
   master.gain.cancelScheduledValues(now);
-
-  master.gain.linearRampToValueAtTime(
-    on ? .20 : 0,
-    now + .7
-  );
-
+  master.gain.setValueAtTime(master.gain.value, now);
+  master.gain.linearRampToValueAtTime(on ? AMBIENT_LEVEL : 0, now + (on ? 1.2 : .9));
+  if(!on) suspendTimer = setTimeout(() => { if(!soundEnabled && audioCtx && audioCtx.state === 'running') audioCtx.suspend().catch(() => {}); }, 1600);
 }
-
-
-function noiseBuffer(seconds){
-
-  const length =
-    Math.floor(
-      audioCtx.sampleRate *
-      seconds
-    );
-
-  const buffer =
-    audioCtx.createBuffer(
-      1,
-      length,
-      audioCtx.sampleRate
-    );
-
-  const data =
-    buffer.getChannelData(0);
-
-  for(let i=0;i<length;i++){
-
-    data[i] =
-      (Math.random()*2-1) *
-      .45;
-
-  }
-
-  return buffer;
-
+function startAmbient(){
+  if(!snd || !soundEnabled || snd.playing) return;
+  snd.start();
 }
-
-
-function startAmbient(mode='space'){
-
-  stopAmbient(true);
-
-  if(!audioCtx || !soundEnabled)
-    return;
-
-  const now =
-    audioCtx.currentTime;
-
-  const nodes=[];
-
-
-  /*
-    Very low planetary drone
-  */
-
-  [
-    [48,.22],
-    [72,.08],
-    [96,.045]
-  ].forEach(([freq,vol])=>{
-
-    const osc =
-      audioCtx.createOscillator();
-
-    const gain =
-      audioCtx.createGain();
-
-    osc.type='sine';
-
-    osc.frequency.value =
-      freq;
-
-    gain.gain.value=0;
-
-    osc.connect(gain);
-    gain.connect(master);
-
-    osc.start(now);
-
-    gain.gain.linearRampToValueAtTime(
-      vol,
-      now+3
-    );
-
-    nodes.push({
-
-      stop(t){
-
-        try{
-
-          gain.gain
-            .linearRampToValueAtTime(
-              0,
-              t
-            );
-
-          osc.stop(t+.08);
-
-        }catch(e){}
-
-      }
-
-    });
-
-  });
-
-
-  /*
-    Cosmic texture
-  */
-
-  const texture =
-    audioCtx.createBufferSource();
-
-  const textureFilter =
-    audioCtx.createBiquadFilter();
-
-  const textureGain =
-    audioCtx.createGain();
-
-  texture.buffer =
-    noiseBuffer(5);
-
-  texture.loop=true;
-
-  textureFilter.type='bandpass';
-
-  textureFilter.frequency.value =
-    mode === 'reading'
-      ? 520
-      : 390;
-
-  textureFilter.Q.value=.45;
-
-  textureGain.gain.value=0;
-
-  texture.connect(
-    textureFilter
-  );
-
-  textureFilter.connect(
-    textureGain
-  );
-
-  textureGain.connect(
-    master
-  );
-
-  texture.start(now);
-
-  textureGain.gain
-    .linearRampToValueAtTime(
-      .018,
-      now+4
-    );
-
-  nodes.push({
-
-    stop(t){
-
-      try{
-
-        textureGain.gain
-          .linearRampToValueAtTime(
-            0,
-            t
-          );
-
-        texture.stop(t+.08);
-
-      }catch(e){}
-
-    }
-
-  });
-
-
-  /*
-    Celestial shimmer
-  */
-
-  const shimmer =
-    audioCtx.createOscillator();
-
-  const shimmerGain =
-    audioCtx.createGain();
-
-  const shimmerFilter =
-    audioCtx.createBiquadFilter();
-
-  shimmer.type='sine';
-
-  shimmer.frequency.value=432;
-
-  shimmerFilter.type='lowpass';
-
-  shimmerFilter.frequency.value=1300;
-
-  shimmerGain.gain.value=0;
-
-  shimmer.connect(
-    shimmerFilter
-  );
-
-  shimmerFilter.connect(
-    shimmerGain
-  );
-
-  shimmerGain.connect(
-    master
-  );
-
-  shimmer.start(now);
-
-  shimmerGain.gain
-    .linearRampToValueAtTime(
-      .012,
-      now+5
-    );
-
-  nodes.push({
-
-    stop(t){
-
-      try{
-
-        shimmerGain.gain
-          .linearRampToValueAtTime(
-            0,
-            t
-          );
-
-        shimmer.stop(t+.08);
-
-      }catch(e){}
-
-    }
-
-  });
-
-
-  /*
-    Water texture
-  */
-
-  if(
-    mode === 'vera' ||
-    mode === 'reading'
-  ){
-
-    const waterSource =
-      audioCtx.createBufferSource();
-
-    const waterFilter =
-      audioCtx.createBiquadFilter();
-
-    const waterGain =
-      audioCtx.createGain();
-
-    waterSource.buffer =
-      noiseBuffer(4);
-
-    waterSource.loop=true;
-
-    waterFilter.type='lowpass';
-
-    waterFilter.frequency.value=260;
-
-    waterGain.gain.value=0;
-
-    waterSource.connect(
-      waterFilter
-    );
-
-    waterFilter.connect(
-      waterGain
-    );
-
-    waterGain.connect(
-      master
-    );
-
-    waterSource.start(now);
-
-    waterGain.gain
-      .linearRampToValueAtTime(
-        .022,
-        now+3
-      );
-
-    nodes.push({
-
-      stop(t){
-
-        try{
-
-          waterGain.gain
-            .linearRampToValueAtTime(
-              0,
-              t
-            );
-
-          waterSource.stop(t+.08);
-
-        }catch(e){}
-
-      }
-
-    });
-
-  }
-
-  ambient=nodes;
-
+function stopAmbient(immediate){
+  if(snd) snd.stop(immediate ? .25 : 1.2);
 }
-
-
-function stopAmbient(immediate=false){
-
-  const time =
-    audioCtx
-      ? audioCtx.currentTime +
-        (immediate ? .25 : 1.2)
-      : 0;
-
-  ambient.forEach(
-    node => node.stop(time)
-  );
-
-  ambient=[];
-
+/* page hidden → stop everything (CPU / battery); visible again → resume if SOUND is on */
+document.addEventListener('visibilitychange', async () => {
+  if(!audioCtx) return;
+  if(document.hidden){ stopAmbient(true); setTimeout(() => { if(document.hidden) audioCtx.suspend().catch(() => {}); }, 300); }
+  else if(soundEnabled){ try{ await audioCtx.resume(); }catch(e){} startAmbient(); }
+});
+/* button sounds: soft chimes from the same pentatonic as the ambient (indices into D-major pentatonic) */
+function chime(steps, opts){ if(snd && soundEnabled) snd.chime(steps, opts); }
+function buttonSound(type){
+  if(type === 'enter'){ chime([0, 2, 4, 6], { vol: .14, gap: .16, dur: 3.2 }); return; }
+  if(type === 'submit'){ chime([2, 4], { vol: .13, gap: .12 }); return; }
+  if(type === 'deeper'){ chime([1, 3, 5], { vol: .14, gap: .14, dur: 3 }); return; }
+  if(type === 'pay'){ chime([3, 4], { vol: .12, gap: .1 }); return; }
+  chime([3], { vol: .11, dur: 2 });
 }
+function revealSound(){ chime([0, 2, 4, 5, 6], { vol: .14, gap: .18, dur: 3.6 }); }
+window.__stillwaterAudio = () => ({ state: audioCtx ? audioCtx.state : 'none', enabled: soundEnabled, playing: !!(snd && snd.playing), voices: snd ? snd.voices : 0, gain: master ? master.gain.value : 0 });
 
-
-function tone(
-  frequency,
-  duration,
-  type='sine',
-  volume=.08,
-  delay=0
-){
-
-  if(
-    !audioCtx ||
-    !soundEnabled
-  )
-    return;
-
-  const now =
-    audioCtx.currentTime +
-    delay;
-
-  const osc =
-    audioCtx.createOscillator();
-
-  const gain =
-    audioCtx.createGain();
-
-  osc.type=type;
-
-  osc.frequency.value =
-    frequency;
-
-  gain.gain.value=0;
-
-  osc.connect(gain);
-  gain.connect(master);
-
-  osc.start(now);
-
-  gain.gain.linearRampToValueAtTime(
-    volume,
-    now+.06
-  );
-
-  gain.gain.exponentialRampToValueAtTime(
-    .001,
-    now+duration
-  );
-
-  osc.stop(
-    now+duration+.06
-  );
-
-}
-
-
-/* EVERY BUTTON HAS A SOUND */
-
-function buttonSound(type='soft'){
-
-  if(type==='enter'){
-
-    tone(72,1.4,'sine',.16);
-    tone(144,1.2,'sine',.07,.12);
-    tone(576,1.1,'triangle',.045,.38);
-
-    return;
-
-  }
-
-
-  if(type==='submit'){
-
-    tone(180,.55,'sine',.07);
-    tone(360,.7,'sine',.045,.12);
-    tone(720,.9,'triangle',.025,.28);
-
-    return;
-
-  }
-
-
-  if(type==='deeper'){
-
-    tone(96,1.1,'sine',.12);
-    tone(192,.9,'sine',.07,.12);
-    tone(480,1.3,'triangle',.055,.5);
-    tone(960,1.4,'sine',.035,.7);
-
-    return;
-
-  }
-
-
-  if(type==='pay'){
-
-    tone(220,.35,'sine',.06);
-    tone(440,.6,'sine',.04,.12);
-
-    return;
-
-  }
-
-  tone(320,.3,'sine',.035);
-
-}
-
-
-function revealSound(){
-
-  tone(62,1.2,'sine',.15);
-  tone(93,1,'sine',.08,.1);
-
-  tone(
-    523.25,
-    1.5,
-    'sine',
-    .08,
-    1.35
-  );
-
-  tone(
-    659.25,
-    1.4,
-    'sine',
-    .06,
-    1.5
-  );
-
-  tone(
-    783.99,
-    1.7,
-    'triangle',
-    .045,
-    1.65
-  );
-
-}
-
-
-function invitationSound(){
-
-  tone(110,1.5,'sine',.09);
-
-  tone(
-    440,
-    1.3,
-    'sine',
-    .035,
-    .55
-  );
-
-  tone(
-    660,
-    1.3,
-    'sine',
-    .04,
-    1.2
-  );
-
-  tone(
-    880,
-    1.6,
-    'triangle',
-    .03,
-    1.85
-  );
-
-}
-
-
-/* =========================
-   COSMOS
-========================= */
-
-const cosmos =
-  $('cosmos');
-
-const ctx =
-  cosmos.getContext('2d');
-
-const water =
-  $('water-canvas');
-
-const wctx =
-  water.getContext('2d');
-
-let W=0;
-let H=0;
-let waterLine=0;
-
-let stars=[];
-let dust=[];
-let particles=[];
+/* ================= world: stars over still water (from the live page) ================= */
+const cosmos = $('cosmos'), ctx = cosmos.getContext('2d');
+const water = $('water-canvas'), wctx = water.getContext('2d');
+let W = 0, H = 0, waterLine = 0, stars = [], dust = [], rafId = 0;
 
 function resize(){
-
-  const d =
-    Math.min(
-      window.devicePixelRatio || 1,
-      1.5
-    );
-
-  W =
-    cosmos.width =
-    water.width =
-    innerWidth*d;
-
-  H =
-    cosmos.height =
-    water.height =
-    innerHeight*d;
-
-  cosmos.style.width =
-    water.style.width =
-    innerWidth+'px';
-
-  cosmos.style.height =
-    water.style.height =
-    innerHeight+'px';
-
-  waterLine =
-    H*.62;
-
-  seed();
-
+  const d = Math.min(window.devicePixelRatio || 1, 1.5);
+  W = cosmos.width = water.width = innerWidth * d;
+  H = cosmos.height = water.height = innerHeight * d;
+  waterLine = H * .62;
+  stars = []; dust = [];
+  for(let i = 0; i < Math.floor(W * H / 8500); i++){
+    stars.push({ x:Math.random()*W, y:Math.random()*waterLine, r:.2+Math.random()*1.35, a:.15+Math.random()*.6, p:Math.random()*6.28, s:.3+Math.random()*1.2 });
+  }
+  for(let i = 0; i < 25; i++){
+    dust.push({ x:Math.random()*W, y:Math.random()*waterLine, r:20+Math.random()*80, a:.012+Math.random()*.028, p:Math.random()*6.28 });
+  }
+  if(reduceMotion) drawFrame(0);
 }
-
-
-function seed(){
-
-  stars=[];
-  dust=[];
-  particles=[];
-
-
-  for(
-    let i=0;
-    i<Math.floor(W*H/8500);
-    i++
-  ){
-
-    stars.push({
-
-      x:Math.random()*W,
-      y:Math.random()*waterLine,
-
-      r:.2+
-        Math.random()*1.35,
-
-      a:.15+
-        Math.random()*.6,
-
-      p:Math.random()*6.28,
-
-      s:.3+
-        Math.random()*1.2
-
-    });
-
+function drawFrame(t){
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#03030b'); g.addColorStop(.32,'#08091c'); g.addColorStop(.58,'#15123a'); g.addColorStop(1,'#050817');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  [[W*.18,H*.18,W*.38,'rgba(74,47,155,.12)'],[W*.78,H*.13,W*.32,'rgba(45,70,155,.10)'],[W*.52,H*.42,W*.44,'rgba(112,54,150,.07)']].forEach((n) => {
+    const r = ctx.createRadialGradient(n[0],n[1],0,n[0],n[1],n[2]);
+    r.addColorStop(0,n[3]); r.addColorStop(1,'transparent');
+    ctx.fillStyle = r; ctx.fillRect(0,0,W,H);
+  });
+  dust.forEach((d) => {
+    const x = d.x + Math.sin(t*.00018+d.p)*18, y = d.y + Math.cos(t*.00013+d.p)*12;
+    const r = ctx.createRadialGradient(x,y,0,x,y,d.r);
+    r.addColorStop(0,`rgba(170,185,255,${d.a})`); r.addColorStop(1,'transparent');
+    ctx.fillStyle = r; ctx.beginPath(); ctx.arc(x,y,d.r,0,Math.PI*2); ctx.fill();
+  });
+  stars.forEach((s) => {
+    const tw = .45 + .55*Math.sin(t*.001*s.s + s.p);
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    ctx.fillStyle = `rgba(220,230,255,${s.a*tw})`; ctx.fill();
+  });
+  wctx.clearRect(0,0,W,H);
+  const wg = wctx.createLinearGradient(0,waterLine,0,H);
+  wg.addColorStop(0,'rgba(20,30,74,.56)'); wg.addColorStop(1,'rgba(4,7,18,.94)');
+  wctx.fillStyle = wg; wctx.fillRect(0,waterLine,W,H-waterLine);
+  wctx.beginPath(); wctx.moveTo(0,waterLine);
+  for(let x = 0; x <= W; x += 8){
+    wctx.lineTo(x, waterLine + Math.sin(x*.008+t*.0007)*2 + Math.sin(x*.019+t*.001)*1.1);
   }
-
-
-  for(let i=0;i<25;i++){
-
-    dust.push({
-
-      x:Math.random()*W,
-      y:Math.random()*waterLine,
-
-      r:20+
-        Math.random()*80,
-
-      a:.012+
-        Math.random()*.028,
-
-      p:Math.random()*6.28
-
-    });
-
-  }
-
-
-  for(let i=0;i<35;i++){
-
-    particles.push({
-
-      x:Math.random()*W,
-      y:Math.random()*H,
-
-      r:.3+
-        Math.random()*1.5,
-
-      vx:(Math.random()-.5)*.12,
-
-      vy:-.04-
-        Math.random()*.1,
-
-      a:.03+
-        Math.random()*.18
-
-    });
-
-  }
-
+  wctx.strokeStyle = 'rgba(170,195,255,.16)'; wctx.stroke();
+  stars.slice(0,90).forEach((s) => {
+    const y = waterLine + (waterLine - s.y)*.34 + Math.sin(t*.001+s.x)*2;
+    if(y >= H) return;
+    wctx.beginPath(); wctx.ellipse(s.x,y,s.r*1.5,.45,0,0,Math.PI*2);
+    wctx.fillStyle = 'rgba(180,205,255,.12)'; wctx.fill();
+  });
 }
-
-
-function draw(t){
-
-  const gradient =
-    ctx.createLinearGradient(
-      0,0,0,H
-    );
-
-  gradient.addColorStop(
-    0,
-    '#03030b'
-  );
-
-  gradient.addColorStop(
-    .32,
-    '#08091c'
-  );
-
-  gradient.addColorStop(
-    .58,
-    '#15123a'
-  );
-
-  gradient.addColorStop(
-    1,
-    '#050817'
-  );
-
-  ctx.fillStyle=gradient;
-
-  ctx.fillRect(
-    0,0,W,H
-  );
-
-
-  [
-    [
-      W*.18,
-      H*.18,
-      W*.38,
-      'rgba(74,47,155,.12)'
-    ],
-
-    [
-      W*.78,
-      H*.13,
-      W*.32,
-      'rgba(45,70,155,.10)'
-    ],
-
-    [
-      W*.52,
-      H*.42,
-      W*.44,
-      'rgba(112,54,150,.07)'
-    ]
-
-  ].forEach(n=>{
-
-    const nebula =
-      ctx.createRadialGradient(
-        n[0],
-        n[1],
-        0,
-        n[0],
-        n[1],
-        n[2]
-      );
-
-    nebula.addColorStop(
-      0,
-      n[3]
-    );
-
-    nebula.addColorStop(
-      1,
-      'transparent'
-    );
-
-    ctx.fillStyle=nebula;
-
-    ctx.fillRect(
-      0,
-      0,
-      W,
-      H
-    );
-
-  });
-
-
-  dust.forEach(d=>{
-
-    const x =
-      d.x+
-      Math.sin(
-        t*.00018+d.p
-      )*18;
-
-    const y =
-      d.y+
-      Math.cos(
-        t*.00013+d.p
-      )*12;
-
-    const glow =
-      ctx.createRadialGradient(
-        x,y,0,
-        x,y,d.r
-      );
-
-    glow.addColorStop(
-      0,
-      `rgba(170,185,255,${d.a})`
-    );
-
-    glow.addColorStop(
-      1,
-      'transparent'
-    );
-
-    ctx.fillStyle=glow;
-
-    ctx.beginPath();
-
-    ctx.arc(
-      x,
-      y,
-      d.r,
-      0,
-      Math.PI*2
-    );
-
-    ctx.fill();
-
-  });
-
-
-  stars.forEach(s=>{
-
-    const tw =
-      .45+
-      .55*
-      Math.sin(
-        t*.001*s.s+s.p
-      );
-
-    const alpha =
-      s.a*tw;
-
-    ctx.beginPath();
-
-    ctx.arc(
-      s.x,
-      s.y,
-      s.r,
-      0,
-      Math.PI*2
-    );
-
-    ctx.fillStyle =
-      `rgba(220,230,255,${alpha})`;
-
-    ctx.fill();
-
-  });
-
-
-  particles.forEach(p=>{
-
-    p.x+=p.vx;
-    p.y+=p.vy;
-
-    if(p.y<-5){
-
-      p.y=H+5;
-      p.x=Math.random()*W;
-
-    }
-
-    ctx.beginPath();
-
-    ctx.arc(
-      p.x,
-      p.y,
-      p.r,
-      0,
-      Math.PI*2
-    );
-
-    ctx.fillStyle =
-      `rgba(190,210,255,${p.a})`;
-
-    ctx.fill();
-
-  });
-
-
-  /* WATER */
-
-  wctx.clearRect(
-    0,
-    0,
-    W,
-    H
-  );
-
-
-  const waterGradient =
-    wctx.createLinearGradient(
-      0,
-      waterLine,
-      0,
-      H
-    );
-
-  waterGradient.addColorStop(
-    0,
-    'rgba(20,30,74,.56)'
-  );
-
-  waterGradient.addColorStop(
-    1,
-    'rgba(4,7,18,.94)'
-  );
-
-  wctx.fillStyle=
-    waterGradient;
-
-  wctx.fillRect(
-    0,
-    waterLine,
-    W,
-    H-waterLine
-  );
-
-
-  wctx.beginPath();
-
-  wctx.moveTo(
-    0,
-    waterLine
-  );
-
-  for(
-    let x=0;
-    x<=W;
-    x+=8
-  ){
-
-    wctx.lineTo(
-      x,
-      waterLine+
-      Math.sin(
-        x*.008+t*.0007
-      )*2+
-      Math.sin(
-        x*.019+t*.001
-      )*1.1
-    );
-
-  }
-
-  wctx.strokeStyle=
-    'rgba(170,195,255,.16)';
-
-  wctx.stroke();
-
-
-  stars
-    .slice(0,90)
-    .forEach(s=>{
-
-      const y =
-        waterLine+
-        (waterLine-s.y)*.34+
-        Math.sin(
-          t*.001+s.x
-        )*2;
-
-      if(y>=H)
-        return;
-
-      wctx.beginPath();
-
-      wctx.ellipse(
-        s.x,
-        y,
-        s.r*1.5,
-        .45,
-        0,
-        0,
-        Math.PI*2
-      );
-
-      wctx.fillStyle=
-        'rgba(180,205,255,.12)';
-
-      wctx.fill();
-
-    });
-
-
-  requestAnimationFrame(draw);
-
+function loop(t){ drawFrame(t); rafId = requestAnimationFrame(loop); }
+function startWorld(){
+  cancelAnimationFrame(rafId);
+  if(reduceMotion) drawFrame(0); else rafId = requestAnimationFrame(loop);
 }
-
-
 resize();
+startWorld();
+window.addEventListener('resize', resize);
 
-requestAnimationFrame(draw);
-
-window.addEventListener(
-  'resize',
-  resize
-);
-
-
-/* =========================
-   SCREEN FLOW
-========================= */
-
-const screens={
-
-  landing:
-    $('screen-landing'),
-
-  vera:
-    $('screen-vera'),
-
-  reading:
-    $('screen-reading'),
-
-  payment:
-    $('screen-payment')
-
-};
-
-
-function showScreen(name){
-
-  Object.entries(screens)
-    .forEach(
-      ([key,screen])=>{
-
-        screen.classList.toggle(
-          'active',
-          key===name
-        );
-
-        screen.classList.remove(
-          'leaving'
-        );
-
-      }
-    );
-
-}
-
-
-let currentQuestion='';
-let firstCard=null;
-
-
-/* =========================
-   ENTER
-========================= */
-
+/* ================= 1. THE WINDOW ================= */
 async function enter(){
-
-  const button =
-    $('btnEnter');
-
-  button.disabled=true;
-
-  trackEvent(
-    'enter_clicked'
-  );
-
-  await unlockAudio();
-
-  setSound(true);
-
-  $('soundToggle')
-    .classList.add('visible');
-
+  $('btnEnter').disabled = true;
+  trackEvent('enter_clicked');
+  // first entry turns sound on; after "ปิดการอ่าน" the visitor's SOUND choice is kept
+  if(!$('soundToggle').classList.contains('is-on')){
+    await unlockAudio();
+    setSound(true);
+    $('soundToggle').classList.add('is-on');
+    startAmbient();
+  }
   buttonSound('enter');
-
-  startAmbient('space');
-
-  $('portal')
-    .classList.add('active');
-
-  screens.landing
-    .classList.add('leaving');
-
-  screens.landing
-    .classList.remove('active');
-
+  $('portal').classList.add('is-on');
+  await wait(900);
+  goQuestion();
   await wait(1400);
-
-  showScreen('vera');
-
-  $('portal')
-    .classList.remove('active');
-
-  startAmbient('vera');
-
-  await wait(500);
-
-  $('veraFigure')
-    .classList.add('visible');
-
-  $('waterGlow')
-    .classList.add('visible');
-
-  await wait(700);
-
-  $('line1')
-    .classList.add('visible');
-
-  await wait(1500);
-
-  $('line2')
-    .classList.add('visible');
-
-  await wait(800);
-
-  $('questionForm')
-    .classList.add('visible');
-
-  $('questionInput')
-    .focus();
-
+  $('portal').classList.remove('is-on');
 }
 
-
-/* =========================
-   FIRST READING
-========================= */
+/* ================= 2. THE QUESTION ================= */
+/* note: a strings key (re-rendered on language switch); noteText: raw text from the generator */
+function goQuestion({ note, noteText } = {}){
+  const n = $('rewriteNote');
+  if(note){ setText(n, note); n.hidden = false; }
+  else if(noteText){ setText(n, null); n.textContent = noteText; n.hidden = false; }
+  else { setText(n, null); n.hidden = true; }
+  $('btnAsk').disabled = false;
+  $('questionInput').disabled = false;
+  $('contextInput').disabled = false;
+  showScene('question').then(() => { try{ $('questionInput').focus({ preventScroll:true }); }catch(e){} });
+}
 
 async function submitQuestion(event){
-
   event.preventDefault();
-
-  const question =
-    $('questionInput')
-      .value
-      .trim();
-
-  if(!question)
+  const question = $('questionInput').value.trim();
+  const context = $('contextInput').value.trim();
+  if(!question){
+    setText($('rewriteNote'), 'question.empty');
+    $('rewriteNote').hidden = false;
+    $('questionInput').focus();
     return;
-
-  currentQuestion=
-    question;
-
-  trackEvent(
-    'question_submitted'
-  );
-
-  const button =
-    event.currentTarget
-      .querySelector('.submit');
-
-  button.disabled=true;
-
-  $('questionInput')
-    .disabled=true;
-
+  }
+  state.question = question; state.context = context;
+  $('btnAsk').disabled = true;
+  $('questionInput').disabled = true;
+  $('contextInput').disabled = true;
   buttonSound('submit');
+  trackEvent('question_submitted');
+  tlog('question_submitted', { q_len: question.length, detail: context ? 'context' : '' });
+  await startDraw();
+}
 
+/* ================= 3. THE DRAW ================= */
+function resetDraw(){
+  $('drawFlip').classList.remove('is-flipped');
+  $('drawImage').removeAttribute('src');
+  $('drawImage').alt = '';
+  $('drawName').textContent = '';
+  $('drawError').hidden = true;
+  hideExisting($('drawLines'));
+}
 
-  const light =
-    $('questionLight');
+async function startDraw(){
+  resetDraw();
+  showScene('draw');
+  const linesShown = (async () => { await wait(500); await revealExisting($('drawLines'), 900); })();
+  const minWait = wait(2600);
 
-  light.classList.remove(
-    'sending'
-  );
-
-  void light.offsetWidth;
-
-  light.classList.add(
-    'sending'
-  );
-
-
-  await wait(2000);
-
-
-  screens.vera
-    .classList.add('leaving');
-
-  screens.vera
-    .classList.remove('active');
-
-
-  await wait(750);
-
-
-  showScreen('reading');
-
-  $('readingIntro')
-    .classList.add('visible');
-
-  startAmbient('reading');
-
-
-  let result;
-
-
+  let data, ok = false, status = 0;
+  const tRead = Date.now();
   try{
+    const res = await fetch('/api/read', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ question: state.question, context: state.context || undefined, lang: uiLang, source: currentSource(), sid: tsid, member: state.memberToken || undefined })
+    });
+    status = res.status;
+    data = await res.json().catch(() => ({}));
+    ok = res.ok;
+  }catch(e){ data = {}; }
+  const readMs = Date.now() - tRead;
+  await Promise.all([linesShown, minWait]);
 
-    const response =
-      await fetch(
-        '/api/read',
-        {
-          method:'POST',
-
-          headers:{
-            'Content-Type':
-              'application/json'
-          },
-
-          body:
-            JSON.stringify({
-              question
-            })
-        }
-      );
-
-
-    const data =
-      await response
-        .json()
-        .catch(
-          ()=>({})
-        );
-
-
-    if(!response.ok){
-
-      throw new Error(
-        data.error ||
-        'อ่านไพ่ไม่สำเร็จ'
-      );
-
-    }
-
-
-    result=data;
-
-
-  }catch(error){
-
-    $('readingIntro')
-      .innerHTML =
-        `ขออภัยนะคะ ตอนนี้ยังขอคำตอบไม่ได้<br>
-        <span class="ritual-sub">
-        ${error.message || 'กรุณาลองใหม่อีกครั้ง'}
-        </span>`;
-
-
-    button.disabled=false;
-
-    $('questionInput')
-      .disabled=false;
-
+  if(!ok){
+    const code = data && data.code;
+    tlog('draw_failed', { http_status: status, reason: code || 'network', latency_ms: readMs });
+    setText($('drawErrorText'),
+      status === 429 || code === 'rate_limited' ? 'draw.rateLimited' :
+      code === 'question_required' ? 'errors.question_required' : 'draw.failed');
+    $('drawError').hidden = false;
     return;
-
   }
 
+  if(data.safety && !data.card){
+    trackEvent('safety_shown');
+    clearStore();
+    return showSafety(data.message, data.lang);
+  }
+  if(data.needs_rewrite || !data.card){
+    trackEvent('needs_rewrite');
+    // Copy comes from strings by reason so it follows the language toggle.
+    // Vera's own rewrite prompt (in the language asked), shown as-is.
+    return data.message ? goQuestion({ noteText: data.message }) : goQuestion({ note: 'rewrite.fallback' });
+  }
 
-  firstCard =
-    result.card || null;
+  state.card = data.card;
+  state.order = data.order || null;
+  state.lang = normLang(data.lang || uiLang);
+  state.paymentId = null;
+  state.paid = null;
+  state.deeper = null;
+  state.ratings = {};
+  state.readingId = data.reading_id || null;
+  state.slipAttempt = 0;
+  state.stage = 'first';
+  save();
 
-
-  trackEvent(
-    'reading_completed',
-    {
-      mode:
-        result.reading_mode ||
-        'unknown'
-    }
-  );
-
-
-  await wait(1200);
-
+  await loadImage($('drawImage'), cardUrl(state.card));
+  $('drawImage').alt = state.card.name || '';
   revealSound();
-
-  await wait(1100);
-
-
-  const image =
-    $('cardImage');
-
-
-  /*
-    Compatible with current /api/read:
-    data.card.image
-    OR
-    data.card.file
-  */
-
-  let imageUrl='';
-
-
-  if(
-    firstCard &&
-    firstCard.image
-  ){
-
-    imageUrl=
-      firstCard.image;
-
-  }else if(
-    firstCard &&
-    firstCard.file
-  ){
-
-    imageUrl=
-      'cards/web/' +
-      String(firstCard.file)
-        .replace(/^\/+/,'')
-        .replace(
-          /^cards\/web\//,
-          ''
-        );
-
-  }
-
-
-  image.src=imageUrl;
-
-  image.alt =
-    firstCard &&
-    firstCard.name
-      ? firstCard.name
-      : 'Stillwater card';
-
-
-  $('cardShell')
-    .classList.add(
-      'revealed'
-    );
-
-
-  await wait(700);
-
-
-  $('readingText')
-    .textContent =
-      result.reading || '';
-
-
-  $('readingText')
-    .classList.add(
-      'visible'
-    );
-
-
+  $('drawFlip').classList.add('is-flipped');
   await wait(1000);
-
-
-  /*
-    STILLWATER INVITATION
-  */
-
-  $('invitation')
-    .classList.add(
-      'visible'
-    );
-
-
-  $('invitation')
-    .querySelectorAll(
-      '.inv-light'
-    )
-    .forEach(
-      light =>
-        light.classList.add(
-          'show'
-        )
-    );
-
-
-  invitationSound();
-
-
-  trackEvent(
-    'invitation_shown'
-  );
-
+  $('drawName').textContent = state.card.name || '';
+  trackEvent('reading_completed', { mode: data.reading_mode || 'unknown' });
+  tlog('free_card_shown', { latency_ms: readMs, step: 1 });
+  await wait(1500);
+  showFirst();
 }
 
-
-/* =========================
-   OPEN 3 CARDS
-========================= */
-
-async function openDeeper(){
-
-  trackEvent(
-    'deeper_clicked'
-  );
-
-  buttonSound(
-    'deeper'
-  );
-
-  await wait(900);
-
-  showScreen(
-    'payment'
-  );
-
-  trackEvent(
-    'payment_screen_viewed'
-  );
-
+/* ================= 4. THE FIRST ANSWER ================= */
+async function showFirst(){
+  const card = state.card;
+  $('firstImage').src = cardUrl(card);
+  $('firstImage').alt = card.name || '';
+  $('firstName').textContent = card.name || '';
+  $('firstLines').textContent = '';
+  hideExisting($('firstInvite'));
+  resetRating('free');
+  $('btnToOffer').disabled = !state.order;
+  await showScene('first');
+  await revealLines($('firstLines'), splitLines(card.text).slice(0, 6), { gap: 900 });
+  await wait(500);
+  await revealExisting($('firstInvite'), 450);
+  showRating('free');
+  trackEvent('invitation_shown');
 }
 
+/* Fill scene 4 without animation (back button / resumed session). */
+function fillFirstStatic(){
+  const card = state.card;
+  if(!card || $('firstLines').children.length) return;
+  $('firstImage').src = cardUrl(card);
+  $('firstImage').alt = card.name || '';
+  $('firstName').textContent = card.name || '';
+  splitLines(card.text).slice(0, 6).forEach((line) => {
+    const p = document.createElement('p'); p.className = 'ln is-in'; p.textContent = line; $('firstLines').appendChild(p);
+  });
+  $('firstInvite').querySelectorAll('.ln').forEach((n) => n.classList.add('is-in'));
+  showRating('free');
+  $('btnToOffer').disabled = !state.order;
+}
 
-/* =========================
-   PAYMENT
-========================= */
+/* ================= 5. THE OFFERING ================= */
+function resetOffering(){
+  stopPolling();
+  $('btnPay').disabled = false;
+  $('btnPay').hidden = false;
+  $('payQr').hidden = true;
+  $('payQr').removeAttribute('src');
+  $('payQrPayload').hidden = true;
+  state.payee = null; renderPayee();
+  $('payHint').hidden = true;
+  $('payQrActions').hidden = true;
+  $('slipBox').hidden = true;
+  $('btnPayhip').hidden = true; state.payhip = false;
+  resetSlip();
+  setPayStatus('');
+}
+
+function resetSlip(){
+  state.slipFile = null;
+  $('slipInput').value = '';
+  setText($('slipPick'), 'offering.attach');
+  $('slipPick').classList.remove('is-busy');
+  $('slipPreview').hidden = true;
+  $('slipPreview').classList.remove('is-checking');
+  $('btnRetrySlip').hidden = true;
+}
+
+function goOffering(){
+  buttonSound('deeper');
+  trackEvent('deeper_clicked');
+  if(state.memberToken){
+    state.stage = 'full'; save();
+    openFull();
+    return;
+  }
+  if(!state.paymentId && $('slipBox').hidden) resetOffering();
+  state.stage = 'offering'; save();
+  showScene('offering');
+}
+
+/* key: strings key ('' clears); tone: '' | 'error' | 'calm' | 'ok' */
+function setPayStatus(key, tone){
+  const el = $('payStatus');
+  setText(el, key || null);
+  el.classList.toggle('is-error', tone === 'error' || tone === true);
+  el.classList.toggle('is-calm', tone === 'calm');
+  el.classList.toggle('is-ok', tone === 'ok');
+}
 
 async function createPayment(){
-
-  const button =
-    $('btnPay');
-
-  const status =
-    $('paymentStatus');
-
-  const qr =
-    $('payQr');
-
-  button.disabled=true;
-
-  status.textContent =
-    'กำลังเปิดช่องทางชำระเงิน…';
-
-  status.className =
-    'payment-status';
-
+  if(!state.order){ setPayStatus('pay.noOrder', true); return; }
+  $('btnPay').disabled = true;
+  setPayStatus('pay.opening');
   buttonSound('pay');
-
-  trackEvent(
-    'payment_started'
-  );
-
-
+  trackEvent('payment_started');
+  const tPay = Date.now();
   try{
-
-    const response =
-      await fetch(
-        '/api/payment/create',
-        {
-          method:'POST',
-
-          headers:{
-            'Content-Type':
-              'application/json'
-          },
-
-          body:
-            JSON.stringify({
-
-              question:
-                currentQuestion,
-
-              firstCard:
-                firstCard
-
-            })
-          }
-        );
-
-
-    const data =
-      await response
-        .json()
-        .catch(
-          ()=>({})
-        );
-
-
-    if(!response.ok){
-
-      throw new Error(
-        data.error ||
-        'ยังไม่สามารถเปิดช่องทางชำระเงินได้'
-      );
-
+    const res = await fetch('/api/payment/create', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ order: state.order, sid: tsid })
+    });
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok) throw new Error(data.code ? errorKey(data.code) : 'pay.createFailed');
+    if(data.checkoutUrl){
+      // Payhip: checkout in a new tab; the webhook confirms, we poll /api/pay-status.
+      state.paymentId = data.paymentId; state.payhip = true; save();
+      $('btnPay').hidden = true;
+      const a = $('btnPayhip'); a.href = data.checkoutUrl; a.hidden = false;
+      a.onclick = () => { tlog('pay_payhip_open', { latency_ms: Date.now() - tPay }); };
+      setPayStatus('');
+      startPolling();
+      return;
     }
-
-
-    if(!data.qr || !data.chargeId){
-
-      throw new Error(
-        'Omise ไม่ได้ส่ง QR กลับมา'
-      );
-
+    if(!data.qr && !data.qrPayload) throw new Error('pay.noQr');
+    showQr(data);
+    tlog('qr_shown', { latency_ms: Date.now() - tPay, result: data.flow || '' });
+    state.payee = data.flow === 'slip' && data.payee ? data.payee : null;
+    renderPayee();
+    if(data.flow === 'slip'){
+      // PromptPay to Stillwater's own account → customer attaches the slip.
+      $('payHint').hidden = false;
+      if(data.qr){ $('btnSaveQr').href = data.qr; $('payQrActions').hidden = false; }
+      $('slipBox').hidden = false;
+      setPayStatus(data.mode === 'test' ? 'pay.testSlip' : '');
+    }else{
+      const paymentId = data.paymentId || data.chargeId;
+      if(!paymentId) throw new Error('pay.noQr');
+      state.paymentId = paymentId;
+      save();
+      setPayStatus(data.mode === 'test' ? 'pay.testPoll' : 'pay.scanPoll');
+      startPolling();
     }
-
-
-    qr.src = data.qr;
-    qr.hidden = false;
-    qr.style.display = 'block';
-
-    status.textContent =
-      data.mode === 'test'
-        ? 'โหมดเทส สแกน QR แล้วยืนยันใน Omise'
-        : 'สแกน QR พร้อมเพย์ 59 บาท';
-
-
-    const timer = setInterval(async ()=>{
-
-      const check =
-        await fetch(
-          '/api/payment/status?charge=' +
-          encodeURIComponent(data.chargeId)
-        );
-
-      const paid =
-        await check.json().catch(()=>({}));
-
-      if(!paid.paid) return;
-
-      clearInterval(timer);
-
-      clearInterval(timer);
-      status.textContent = 'จ่ายแล้ว กำลังกลับเข้าพิธี';
-      await revealDeeper(data.chargeId);
-
-    }, 3000);
-
-
   }catch(error){
-
-    button.disabled=false;
-
-    status.className =
-      'payment-status payment-error';
-
-    status.textContent =
-      error.message ||
-      'เกิดข้อผิดพลาด กรุณาลองใหม่';
-
+    tlog('qr_failed', { reason: String((error && error.message) || 'network'), latency_ms: Date.now() - tPay });
+    $('btnPay').disabled = false;
+    // error.message is a strings key (network errors fall back to createFailed)
+    setPayStatus(/^[a-z]+\.[A-Za-z_]+$/.test(error.message || '') ? error.message : 'pay.createFailed', 'error');
   }
-
 }
 
+/* ---------- slip upload (PromptPay + EasySlip) ---------- */
+const SLIP_MAX = 4 * 1024 * 1024;
+const SLIP_REASONS = ['pending','wrong_amount','wrong_account','duplicate','old_slip','unreadable','bad_file','quota','service'];
 
-
-async function revealDeeper(chargeId){
-  showScreen('reading');
-  $('invitation').classList.remove('visible');
-  $('readingIntro').textContent = 'พี่เวรากำลังเปิดอีกสามใบให้คุณนะคะ';
-  $('readingText').textContent = '';
-  const response = await fetch('/api/deeper', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify({
-      chargeId,
-      question: currentQuestion,
-      firstCardId: firstCard && firstCard.id
-    })
-  });
-  const data = await response.json().catch(()=>({}));
-  if(!response.ok){
-    $('readingText').textContent = data.error || 'ยังเปิดสามใบไม่ได้';
-    $('readingText').classList.add('visible');
+function onSlipChosen(){
+  const file = $('slipInput').files && $('slipInput').files[0];
+  if(!file) return;
+  if(!/^image\/(jpeg|png)$/.test(file.type) || file.size > SLIP_MAX || file.size === 0){
+    tlog('slip_rejected_client', { slip_bytes: file.size, slip_type: file.type || 'unknown', reason: 'bad_file' });
+    resetSlip();
+    setPayStatus('slip.bad_file', 'error');
     return;
   }
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'width:100%;display:grid;gap:18px;margin-top:12px';
-  for (const card of data.cards){
-    revealSound();
-    const article = document.createElement('article');
-    article.style.textAlign = 'center';
-    article.innerHTML = `<div>${card.position}</div><img src="${card.image}" alt="${card.name}" style="width:min(180px,46vw);border-radius:10px"><h2>${card.name}</h2>`;
-    wrap.appendChild(article);
-    await wait(900);
+  state.slipFile = file;
+  tlog('slip_chosen', { slip_bytes: file.size, slip_type: file.type });
+  const prev = $('slipPreview');
+  if(prev.src && prev.src.startsWith('blob:')) URL.revokeObjectURL(prev.src);
+  prev.src = URL.createObjectURL(file);
+  prev.hidden = false;
+  submitSlip();
+}
+
+async function submitSlip(){
+  if(!state.slipFile || !state.order) return;
+  buttonSound('pay');
+  trackEvent('slip_submitted');
+  $('btnRetrySlip').hidden = true;
+  $('slipPick').classList.add('is-busy');
+  $('slipPreview').classList.add('is-checking');
+  setPayStatus('pay.checkingSlip', 'calm');
+  let data = {}, ok = false, slipStatus = 0;
+  const attempt = state.slipAttempt = (state.slipAttempt || 0) + 1;
+  const tSlip = Date.now();
+  tlog('slip_upload', { attempt, slip_bytes: state.slipFile.size, slip_type: state.slipFile.type });
+  try{
+    const form = new FormData();
+    form.append('order', state.order);
+    form.append('sid', tsid);
+    form.append('attempt', String(attempt));
+    form.append('slip', state.slipFile, state.slipFile.name || 'slip');
+    const res = await fetch('/api/payment/verify-slip', { method:'POST', body: form });
+    slipStatus = res.status;
+    data = await res.json().catch(() => ({}));
+    ok = res.ok && data.ok && typeof data.paid === 'string';
+  }catch(e){ data = { reason:'service' }; }
+  tlog('slip_result', { attempt, result: ok ? 'ok' : (data.reason || 'service'), reason: ok ? '' : (data.reason || 'service'),
+    reason_detail: slipStatus ? '' : 'network', http_status: slipStatus, latency_ms: Date.now() - tSlip });
+  tflush();
+  $('slipPreview').classList.remove('is-checking');
+  $('slipPick').classList.remove('is-busy');
+
+  if(ok){
+    state.paid = data.paid;
+    state.stage = 'paid';
+    save();
+    trackEvent('payment_paid', { method:'slip' });
+    $('slipPick').hidden = true;
+    setPayStatus('pay.slipOk', 'ok');
+    await wait(1400);
+    $('slipPick').hidden = false;
+    openFull();
+    return;
   }
-  $('readingText').before(wrap);
-  $('readingText').textContent = data.reading + '\n\nขอบคุณจักรวาลที่ช่วยให้คำตอบ...';
-  $('readingText').classList.add('visible');
+  trackEvent('slip_failed', { reason: data.reason || 'unknown' });
+  const reason = data.reason || 'service';
+  const msgKey = SLIP_REASONS.includes(reason) ? 'slip.' + reason : errorKey(reason);
+  if(reason === 'pending' || reason === 'quota' || reason === 'service'){
+    // Same slip may pass later (Bangkok Bank ~5 min) → keep it and offer a retry.
+    setPayStatus(msgKey, 'calm');
+    $('btnRetrySlip').hidden = false;
+    setText($('slipPick'), 'offering.attachAgain');
+  }else{
+    setPayStatus(msgKey, 'error');
+    state.slipFile = null;
+    $('slipInput').value = '';
+    setText($('slipPick'), 'offering.attachAgain');
+  }
+  if(/order_/.test(data.reason || '')){ $('slipBox').hidden = true; }
 }
 
-/* =========================
-   EVENTS
-========================= */
+/* Receiving account name under the QR (from the server, PAYEE_NAME_TH / _EN); nothing when missing. */
+function renderPayee(){
+  const el = $('payPayee'), p = state.payee, name = p && !$('payQr').hidden ? (uiLang === 'en' ? p.en : p.th) : null;
+  el.textContent = name ? t('offering.payee', { name }) : '';
+  el.hidden = !name;
+}
 
-$('btnEnter')
-  .addEventListener(
-    'click',
-    enter
-  );
+function showQr(data){
+  $('btnPay').hidden = true;
+  if(data.qr){
+    $('payQr').src = data.qr;
+    $('payQr').hidden = false;
+  }else if(data.qrPayload){
+    // TODO(payment adapter): render qrPayload (EMVCo PromptPay string) as a QR image
+    // client-side once a slip-verification adapter is used.
+    $('payQrPayload').textContent = data.qrPayload;
+    $('payQrPayload').hidden = false;
+  }
+}
 
-
-$('questionForm')
-  .addEventListener(
-    'submit',
-    submitQuestion
-  );
-
-
-$('btnDeeper')
-  .addEventListener(
-    'click',
-    openDeeper
-  );
-
-
-$('btnPay')
-  .addEventListener(
-    'click',
-    createPayment
-  );
-
-
-$('btnBackReading')
-  .addEventListener(
-    'click',
-    ()=>{
-      buttonSound();
-      showScreen('reading');
+function stopPolling(){
+  if(state.pollTimer){ clearInterval(state.pollTimer); state.pollTimer = null; }
+}
+function startPolling(){
+  stopPolling();
+  const started = Date.now();
+  let busy = false;
+  const tick = async () => {
+    if(busy || !state.paymentId) return;
+    if(Date.now() - started > 20 * 60 * 1000){
+      stopPolling();
+      if(state.payhip){ tlog('pay_payhip_fail', { reason: 'timeout' }); $('btnPayhip').hidden = true; }
+      setPayStatus('pay.qrExpired', true);
+      state.paymentId = null; save();
+      $('btnPay').hidden = false; $('btnPay').disabled = false; $('payQr').hidden = true;
+      return;
     }
-  );
-
-
-$('soundToggle')
-  .addEventListener(
-    'click',
-    async ()=>{
-
-      await unlockAudio();
-
-      const next =
-        !soundEnabled;
-
-      setSound(next);
-
-      if(next){
-
-        buttonSound();
-
-        startAmbient(
-          screens.reading
-            .classList.contains('active')
-            ? 'reading'
-            : screens.vera
-                .classList.contains('active')
-            ? 'vera'
-            : 'space'
-        );
-
-      }else{
-
-        stopAmbient(false);
-
+    busy = true;
+    try{
+      const res = await fetch((state.payhip ? '/api/pay-status' : '/api/payment/status') + '?payment=' + encodeURIComponent(state.paymentId));
+      const data = await res.json().catch(() => ({}));
+      if(data.paid){
+        stopPolling();
+        if(state.payhip){ tlog('pay_payhip_ok', { latency_ms: Date.now() - started }); $('btnPayhip').hidden = true; }
+        setPayStatus('pay.pollOk');
+        trackEvent('payment_paid');
+        await wait(700);
+        openFull();
+      }else if(['failed','expired','reversed'].includes(data.status)){
+        stopPolling();
+        if(state.payhip){ tlog('pay_payhip_fail', { reason: data.status }); $('btnPayhip').hidden = true; }
+        state.paymentId = null; save();
+        setPayStatus('pay.failed', true);
+        $('btnPay').hidden = false; $('btnPay').disabled = false; $('payQr').hidden = true;
       }
-
-    }
-  );
-
-
-/* =========================
-   PAYMENT RETURN
-========================= */
-
-const params =
-  new URLSearchParams(
-    window.location.search
-  );
-
-
-const paymentState =
-  params.get('payment');
-
-if(paymentState){
-
-  /*
-    Payment return is handled by
-    /api/payment/return.
-
-    We intentionally don't claim
-    success from a URL parameter alone.
-    The backend must verify the
-    transaction with Omise first.
-  */
-
-  trackEvent(
-    'payment_returned'
-  );
-
+    }catch(e){}
+    busy = false;
+  };
+  state.pollTimer = setInterval(tick, 3000);
+  state.pollTick = tick;
 }
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && state.pollTimer && state.pollTick) state.pollTick();
+});
+
+/* ================= 6. THE FULL READING ================= */
+function resetFull(){
+  setText($('fullIntro'), 'full.opening');
+  $('fullIntro').hidden = false;
+  $('fullStory').textContent = '';
+  $('btnNextCard').hidden = true;
+  $('endOverview').textContent = ''; $('endWords').textContent = '';
+  ['endHeading','endThanks','endReturn'].forEach((id) => $(id).classList.remove('is-in'));
+  $('fullFinal').hidden = true;
+  $('fullActions').hidden = true;
+  $('fullError').hidden = true;
+  setText($('shareNote'), null);
+}
+
+async function fetchDeeper(){
+  for(let attempt = 0; attempt < 5; attempt++){
+    const res = await fetch('/api/deeper', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(state.paid ? { order: state.order, paid: state.paid, sid: tsid, member: state.memberToken || undefined } : { order: state.order, charge: state.paymentId, sid: tsid, member: state.memberToken || undefined })
+    });
+    const data = await res.json().catch(() => ({}));
+    if(res.ok) return data;
+    if(res.status !== 402) throw new Error(data.code ? errorKey(data.code) : 'full.failed');
+    await wait(2500); // provider may lag a moment behind the status poll
+  }
+  throw new Error('full.notPaidYet');
+}
+
+async function openFull(){
+  resetFull();
+  showScene('full');
+  let data = state.deeper;
+  tlog('full_open', { result: data ? 'cached' : 'fetch', step: state.fullStep || 0 });
+  if(!data){
+    const tFull = Date.now();
+    try{
+      data = await fetchDeeper();
+      tlog('full_card_shown', { step: 0, latency_ms: Date.now() - tFull, result: 'loaded' });
+    }catch(error){
+      tlog('full_failed', { reason: String((error && error.message) || 'network'), latency_ms: Date.now() - tFull });
+      setText($('fullErrorText'), /^[a-z]+\.[A-Za-z_]+$/.test(error.message || '') ? error.message : 'full.failed');
+      $('fullError').hidden = false;
+      return;
+    }
+  }
+  if(data.safety){
+    clearStore();
+    return showSafety(data.message, data.lang);
+  }
+  // Order by position_key (past → present → ahead).
+  if(Array.isArray(data.cards) && data.cards.every((c) => c.position_key)){
+    data.cards = data.cards.slice().sort((a, b) => POSITION_ORDER.indexOf(a.position_key) - POSITION_ORDER.indexOf(b.position_key));
+  }
+  if(state.deeper !== data) state.fullStep = state.deeper ? state.fullStep : 0;
+  state.deeper = data;
+  state.stage = 'full';
+  save(); // same-browser reopen; TODO(storage): server-side reopen link
+  await revealFull(data);
+}
+
+/* Scene 6 tells the story one card at a time (Palm, 2026-10-09).
+   No position labels anywhere: each card gets Vera's spoken heading instead
+   (full.headings.<position_key>, in the reading's language). The button
+   "อ่านไพ่ใบถัดไป" reveals the next card; after card 3 come final + closing,
+   the stars and the actions. state.fullStep (cards shown) is saved, so a
+   reload shows the cards already reached instantly and carries on from there. */
+function buildChapter(card, i){
+  const ch = document.createElement('article');
+  ch.className = 'chapter';
+  ch.dataset.step = String(i + 1);   // paid card 1..3
+  ch.dataset.card = String(i + 2);   // card 2..4 of the 4-card story (card 1 = scene 4)
+  if(i > 0){ const d = document.createElement('div'); d.className = 'glow-divider'; d.setAttribute('aria-hidden', 'true'); ch.appendChild(d); }
+  const say = document.createElement('h3'); say.className = 'say'; say.textContent = cardHeading(card, i, state.lang || uiLang);
+  const flip = document.createElement('div'); flip.className = 'flip';
+  const inner = document.createElement('div'); inner.className = 'flip-inner';
+  const back = document.createElement('div'); back.className = 'face face-back card-back';
+  const front = document.createElement('div'); front.className = 'face face-front';
+  const img = document.createElement('img'); img.alt = card.name || ''; img.width = 780; img.height = 1170;
+  front.appendChild(img); inner.append(back, front); flip.appendChild(inner);
+  const name = document.createElement('p'); name.className = 'name';
+  const reading = document.createElement('div'); reading.className = 'reading';
+  ch.append(say, flip, name, reading);
+  ch.setAttribute('aria-label', say.textContent);
+  return { ch, flip, img, name, reading };
+}
+
+async function showChapter(card, i, { instant = false } = {}){
+  const c = buildChapter(card, i);
+  $('fullStory').querySelectorAll('.chapter.is-current').forEach((n) => n.classList.remove('is-current'));
+  c.ch.classList.add('is-current');
+  $('fullStory').appendChild(c.ch);
+  if(instant){
+    c.img.src = cardUrl(card);
+    c.flip.classList.add('is-flipped');
+    c.name.textContent = card.name || '';
+    storyLines(card, i).forEach((line) => { const p = document.createElement('p'); p.className = 'ln is-in'; p.textContent = line; c.reading.appendChild(p); });
+    c.ch.classList.add('is-in');
+    return;
+  }
+  await wait(60);
+  c.ch.classList.add('is-in');
+  if(i > 0) c.ch.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  await loadImage(c.img, cardUrl(card));
+  await wait(700);
+  revealSound();
+  c.flip.classList.add('is-flipped');
+  await wait(900);
+  c.name.textContent = card.name || '';
+  await revealLines(c.reading, storyLines(card, i), { gap: 650 });
+}
+
+function waitNext(step){
+  const btn = $('btnNextCard');
+  btn.hidden = false;
+  btn.classList.remove('is-in');
+  requestAnimationFrame(() => btn.classList.add('is-in'));
+  return new Promise((resolve) => {
+    btn.addEventListener('click', () => { buttonSound(); btn.hidden = true; tlog('next_card_tap', { step }); resolve(); }, { once: true });
+  });
+}
+
+async function revealFull(data){
+  const cards = (data.cards || []).slice(0, 3);
+  const reached = Math.min(Math.max(state.fullStep || 0, 0), cards.length);
+  await wait(reached ? 0 : 500);
+  setText($('fullIntro'), null);
+  $('fullIntro').hidden = true;
+  for(let i = 0; i < cards.length; i++){
+    if(i < reached){ await showChapter(cards[i], i, { instant: true }); }
+    else{
+      if(i > 0) await waitNext(i + 1);
+      await showChapter(cards[i], i);
+      state.fullStep = i + 1; save();
+      trackEvent('full_card_shown', { step: i + 1 });
+    }
+  }
+  // Ending: overview (reader `final`) → Vera's words (reader `closing`) → thanks → return line.
+  const instant = reached === cards.length;
+  await wait(instant ? 0 : 600);
+  const fin = $('fullFinal');
+  fin.hidden = false;
+  if(!instant){ $('fullStory').querySelectorAll('.chapter.is-current').forEach((n) => n.classList.remove('is-current')); }
+  const g = instant ? 0 : 800;
+  $('endHeading').classList.add('is-in');
+  if(!instant) fin.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  await wait(g);
+  await revealLines($('endOverview'), splitLines(data.final), { gap: g });
+  await revealLines($('endWords'), splitLines(data.closing), { gap: g, className: 'closing' });
+  $('endThanks').classList.add('is-in'); await wait(g);
+  $('endReturn').classList.add('is-in'); await wait(g);
+  showRating('full');
+  showReadingId(data); // kept in state only, never shown
+  $('fullActions').hidden = false;
+  trackEvent('full_reading_shown');
+}
+
+/* Reading ID (short, from the server; derived from order_id): kept in state only, never shown
+   to the customer (Palm: zero notices). Support can still look it up from the order. */
+function showReadingId(data){
+  const id = (data && data.reading_id) || state.readingId || '';
+  if(id && !state.readingId){ state.readingId = id; save(); }
+}
+
+/* ================= STAR RATING (stage 'free' | 'full') =================
+   Optional, one per order + stage; rating again overwrites (server keeps the latest). */
+function paintStars(stage, n){
+  $('rate-' + stage).querySelectorAll('.star').forEach((b) => {
+    const on = Number(b.dataset.n) <= (n || 0);
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', Number(b.dataset.n) === n ? 'true' : 'false');
+  });
+}
+function resetRating(stage){
+  const box = $('rate-' + stage);
+  box.classList.remove('is-in');
+  paintStars(stage, 0);
+  setText(box.querySelector('.rate-note'), null);
+}
+function showRating(stage){
+  const box = $('rate-' + stage);
+  const n = (state.ratings || {})[stage] || 0;
+  paintStars(stage, n);
+  if(!n) setText(box.querySelector('.rate-note'), null);
+  box.classList.add('is-in');
+}
+async function rate(stage, stars){
+  if(!state.order) return;
+  const box = $('rate-' + stage);
+  const prev = (state.ratings || {})[stage] || 0;
+  const row = box.querySelector('.stars');
+  paintStars(stage, stars);
+  row.classList.add('is-busy');
+  buttonSound();
+  let ok = false;
+  try{
+    const body = { order: state.order, stage, stars, sid: tsid };
+    if(stage === 'full'){ if(state.paid) body.paid = state.paid; else if(state.paymentId) body.charge = state.paymentId; }
+    const res = await fetch('/api/rate', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    ok = res.ok && data.ok;
+  }catch(e){}
+  row.classList.remove('is-busy');
+  tlog('rating', { stage, stars, result: ok ? 'ok' : 'failed' });
+  if(ok){
+    state.ratings = { ...(state.ratings || {}), [stage]: stars };
+    save();
+    setText(box.querySelector('.rate-note'), 'rate.thanks');
+    trackEvent('rating', { stage, stars });
+  }else{
+    paintStars(stage, prev);
+    setText(box.querySelector('.rate-note'), 'rate.failed');
+  }
+}
+['free','full'].forEach((stage) => {
+  $('rate-' + stage).querySelectorAll('.star').forEach((b) => b.addEventListener('click', () => rate(stage, Number(b.dataset.n))));
+});
+
+/* Silent share tracking → /api/share (order token only; no UI, never awaited, errors ignored). */
+function logShare(channel, result){
+  tlog('share', { channel, result });
+  if(!state.order) return;
+  try{
+    fetch('/api/share', { method:'POST', keepalive:true, headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ order: state.order, channel, result, sid: tsid }) }).catch(() => {});
+  }catch(e){}
+}
+
+/* "แชร์ Stillwater": shares ONLY the site link (/?src=share, so new visitors are counted as
+   src "share" / src_type "referral") — never the question, the cards or the reading. */
+async function shareSite(){
+  buttonSound();
+  const url = location.origin + SHARE_PATH;
+  setText($('shareNote'), null);
+  if(navigator.share){
+    try{ await navigator.share({ title: t('full.shareTitle'), url }); logShare('native', 'completed'); trackEvent('site_shared'); return; }
+    catch(e){
+      if(e && e.name === 'AbortError'){ logShare('native', 'cancelled'); return; }
+      logShare('native', 'failed');
+    }
+  }
+  try{
+    await navigator.clipboard.writeText(url);
+    setText($('shareNote'), 'full.copied');
+    logShare('copy_link', 'completed');
+  }catch(e){
+    $('shareNote').textContent = url;
+    logShare('copy_link', 'failed');
+  }
+  trackEvent('site_link_copied');
+}
+
+/* "ปิดการอ่าน": end the session cleanly and return to the landing (scene 1).
+   A new question starts from there ("พร้อมส่งคำถาม"). Silent 'close' event. */
+function closeReading(){
+  buttonSound();
+  trackEvent('reading_closed', { step: state.fullStep || 0 });
+  if(state.order){
+    try{ fetch('/api/close', { method:'POST', keepalive:true, headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ order: state.order, step: state.fullStep || 0, sid: tsid }) }).catch(() => {}); }catch(e){}
+  }
+  tflush(); // send pending events while the order token is still known
+  stopPolling();
+  clearStore();
+  resetRating('free'); resetRating('full');
+  Object.assign(state, { fullStep:0, readingId:null, ratings:{}, question:'', context:'', lang:null, order:null, card:null, paymentId:null, paid:null, deeper:null, stage:null, slipFile:null, slipAttempt:0, membershipPurchase:null, membershipPaid:null, membershipPaymentId:null });
+  $('questionInput').value = '';
+  $('contextInput').value = '';
+  resetDraw();
+  resetOffering();
+  resetFull();
+  hideExisting($('windowLines'));
+  $('btnEnter').disabled = false;
+  $('scene-window').scrollTop = 0;
+  showScene('window');
+  wait(500).then(() => revealExisting($('windowLines'), 520));
+}
+
+/* ================= SAFETY ================= */
+/* The server's fixed safety message is shown as-is (Stillwater's text, same as
+   strings safety.paragraphs). After a language switch the strings for the new
+   language are shown. Always contains 1323 (tel: link). No CTA. */
+let safetyShown = null; // { text, lang }
+function renderSafety(revealed){
+  const box = $('safetyMsg');
+  box.textContent = '';
+  const fromServer = safetyShown && safetyShown.text && safetyShown.lang === uiLang;
+  const paras = fromServer ? String(safetyShown.text).split(/\n{2,}/).filter(Boolean) : t('safety.paragraphs').slice();
+  if(!paras.some((p) => p.includes('1323'))) paras.push(t('safety.paragraphs')[2]);
+  paras.forEach((text) => {
+    const p = document.createElement('p');
+    p.className = 'ln' + (revealed ? ' is-in' : '');
+    text.split(/(1323|1669)/).forEach((part) => {
+      if(part === '1323' || part === '1669'){
+        const a = document.createElement('a'); a.href = 'tel:' + part; a.textContent = part; p.appendChild(a);
+      }else p.appendChild(document.createTextNode(part));
+    });
+    box.appendChild(p);
+  });
+}
+function showSafety(message, lang){
+  stopPolling();
+  safetyShown = { text: message || '', lang: normLang(lang || uiLang) };
+  renderSafety(false);
+  showScene('safety').then(() => revealExisting($('safetyMsg'), 900));
+}
+
+
+/* ================= Unlimited Membership ================= */
+function memberStatus(text, cls=''){ const el=$('membershipStatus'); el.textContent=text||''; el.className='member-status'+(cls?' '+cls:''); }
+function memberPayStatus(text, cls=''){ const el=$('memberPaymentStatus'); el.textContent=text||''; el.className='member-status'+(cls?' '+cls:''); }
+function resetMembershipPanel(){
+  $('membershipPanel').hidden=true; $('memberPaymentFields').hidden=true; $('memberProfileFields').hidden=true; $('memberLoginFields').hidden=true;
+  $('memberQr').hidden=true; $('memberPayhip').hidden=true; $('memberSlipBox').hidden=true; $('memberLoginCode').hidden=true; $('btnVerifyLogin').hidden=true;
+  memberStatus(''); memberPayStatus('');
+}
+async function startUnlimited(){
+  buttonSound('pay'); $('membershipPanel').hidden=false; $('memberLoginFields').hidden=true; $('memberProfileFields').hidden=true; $('memberPaymentFields').hidden=true; memberStatus('Preparing Unlimited payment…');
+  try{
+    const r=await fetch('/api/membership/create',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}); const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.code||'membership_payment_create_failed');
+    state.membershipPurchase=d.purchase; state.membershipPaid=null; state.membershipPaymentId=d.paymentId||null; save();
+    $('memberPaymentFields').hidden=false;
+    if(d.flow==='payhip'){
+      $('memberPayhip').href=d.checkoutUrl; $('memberPayhip').hidden=false; memberPayStatus('Complete the ฿399 payment. We will confirm it automatically.'); startMembershipPolling();
+    }else{
+      $('memberQr').src=d.qr; $('memberQr').hidden=false; $('memberSlipBox').hidden=false; memberPayStatus('Pay ฿399, then attach the slip here.');
+    }
+    memberStatus('Unlimited · ฿399 / 1 month');
+  }catch(e){ memberStatus('Unable to start membership payment: '+e.message,'is-error'); }
+}
+async function submitMembershipSlip(){
+  const f=$('memberSlipInput').files?.[0]; if(!f||!state.membershipPurchase)return;
+  memberPayStatus('Checking payment…');
+  try{
+    const form=new FormData(); form.append('purchase',state.membershipPurchase); form.append('slip',f,f.name||'slip');
+    const r=await fetch('/api/membership/verify-slip',{method:'POST',body:form}); const d=await r.json().catch(()=>({})); if(!r.ok||!d.ok) throw new Error(d.reason||'verification_failed');
+    state.membershipPaid=d.paid; save(); await onMembershipPaid();
+  }catch(e){ memberPayStatus('Payment verification failed: '+e.message,'is-error'); }
+}
+function startMembershipPolling(){
+  stopPolling(); const started=Date.now(); let busy=false;
+  const tick=async()=>{ if(busy||!state.membershipPurchase)return; if(Date.now()-started>48*60*60*1000){stopPolling();return;} busy=true; try{const r=await fetch('/api/membership/status?purchase='+encodeURIComponent(state.membershipPurchase));const d=await r.json().catch(()=>({}));if(d.paid&&d.paidToken){stopPolling();state.membershipPaid=d.paidToken;save();await onMembershipPaid();}}catch(e){} busy=false;};
+  state.membershipPollTimer=setInterval(tick,3000); tick();
+}
+async function onMembershipPaid(){
+  $('memberPaymentFields').hidden=true; $('memberProfileFields').hidden=false; memberPayStatus(''); memberStatus('Payment confirmed. Now enter your email and birth details.','is-ok');
+}
+async function activateUnlimited(){
+  if(!state.membershipPurchase||!state.membershipPaid)return;
+  const email=$('memberEmail').value.trim(), birthDate=$('memberBirthDate').value, birthTime=$('memberBirthTime').value;
+  if(!email||!birthDate||!birthTime){memberStatus('Please complete email, birth date and birth time.','is-error');return;}
+  memberStatus('Activating your membership…');
+  try{const r=await fetch('/api/membership/activate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({purchase:state.membershipPurchase,paid:state.membershipPaid,email,birthDate,birthTime})});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.code||'membership_activate_failed');state.memberToken=d.token;clearStore();state.membershipPurchase=null;state.membershipPaid=null;state.membershipPaymentId=null;state.order=null;state.card=null;state.paymentId=null;state.paid=null;state.deeper=null;state.stage=null;state.question='';state.context='';save();memberStatus('Unlimited is active. Vera will remember your story across devices.','is-ok');await wait(700);$('questionInput').value='';$('contextInput').value='';showScene('window');}catch(e){memberStatus('Could not activate membership: '+e.message,'is-error');}
+}
+function showMemberLogin(){ $('membershipPanel').hidden=false; $('memberPaymentFields').hidden=true; $('memberProfileFields').hidden=true; $('memberLoginFields').hidden=false; memberStatus('Enter your membership email.'); }
+async function sendMemberCode(){const email=$('memberLoginEmail').value.trim();if(!email)return memberStatus('Enter your email.','is-error');memberStatus('Sending your login code…');try{const r=await fetch('/api/membership/request-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.code||'login_code_failed');$('memberLoginCode').hidden=false;$('btnVerifyLogin').hidden=false;memberStatus(d.devCode?`Development login code: ${d.devCode}`:'Check your email for the 6-digit code.','is-ok');}catch(e){memberStatus('Could not send login code: '+e.message,'is-error');}}
+async function verifyMemberCode(){const email=$('memberLoginEmail').value.trim(),code=$('memberLoginCode').value.trim();try{const r=await fetch('/api/membership/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,code})});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.code||'login_code_invalid');state.memberToken=d.token;save();memberStatus('Signed in. Vera can now continue your story.','is-ok');await wait(500);$('questionInput').value='';$('contextInput').value='';showScene('window');}catch(e){memberStatus('Login failed: '+e.message,'is-error');}}
+
+/* ================= events ================= */
+$('btnEnter').addEventListener('click', enter);
+$('questionForm').addEventListener('submit', submitQuestion);
+$('btnDrawBack').addEventListener('click', () => { tlog('back_tap', { scene: 'draw' }); goQuestion(); });
+$('btnToOffer').addEventListener('click', goOffering);
+$('btnPay').addEventListener('click', createPayment);
+$('btnUnlimited').addEventListener('click', startUnlimited);
+$('btnMemberLogin').addEventListener('click', showMemberLogin);
+$('memberSlipInput').addEventListener('change', submitMembershipSlip);
+$('btnActivateMember').addEventListener('click', activateUnlimited);
+$('btnSendLogin').addEventListener('click', sendMemberCode);
+$('btnVerifyLogin').addEventListener('click', verifyMemberCode);
+$('slipInput').addEventListener('change', onSlipChosen);
+$('btnRetrySlip').addEventListener('click', () => { tlog('slip_retry', { attempt: (state.slipAttempt || 0) + 1 }); submitSlip(); });
+$('btnSaveQr').addEventListener('click', () => tlog('qr_save'));
+$('payQr').addEventListener('contextmenu', () => tlog('qr_hold')); // long-press "save image" on mobile
+$('slipPick').addEventListener('click', () => tlog('slip_pick'));
+$('btnBackFirst').addEventListener('click', () => { tlog('back_tap', { scene: 'offering' }); buttonSound(); fillFirstStatic(); showScene('first'); });
+$('btnFullRetry').addEventListener('click', () => { tlog('full_retry'); openFull(); });
+$('btnShareSite').addEventListener('click', shareSite);
+$('btnClose').addEventListener('click', closeReading);
+$('langToggle').addEventListener('click', () => {
+  setLang(uiLang === 'th' ? 'en' : 'th');
+  trackEvent('lang_switched', { lang: uiLang });
+});
+$('soundToggle').addEventListener('click', async () => {
+  await unlockAudio();
+  const next = !soundEnabled;
+  tlog('sound_toggle', { result: next ? 'on' : 'off' });
+  setSound(next);
+  if(next){ buttonSound(); startAmbient(); } else stopAmbient(false);
+});
+
+/* ================= payment return / same-browser resume ================= */
+applyLang();
+captureSource();
+try{
+  const saved0 = load();
+  // Same order resumed in a new tab (bank-app round trip) → keep its session id.
+  if(saved0 && saved0.sid && /^[A-Za-z0-9_-]{6,40}$/.test(saved0.sid) && saved0.sid !== tsid && saved0.order && ['offering','paid','full'].includes(saved0.stage)){
+    tsid = saved0.sid; try{ sessionStorage.setItem('stillwater.sid', tsid); }catch(e){}
+  }
+  const vw = Math.round(window.innerWidth || 0);
+  tlog('page_view', { scene: currentScene, detail: 'path=' + location.pathname + (new URLSearchParams(location.search).get('payment') ? ';payment_return' : '') +
+    ';vw=' + (vw < 400 ? 's' : vw < 800 ? 'm' : 'l') + ';saved=' + ((saved0 && saved0.stage) || '') });
+}catch(e){}
+
+(function resume(){
+  const params = new URLSearchParams(location.search);
+  if(!params.get('payment')){
+    const saved = load();
+    if(saved?.memberToken) state.memberToken = saved.memberToken;
+    // Going to the bank app and back often reloads the tab on mobile →
+    // resume an unfinished paid step in the same browser.
+    if(saved && saved.order && saved.card && ['offering','paid','full'].includes(saved.stage)){
+      Object.assign(state, { order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || null, paid: saved.paid || null, deeper: saved.deeper || null, memberToken: saved.memberToken || null, membershipPurchase: saved.membershipPurchase || null, membershipPaid: saved.membershipPaid || null, membershipPaymentId: saved.membershipPaymentId || null, stage: saved.stage, ratings: saved.ratings || {}, readingId: saved.readingId || null, fullStep: saved.fullStep || 0 });
+      tlog('resume', { detail: 'stage=' + saved.stage, step: saved.fullStep || 0 });
+      $('soundToggle').classList.add('is-on');
+      fillFirstStatic();
+      if(state.deeper || state.paid){ openFull(); return; }
+      resetOffering();
+      showScene('offering');
+      if(!state.paymentId){ createPayment(); return; }
+      $('btnPay').hidden = true;
+      setPayStatus('pay.checking');
+      startPolling();
+      state.pollTick && state.pollTick();
+      return;
+    }
+    wait(400).then(() => revealExisting($('windowLines'), 520));
+    return;
+  }
+  trackEvent('payment_returned');
+  const pid = params.get('pid') || params.get('charge') || '';
+  history.replaceState(null, '', location.pathname);
+  const saved = load();
+  if(!saved || !saved.order || !saved.card) return; // nothing to resume: start fresh
+  Object.assign(state, { fullStep: saved.fullStep || 0, readingId: saved.readingId || null, ratings: saved.ratings || {}, order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || pid || null, deeper: saved.deeper || null });
+  if(pid && saved.paymentId && pid !== saved.paymentId) state.paymentId = pid; // server still verifies orderId binding
+  $('soundToggle').classList.add('is-on');
+  if(state.deeper){ openFull(); return; }
+  if(state.paymentId){
+    resetOffering();
+    $('btnPay').hidden = true;
+    setPayStatus('pay.checking');
+    showScene('offering');
+    startPolling();
+    state.pollTick && state.pollTick();
+  }
+})();
 
 })();
 </script>
-
 </body>
 </html>

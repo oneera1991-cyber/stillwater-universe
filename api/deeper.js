@@ -1,91 +1,139 @@
-const PRICE = 5900;
-const CARDS = [
-  { id: 0, name: "The Fool", file: "fool.jpg" },
-  { id: 1, name: "The Magician", file: "magician.jpg" },
-  { id: 2, name: "The High Priestess", file: "priestess.jpg" },
-  { id: 3, name: "The Empress", file: "empress.jpg" },
-  { id: 4, name: "The Emperor", file: "emperor.jpg" },
-  { id: 5, name: "The Hierophant", file: "hierophant.jpg" },
-  { id: 6, name: "The Lovers", file: "lovers.jpg" },
-  { id: 7, name: "The Chariot", file: "chariot.jpg" },
-  { id: 8, name: "Strength", file: "strength.jpg" },
-  { id: 9, name: "The Hermit", file: "hermit.jpg" },
-  { id: 10, name: "Wheel of Fortune", file: "wheel.jpg" },
-  { id: 11, name: "Justice", file: "justice.jpg" },
-  { id: 12, name: "The Hanged Man", file: "hanged.jpg" },
-  { id: 13, name: "Death", file: "death.jpg" },
-  { id: 14, name: "Temperance", file: "temperance.jpg" },
-  { id: 15, name: "The Devil", file: "devil.jpg" },
-  { id: 16, name: "The Tower", file: "tower.jpg" },
-  { id: 17, name: "The Star", file: "star.jpg" },
-  { id: 18, name: "The Moon", file: "moon.jpg" },
-  { id: 19, name: "The Sun", file: "sun.jpg" },
-  { id: 20, name: "Judgement", file: "judgement.jpg" },
-  { id: 21, name: "The World", file: "world.jpg" }
-];
+/*
+====================================================
+STILLWATER — PAID 3-CARD READING  (POST /api/deeper)
+====================================================
+Body:     { order, paid }     // slip flow (active): paid = token from /api/payment/verify-slip
+       or { order, charge }   // poll flow (Omise, inactive): charge = paymentId
+Response: { ok, safety, lang,
+            cards: [{ position_key, position, label (=position), id, name, file, image, text } x3],
+            final, closing, message }
 
-function pickThree(excludeId) {
-  const pool = CARDS.filter((card) => card.id !== Number(excludeId));
-  const chosen = [];
-  while (chosen.length < 3) {
-    const card = pool[Math.floor(Math.random() * pool.length)];
-    if (chosen.some((item) => item.id === card.id)) continue;
-    chosen.push(card);
-  }
-  const positions = ["อดีต", "ปัจจุบัน", "อนาคต"];
-  return chosen.map((card, index) => ({
-    ...card,
-    position: positions[index],
-    image: "/cards/web/" + card.file
-  }));
-}
+Gate (api/_lib/order.js → verifyPaidOrder):
+  1. order token signature + expiry (question / context / card 1 / lang come ONLY from it)
+  2. payment: a signed paid token bound to the same orderId (slip verified by
+     EasySlip server-side), or — poll flow — a server-side provider check
+Then 3 cards are drawn HERE (drawThree → crypto.randomInt, no card 1, no
+repeats) and passed to the generator as cards3 (ids, past/present/ahead).
+The generator never draws and rejects duplicates / card 1 / bad ids.
+Language = the order token's lang; the client's lang is ignored here.
 
-async function paidCharge(chargeId) {
-  const secretKey = process.env.OMISE_SECRET_KEY;
-  if (!secretKey) {
-    const error = new Error("ยังไม่ได้ตั้งค่า OMISE_SECRET_KEY");
-    error.status = 500;
-    throw error;
-  }
-  const response = await fetch("https://api.omise.co/charges/" + chargeId, {
-    headers: {
-      Authorization: "Basic " + Buffer.from(secretKey + ":").toString("base64")
-    }
-  });
-  const charge = await response.json();
-  if (!response.ok) {
-    const error = new Error(charge.message || "ตรวจการจ่ายไม่สำเร็จ");
-    error.status = 502;
-    throw error;
-  }
-  return charge.status === "successful" && charge.amount === PRICE && charge.currency === "THB";
-}
+TODO(storage): one-time use / idempotency — today a replay of the same
+(order, payment) redraws. See the TODO block in api/_lib/order.js.
+*/
+
+// Vera comes ONLY through api/_lib/reader.js (real vera.js with an OpenAI key, else the stub).
+import { POSITION_KEYS, cardById, drawThree, generateThree, readerMode } from "./_lib/reader.js";
+import { OrderError, parseBody, readingId, verifyOrder, verifyPaidOrder } from "./_lib/order.js";
+import { PaymentError } from "./_lib/payment.js";
+import { errorText, normLang, t } from "../i18n/strings.js";
+import { cleanSid, deviceType, logEvent, orderColumns } from "./_lib/log.js";
+import { getReadingMemory, saveReadingMemory } from "./_lib/memory.js";
+import { getMember, verifyMembershipToken } from "./_lib/membership.js";
+
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+  let lang = "th"; // until the order token is verified
+  const t0 = Date.now();
+  let body = {}, logOrder = null;
   try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-    if (!String(body.chargeId || "").startsWith("chrg_")) {
-      return res.status(400).json({ error: "ไม่พบรายการจ่าย" });
+    body = parseBody(req);
+  let memoryIdentity = body.sid;
+  try { if (body.member) memoryIdentity = "member:" + verifyMembershipToken(body.member).email; } catch { /* invalid membership token falls back to session memory */ }
+    // Language for error messages = the order token's lang, even if payment fails.
+    try { lang = normLang(verifyOrder(body.order).lang); } catch { /* verifyPaidOrder reports it */ }
+    const order = verifyOrder(body.order);
+    let memberAccess = false;
+    if (typeof body.member === "string" && body.member) {
+      try {
+        const memberToken = verifyMembershipToken(body.member);
+        const member = await getMember(memberToken.email);
+        memberAccess = !!member && Number(member.expiresAt) > Date.now();
+      } catch { memberAccess = false; }
     }
-    const paid = await paidCharge(body.chargeId);
-    if (!paid) {
-      return res.status(402).json({ error: "ยังไม่พบการชำระเงิน 59 บาท" });
+    if (!memberAccess) {
+      await verifyPaidOrder({
+        orderToken: body.order,
+        paidToken: typeof body.paid === "string" && body.paid ? body.paid : null,
+        paymentId: String(body.charge || body.payment || "")
+      });
     }
-    const cards = pickThree(body.firstCardId);
-    const reading = [
-      "พี่เวราเปิดอีกสามใบให้แล้วนะคะ",
-      "ใบอดีตคือ " + cards[0].name + " สิ่งที่พามาถึงจุดนี้",
-      "ใบปัจจุบันคือ " + cards[1].name + " สิ่งที่กำลังอยู่ตรงหน้า",
-      "ใบอนาคตคือ " + cards[2].name + " ทิศที่เริ่มเปิดออก",
-      "สามใบนี้ไม่ได้แยกกันค่ะ มันกำลังเล่าเรื่องเดียวกันกับคำถามของคุณ"
-    ].join("\n");
-    return res.status(200).json({ ok: true, cards, reading });
+    lang = normLang(order.lang); // old tokens without lang → "th"
+    logOrder = order;
+
+    const memoryState = await getReadingMemory(memoryIdentity, order.question, order.context);
+    const cards3 = drawThree(order.card1).map((c) => c.id); // the ONLY paid draw (crypto.randomInt)
+
+    const result = await generateThree({
+      question: order.question,
+      context: order.context,
+      card1: { id: order.card1, name: order.card1Name || cardById(order.card1, lang)?.name, text: order.card1Text },
+      openThread: order.open_thread,
+      cards3,
+      lang,
+      memory: memoryState.memory
+    });
+    if (result.usage) console.log("Stillwater /api/deeper usage:", JSON.stringify({ lang, fallback: result.fallback, attempts: result.attempts, usage: result.usage }));
+
+    if (result.safety) {
+      const message = (typeof result.message === "string" && result.message.trim()) || t(lang, "safety.paragraphs").join("\n\n");
+      logEvent("read_full_error", { ...orderColumns(order), card1: order.card1, sid: cleanSid(body.sid), device: deviceType(req.headers?.["user-agent"]), result: "safety", latency_ms: Date.now() - t0 });
+      return res.status(200).json({ ok: true, safety: true, lang, cards: [], final: "", closing: "", message });
+    }
+
+    // Order by position_key (logic); display the reader's `position` label (reading language).
+    // Every id must be exactly the card we drew for that position.
+    const byKey = new Map((result.cards || []).map((c) => [c.position_key, c]));
+    const cards = POSITION_KEYS.map((key, i) => {
+      const c = byKey.get(key);
+      if (!c || Number(c.id) !== cards3[i]) {
+        const err = new Error("reader returned cards that differ from the server draw");
+        err.code = "deeper_failed";
+        throw err;
+      }
+      const label = (typeof c.position === "string" && c.position) || t(lang, "positions." + key);
+      return {
+        position_key: key,
+        position: label,
+        label,
+        id: c.id,
+        name: c.name,
+        file: c.file,
+        image: c.image,
+        text: String(c.text || "")
+      };
+    });
+
+    await saveReadingMemory(memoryIdentity, {
+      question: order.question, context: order.context, lang,
+      cards: [{ id: order.card1, name: order.card1Name }, ...cards.map((c) => ({ id: c.id, name: c.name }))],
+      coreTheme: result.core_theme || memoryState.memory?.coreTheme || "",
+      summary: result.summary || result.final || "",
+      threadId: memoryState.memory?.threadId || null
+    });
+
+    logEvent("read_full", { // fire-and-forget; TODO(storage): a replay redraws → another row
+      ...orderColumns(order), device: deviceType(req.headers?.["user-agent"]),
+      card1: order.card1, cards3: cards3.join(","), reader: readerMode(),
+      sid: cleanSid(body.sid), latency_ms: Date.now() - t0, result: "ok", member_access: memberAccess
+    });
+    return res.status(200).json({
+      ok: true, safety: false, lang, reading_id: readingId(order.orderId), cards,
+      final: String(result.final || ""), closing: String(result.closing || ""), message: null
+    });
   } catch (error) {
-    return res.status(error.status || 500).json({
-      error: error.message || "เปิดไพ่เพิ่มไม่สำเร็จ"
+    const known = error instanceof OrderError || error instanceof PaymentError;
+    if (!known) console.error("Stillwater /api/deeper error:", error?.code || error);
+    logEvent("read_full_error", { // log-only; 402 = payment not confirmed (the page retries)
+      ...(logOrder ? orderColumns(logOrder) : { lang }), card1: logOrder ? logOrder.card1 : "",
+      sid: cleanSid(body?.sid), device: deviceType(req.headers?.["user-agent"]), result: "failed",
+      reason_detail: String(error?.code || error?.name || "error").slice(0, 60), http_status: known ? error.status : 500, latency_ms: Date.now() - t0
+    });
+    return res.status(known ? error.status : 500).json({
+      error: errorText(lang, known ? error.code : "deeper_failed"),
+      code: known ? error.code : "deeper_failed"
     });
   }
 }
