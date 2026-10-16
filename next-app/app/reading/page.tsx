@@ -56,6 +56,8 @@ function ReadingContent() {
   const [errorMsg, setErrorMsg] = useState('')
   const [lang, setLang] = useState<'th' | 'en'>('en')
   const [storyVisible, setStoryVisible] = useState(false)
+  const [starterFirstCard, setStarterFirstCard] = useState<TarotCard | null>(null)
+  const [isMember, setIsMember] = useState(false)
   const trackedResult = useRef<string | null>(null)
 
   const requestedPack = searchParams.get('pack')
@@ -90,6 +92,8 @@ function ReadingContent() {
     const sid = sessionStorage.getItem('sw_sid') || undefined
     const memberToken = localStorage.getItem('sw_member_token') || sessionStorage.getItem('sw_memberToken') || undefined
     const firstResult = pack === 'deeper' ? restoreReadingResult(sessionStorage, 'starter') : null
+    setStarterFirstCard(firstResult?.cards?.[0] ?? null)
+    setIsMember(Boolean(memberToken))
     const storedLang = sessionStorage.getItem('sw_lang') as 'th' | 'en' | null
     if (storedLang) setLang(storedLang)
 
@@ -193,7 +197,7 @@ function ReadingContent() {
           <div className="w-full flex flex-col items-center gap-16">
             {/* Cards row */}
             <div className={`flex gap-6 sm:gap-8 justify-center flex-wrap`}>
-              {(pack === 'deeper' && restoreReadingResult(sessionStorage, 'starter')?.cards?.[0] ? [restoreReadingResult(sessionStorage, 'starter')!.cards[0], ...result.cards] : result.cards).map((card, i) => (
+              {(pack === 'deeper' && starterFirstCard ? [starterFirstCard, ...result.cards] : result.cards).map((card, i) => (
                 <CardDisplay key={card.id} card={card} index={i} total={result.cards.length} />
               ))}
             </div>
@@ -240,7 +244,13 @@ function ReadingContent() {
               <div className="flex flex-col sm:flex-row gap-4 items-center">
                 <button
                   onClick={() => {
+                    const sid = sessionStorage.getItem('sw_sid')
+                    const lang = sessionStorage.getItem('sw_lang')
+                    const member = sessionStorage.getItem('sw_memberToken')
                     sessionStorage.clear()
+                    if (sid) sessionStorage.setItem('sw_sid', sid)
+                    if (lang) sessionStorage.setItem('sw_lang', lang)
+                    if (member) sessionStorage.setItem('sw_memberToken', member)
                     router.push('/')
                   }}
                   className="text-still-text-dim text-xs tracking-widest uppercase hover:text-still-mist transition-colors"
@@ -258,6 +268,10 @@ function ReadingContent() {
                   onClick={(event) => {
                     if (pack !== 'starter') return
                     event.preventDefault()
+                    if (localStorage.getItem('sw_member_token')) {
+                      router.push('/reading?pack=deeper')
+                      return
+                    }
                     void trackClientEvent('deeper_cta_clicked')
                     const analyticsSessionId = getAnalyticsSessionId()
                     const source = captureAcquisitionSource()
@@ -268,7 +282,7 @@ function ReadingContent() {
                   }`}
                 >
                   {pack === 'starter'
-                    ? (lang === 'th' ? 'ลองแพ็กเกจ Deeper →' : 'Try the Deeper pack →')
+                    ? (isMember ? (lang === 'th' ? 'เปิดไพ่เพิ่ม 3 ใบ →' : 'Reveal 3 more cards →') : (lang === 'th' ? 'ลองแพ็กเกจ Deeper →' : 'Try the Deeper pack →'))
                     : (lang === 'th' ? 'Deeper Pack' : 'You have the Deeper Pack')
                   }
                 </a>
