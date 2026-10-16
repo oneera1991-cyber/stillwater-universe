@@ -36,7 +36,13 @@ export async function createReadingResult(
   dependencies: ReadingDependencies,
 ): Promise<ReadingResult> {
   const cardCount = input.pack === 'deeper' ? 3 : 1
-  const cards = dependencies.draw(dependencies.getDeck('major-arcana-22'), cardCount)
+  const baseDeck = dependencies.getDeck('major-arcana-22')
+  // Preserve the existing randomizer; for an upgrade/deeper reading only, draw from a deck view
+  // that excludes the already-revealed first card.
+  const deckForDraw = input.pack === 'deeper' && Number.isInteger(input.firstCardId)
+    ? { ...baseDeck, cards: baseDeck.cards.filter(card => card.id !== input.firstCardId) }
+    : baseDeck
+  const cards = dependencies.draw(deckForDraw, cardCount)
   const bazi = input.birthdate && input.birthTimezone
     ? await dependencies.calculateBazi(input.birthdate, input.birthtime ?? null, input.birthTimezone)
     : null
