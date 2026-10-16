@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import {
   activateMembership, createPurchaseId, getActiveMember, membershipPurchaseStatus,
   openMembershipPurchase, promptpayQr, requestMembershipCode, signMembershipPurchase,
@@ -93,12 +92,3 @@ export async function DELETE() {
   return NextResponse.json({ ok: false, code: 'method_not_allowed' }, { status: 405 })
 }
 
-export function validPayhipSignature(signature: unknown, apiKey: string) {
-  if (typeof signature !== 'string' || !/^[a-f0-9]{64}$/i.test(signature)) return false
-  const expected = createHashHex(apiKey)
-  const a = Buffer.from(expected, 'hex'), b = Buffer.from(signature, 'hex')
-  return a.length === b.length && timingSafeEqual(a, b)
-}
-function createHashHex(value: string) {
-  return createHmac('sha256', '').update(value).digest('hex')
-}
