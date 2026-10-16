@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { activateDirectPayment, createCheckoutSession, DEEPER_AMOUNT_MINOR, DEEPER_CURRENCY, PURCHASE_COOKIE } from '../../../../../lib/payhip'
+import { createCheckoutSession, DEEPER_AMOUNT_MINOR, DEEPER_CURRENCY, PURCHASE_COOKIE } from '../../../../../lib/payhip'
 
 export const runtime = 'nodejs'
 
@@ -22,11 +22,9 @@ export async function POST(request: NextRequest) {
   try {
     const publicKey = process.env.OMISE_PUBLIC_KEY
     const secretKey = process.env.OMISE_SECRET_KEY
-    if (!publicKey || !secretKey) {
-      return NextResponse.json({ error: 'PromptPay is not configured yet.' }, { status: 503 })
-    }
+    if (!publicKey || !secretKey) return NextResponse.json({ error: 'PromptPay is not configured yet.' }, { status: 503 })
 
-    const body = await request.json().catch(() => ({})) as { analyticsSessionId?: string; source?: string }
+    await request.json().catch(() => ({}))
     const sessionId = await createCheckoutSession()
     const source = await omise('/sources', publicKey, {
       amount: String(DEEPER_AMOUNT_MINOR),
@@ -43,14 +41,7 @@ export async function POST(request: NextRequest) {
     const qr = charge.source?.scannable_code?.image?.download_uri || ''
     if (!qr || !charge.id) throw new Error('PromptPay QR was not returned')
 
-    const response = NextResponse.json({
-      ok: true,
-      chargeId: charge.id,
-      qr,
-      amount: 59,
-      currency: 'THB',
-      mode: secretKey.includes('_test_') ? 'test' : 'live',
-    })
+    const response = NextResponse.json({ ok: true, chargeId: charge.id, qr, amount: 59, currency: 'THB', mode: secretKey.includes('_test_') ? 'test' : 'live' })
     response.cookies.set(PURCHASE_COOKIE, sessionId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
