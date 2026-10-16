@@ -6,7 +6,6 @@ import { recordServerAnalytics } from './analytics-server.ts'
 
 export const PAYHIP_PRODUCT_KEY = 'hS8ou'
 export const PAYHIP_PRODUCT_URL = 'https://payhip.com/b/hS8ou'
-// Payhip documents webhook amounts in cents/pennies; THB uses two minor units.
 export const DEEPER_AMOUNT_MINOR = 5900
 export const DEEPER_CURRENCY = 'THB'
 export const PURCHASE_COOKIE = 'sw_payhip_session'
@@ -85,6 +84,24 @@ export async function createCheckoutSession(): Promise<string> {
   ])
   if (result !== 'OK') throw new Error('Could not create purchase session')
   return token
+}
+
+export async function activateDirectPayment(sessionId: string, transactionId: string, analyticsSessionId: string | null = null, acquisitionSource: string | null = null): Promise<void> {
+  if (!/^[a-f0-9]{64}$/.test(sessionId) || !transactionId) throw new Error('Invalid payment session')
+  const value = JSON.stringify({
+    status: 'paid',
+    transactionId,
+    sessionId,
+    analyticsSessionId,
+    acquisitionSource,
+    amount: DEEPER_AMOUNT_MINOR,
+    currency: DEEPER_CURRENCY,
+    productKey: 'STILLWATER_DEEPER_3',
+    verifiedAt: Date.now(),
+  })
+  await redisCommand(['SET', redisKey('transaction', transactionId), value, 'EX', RECORD_TTL_SECONDS])
+  await redisCommand(['SET', redisKey('entitlement', sessionId), value, 'EX', RECORD_TTL_SECONDS])
+  await redisCommand(['SET', redisKey('session', sessionId), JSON.stringify({ status: 'paid', transactionId, verifiedAt: Date.now() }), 'EX', RECORD_TTL_SECONDS])
 }
 
 const APPLY_PAID_EVENT = `
