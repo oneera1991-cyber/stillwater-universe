@@ -98,13 +98,13 @@ export default function HomePage() {
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               {memberProfile && <div className="border border-still-gold/30 px-4 py-3 text-xs text-still-mist">Unlimited member · Vera remembers your birth details and reading history.</div>}
-              {!memberProfile && (<>
 <div className="flex flex-col gap-2">
                 <label htmlFor="question" className="form-label">Your question</label>
                 <textarea id="question" value={question} onChange={(event) => setQuestion(event.target.value)} rows={3} placeholder="Type the question you most want answered..." className="form-field min-h-28 resize-y" required />
               </div>
 
-              <div className="flex flex-col gap-2">
+                            {!memberProfile && (<>
+<div className="flex flex-col gap-2">
                 <label htmlFor="birthdate" className="form-label">Your date of birth</label>
                 <div className="relative">
                   <input id="birthdate" type="text" inputMode="numeric" autoComplete="bday" maxLength={14} value={birthdate} onChange={(event) => setBirthdate(formatBirthdateInput(event.target.value))} placeholder="DD / MM / YYYY" className="form-field pr-14" aria-describedby="birthdate-format" required />
@@ -133,6 +133,7 @@ export default function HomePage() {
               </div>
 
               
+
               </>)}<p className="border-l border-still-gold/40 pl-3 text-xs leading-relaxed text-still-mist">I can't offer guidance on medical diagnoses, legal matters, or major financial decisions. Some questions deserve support from a qualified professional.</p>
               <p className="text-xs leading-relaxed text-still-mist/70">Your question and anonymous usage events are stored for service improvement and deleted after 90 days.</p>
               {error && <p role="alert" className="text-center text-sm text-rose-200">{error}</p>}
