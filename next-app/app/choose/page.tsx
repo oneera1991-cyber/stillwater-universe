@@ -165,6 +165,24 @@ export default function ChoosePage() {
           </a>
         </div>
 
+        <section className="w-full border border-still-gold/25 bg-still-card/35 p-6 flex flex-col gap-4">
+          <div className="flex items-baseline justify-between gap-4">
+            <div>
+              <p className="text-still-mist text-xs tracking-widest uppercase">Unlimited</p>
+              <h3 style={{ fontFamily: 'Georgia, serif', fontWeight: 300 }} className="mt-1 text-still-text text-xl">
+                {lang === 'th' ? 'อ่านไพ่กับพี่เวราต่อเนื่อง' : 'Keep your story with Vera'}
+              </h3>
+            </div>
+            <span className="text-still-gold text-lg font-light whitespace-nowrap">฿399 <span className="text-xs text-still-mist">/ 31 days</span></span>
+          </div>
+          <p className="text-sm leading-relaxed text-still-text-dim">
+            {lang === 'th' ? 'ถามได้ต่อเนื่อง ให้พี่เวราจำแกนเรื่องเดิมและบริบทการอ่านของคุณได้ แม้กลับมาใช้อีกอุปกรณ์' : 'Continue asking questions with reading memory that carries your story across devices.'}
+          </p>
+          <button onClick={() => router.push('/unlimited')} className="experience-button w-full">
+            {lang === 'th' ? 'เลือก Unlimited →' : 'Choose Unlimited →'}
+          </button>
+        </section>
+
         <button
           onClick={() => router.push('/')}
           className="text-still-text-dim text-xs hover:text-still-mist transition-colors"
