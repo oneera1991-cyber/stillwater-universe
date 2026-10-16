@@ -5,6 +5,7 @@ export const PRICE_THB = 59
 export const PRICE_SATANG = 5900
 export const CURRENCY = 'THB'
 
+// PromptPay QR payload is generated locally; the PromptPay ID is never sent to a QR service.
 export function getPromptPayId(): string {
   const id = String(process.env.PROMPTPAY_ID || '').replace(/[\s-]/g, '')
   if (!/^(\d{10}|\d{13}|\d{15})$/.test(id)) throw new Error('PROMPTPAY_ID is not configured.')
