@@ -3,7 +3,7 @@ import {
   activateMembership, createPurchaseId, getActiveMember, membershipPurchaseStatus,
   openMembershipPurchase, promptpayQr, requestMembershipCode, signMembershipPurchase,
   verifyEasySlipForMembership, verifyMembershipPurchase, verifyMembershipCode,
-} from '../../../lib/membership'
+} from '../../../../lib/membership'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
