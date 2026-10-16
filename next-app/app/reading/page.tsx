@@ -87,6 +87,9 @@ function ReadingContent() {
     const question  = sessionStorage.getItem('sw_question')
     const birthdate = sessionStorage.getItem('sw_birthdate')
     const birthtime = sessionStorage.getItem('sw_birthtime') ?? undefined
+    const sid = sessionStorage.getItem('sw_sid') || undefined
+    const memberToken = localStorage.getItem('sw_member_token') || sessionStorage.getItem('sw_memberToken') || undefined
+    const firstResult = pack === 'deeper' ? restoreReadingResult(sessionStorage, 'starter') : null
     const storedLang = sessionStorage.getItem('sw_lang') as 'th' | 'en' | null
     if (storedLang) setLang(storedLang)
 
@@ -99,7 +102,7 @@ function ReadingContent() {
       const res = await fetch('/api/reading', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, birthdate, birthtime, pack, language: storedLang ?? 'en' }),
+        body: JSON.stringify({ question, birthdate, birthtime, pack, language: storedLang ?? 'en', sid, memberToken, firstCardId: firstResult?.cards?.[0]?.id, anchorStory: firstResult?.story }),
       })
 
       if (!res.ok) {
@@ -190,7 +193,7 @@ function ReadingContent() {
           <div className="w-full flex flex-col items-center gap-16">
             {/* Cards row */}
             <div className={`flex gap-6 sm:gap-8 justify-center flex-wrap`}>
-              {result.cards.map((card, i) => (
+              {(pack === 'deeper' && restoreReadingResult(sessionStorage, 'starter')?.cards?.[0] ? [restoreReadingResult(sessionStorage, 'starter')!.cards[0], ...result.cards] : result.cards).map((card, i) => (
                 <CardDisplay key={card.id} card={card} index={i} total={result.cards.length} />
               ))}
             </div>
@@ -244,6 +247,11 @@ function ReadingContent() {
                 >
                   {lang === 'th' ? '← ถามอีกครั้ง' : '← Ask again'}
                 </button>
+                <span className="text-still-border hidden sm:inline">|</span>
+                <button
+                  onClick={() => router.push('/unlimited')}
+                  className="text-still-gold/60 text-xs tracking-widest uppercase hover:text-still-gold transition-colors"
+                >Unlimited →</button>
                 <span className="text-still-border hidden sm:inline">|</span>
                 <a
                   href={pack === 'starter' ? '/api/payhip/checkout' : '#'}
