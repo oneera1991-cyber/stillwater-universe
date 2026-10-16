@@ -138,8 +138,18 @@ export async function activateMembership(input: { purchaseToken: unknown; paidTo
   const now = Date.now()
   const start = prior && prior.expiresAt > now ? prior.expiresAt : now
   const member: MemberProfile = { email, birthDate: String(input.birthDate), birthTime: String(input.birthTime), startedAt: prior?.startedAt || now, expiresAt: start + MEMBERSHIP_DAYS*24*60*60*1000, status: 'active', paymentRef: paid.ref, paymentMethod: String(paid.method || purchase.method) }
+  const refKey = transRefKey(paid.ref)
+  const existingRef = await redis<string>(['GET', refKey])
+  if (existingRef) {
+    let parsed: any = null
+    try { parsed = JSON.parse(existingRef) } catch {}
+    if (!parsed || parsed.purchaseId !== purchase.purchaseId || parsed.pending !== true) throw new Error('membership_payment_already_used')
+  } else {
+    const claimed = await redis(['SET', refKey, JSON.stringify({purchaseId:purchase.purchaseId,emailHash:emailHash(email),pending:false}), 'NX', 'EX', RECORD_TTL_SECONDS])
+    if (claimed !== 'OK') throw new Error('membership_payment_already_used')
+  }
+  await redis(['SET', refKey, JSON.stringify({purchaseId:purchase.purchaseId,emailHash:emailHash(email),pending:false}), 'EX', RECORD_TTL_SECONDS])
   await redis(['SET', purchaseKey(purchase.purchaseId), JSON.stringify({purchaseId:purchase.purchaseId,method:purchase.method,status:'activated',emailHash:emailHash(email),paymentRef:paid.ref}), 'EX', RECORD_TTL_SECONDS])
-  await redis(['SET', transRefKey(paid.ref), JSON.stringify({purchaseId:purchase.purchaseId,emailHash:emailHash(email)}), 'NX', 'EX', RECORD_TTL_SECONDS]).then(result => { if (result !== 'OK') throw new Error('membership_payment_already_used') })
   await redis(['SET', memberKey(email), JSON.stringify(member), 'EX', Math.max(60, Math.ceil((member.expiresAt-now)/1000))])
   const token = sign({kind:'member',email,expiresAt:member.expiresAt})
   return { member, token }
