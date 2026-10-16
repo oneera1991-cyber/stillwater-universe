@@ -28,11 +28,19 @@ export async function POST(request: NextRequest, context: { params: { action: st
         await openMembershipPurchase(purchaseId, method)
         return NextResponse.json({ ok: true, flow: 'payhip', purchase, checkoutUrl, amount: 399, currency: 'THB' })
       }
-      const id = String(process.env.PROMPTPAY_ID || '').replace(/[\s-]/g, '')
-      if (!/^(\d{10}|\d{13}|\d{15})$/.test(id)) throw new Error('membership_promptpay_not_configured')
+      const id = String(process.env.PROMPTPAY_ID || '').replace(/[\\s-]/g, '')
       await openMembershipPurchase(purchaseId, method)
+      const testMode = String(process.env.VERCEL_ENV || '').toLowerCase() !== 'production' && String(process.env.PAYMENT_TEST_MODE || '') === '1'
+      if (testMode && !/^(\\d{10}|\\d{13}|\\d{15})$/.test(id)) {
+        const qrcodeModule = await import('qrcode')
+        const QRCode = (qrcodeModule as any).default || qrcodeModule
+        const payload = 'STILLWATER TEST QR - NOT A PAYMENT / QR ทดสอบ ไม่ใช่การชำระเงินจริง'
+        const qr = await QRCode.toDataURL(payload, { errorCorrectionLevel: 'M', margin: 2, width: 480 })
+        return NextResponse.json({ ok: true, flow: 'slip', purchase, qr, qrPayload: payload, amount: 399, currency: 'THB', testMode: true })
+      }
+      if (!/^(\\d{10}|\\d{13}|\\d{15})$/.test(id)) throw new Error('membership_promptpay_not_configured')
       const { qr, payload } = await promptpayQr(id)
-      return NextResponse.json({ ok: true, flow: 'slip', purchase, qr, qrPayload: payload, amount: 399, currency: 'THB' })
+      return NextResponse.json({ ok: true, flow: 'slip', purchase, qr, qrPayload: payload, amount: 399, currency: 'THB', testMode })
     }
 
     if (action === 'verify-slip') {
