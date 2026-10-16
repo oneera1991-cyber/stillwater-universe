@@ -123,9 +123,10 @@ export async function saveReadingMemory(identity: string | null, input: { questi
     thread.subject = q.subject
     thread.intent = q.intent
     thread.updatedAt = Date.now()
-    thread.coreTheme = core
+    // Preserve the stable core once established; later readings enrich the summary instead of resetting it.
+    if (!thread.coreTheme) thread.coreTheme = core
     thread.summary = story.slice(0, 1000)
-    thread.readings.push({ question: clean(input.question, 500), normalizedQuestion: norm, cards: input.cards.slice(0, 4).map(c => ({ id: Number(c.id), name: clean(c.name, 80) })), coreTheme: core, summary: story.slice(0, 900), createdAt: Date.now() })
+    thread.readings.push({ question: clean(input.question, 500), normalizedQuestion: norm, cards: input.cards.slice(0, 4).map(c => ({ id: Number(c.id), name: clean(c.name, 80) })), coreTheme: thread.coreTheme, summary: story.slice(0, 900), createdAt: Date.now() })
     if (thread.readings.length > MAX_READINGS) thread.readings = thread.readings.slice(-MAX_READINGS)
     doc.threads.sort((a,b) => b.updatedAt - a.updatedAt)
     if (doc.threads.length > MAX_THREADS) doc.threads = doc.threads.slice(0, MAX_THREADS)
