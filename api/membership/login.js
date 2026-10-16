@@ -1,2 +1,0 @@
-import { verifyLoginCode } from '../_lib/membership.js';
-export default async function handler(req,res){if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});try{const b=typeof req.body==='object'&&req.body?req.body:JSON.parse(req.body||'{}');const out=await verifyLoginCode(b.email,b.code);return res.json({ok:true,member:{email:out.member.email,birthDate:out.member.birthDate,birthTime:out.member.birthTime,expiresAt:out.member.expiresAt},token:out.token});}catch(e){return res.status(400).json({ok:false,code:e?.message||'login_code_invalid'});}}
