@@ -1,6 +1,7 @@
 import type { BaziProfile } from './bazi'
 import type { ReadingRequest } from './ai'
 import type { TarotCard, TarotDeck } from './tarot/types'
+import type { ReadingMemoryContext } from './reading-memory'
 
 export type ReadingPack = 'starter' | 'deeper'
 
@@ -17,6 +18,9 @@ type ReadingInput = {
   birthTimezone?: string
   pack: ReadingPack
   language: 'th' | 'en'
+  memory?: ReadingMemoryContext | null
+  anchorStory?: string
+  firstCardId?: number
 }
 
 export type ReadingDependencies = {
@@ -42,6 +46,8 @@ export async function createReadingResult(
     pack: input.pack,
     bazi,
     language: input.language,
+    memory: input.memory ?? null,
+    anchorStory: input.anchorStory,
   } satisfies ReadingRequest)
 
   return { story, cards, pack: input.pack }
