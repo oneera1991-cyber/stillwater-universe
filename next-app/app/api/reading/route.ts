@@ -8,7 +8,7 @@ import { getTarotDeck } from '../../../lib/tarot/registry'
 import { getActiveEntitlement, getStoredDeeperReading, PURCHASE_COOKIE, storeDeeperReading } from '../../../lib/payhip'
 import { recordServerAnalytics } from '../../../lib/analytics-server'
 import { getReadingMemory, saveReadingMemory } from '../../../lib/reading-memory'
-import { getActiveMember, verifyMemberToken } from '../../../lib/membership'
+import { getActiveMember } from '../../../lib/membership'
 
 export async function POST(req: NextRequest) {
   try {
