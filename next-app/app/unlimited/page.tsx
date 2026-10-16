@@ -3,7 +3,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 
-type Payment = { flow: 'slip' | 'payhip'; purchase: string; qr?: string; checkoutUrl?: string; amount: number; currency: string }
+type Payment = { flow: 'slip' | 'payhip'; purchase: string; qr?: string; checkoutUrl?: string; amount: number; currency: string; testMode?: boolean }
 type PaidResult = { paid: boolean; paidToken?: string; status?: string }
 type Member = { email: string; birthDate: string; birthTime: string; expiresAt: number }
 
@@ -50,14 +50,14 @@ export default function UnlimitedPage() {
       const response = await fetch('/api/membership/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ method }) })
       const data = await response.json()
       if (!response.ok || !data.ok) throw new Error(data.code || 'Unable to start membership checkout.')
-      const nextPayment: Payment = { flow: data.flow, purchase: data.purchase, qr: data.qr, checkoutUrl: data.checkoutUrl, amount: data.amount, currency: data.currency }
+      const nextPayment: Payment = { flow: data.flow, purchase: data.purchase, qr: data.qr, checkoutUrl: data.checkoutUrl, amount: data.amount, currency: data.currency, testMode: data.testMode === true }
       setPayment(nextPayment)
       localStorage.setItem('sw_unlimited_purchase', JSON.stringify(nextPayment))
       if (data.flow === 'payhip') {
         window.open(data.checkoutUrl, '_blank', 'noopener,noreferrer')
         setNotice('Payhip has opened in a new tab. Complete payment there, then return here and select “Check payment”.')
       } else {
-        setNotice('Scan the QR and pay ฿399. After payment, upload the bank slip here to verify it.')
+        setNotice(nextPayment.testMode ? 'PREVIEW TEST MODE: this QR is not payable. Upload any valid image file to simulate slip verification. This test mode is disabled on Production.' : 'Scan the QR and pay ฿399. After payment, upload the bank slip here to verify it.')
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Unable to start checkout.')
@@ -180,7 +180,8 @@ export default function UnlimitedPage() {
 
         {payment?.flow === 'slip' && mode === 'purchase' && (
           <div className="mt-7 space-y-4 text-center">
-            {payment.qr ? <img src={payment.qr} alt="PromptPay QR for ฿399 Unlimited membership" className="mx-auto w-64 max-w-full bg-white p-2" /> : null}
+            {payment.qr ? <img src={payment.qr} alt={payment.testMode ? 'Non-payable Preview test QR' : 'PromptPay QR for ฿399 Unlimited membership'} className="mx-auto w-64 max-w-full bg-white p-2" /> : null}
+            {payment.testMode && <p className="border border-amber-500/50 bg-amber-500/10 p-3 text-xs text-amber-200">PREVIEW TEST ONLY — NOT A REAL PAYMENT. Never use this flow on Production.</p>}
             <p className="text-sm text-still-mist">Amount: ฿399. Check the receiving account in your banking app before paying.</p>
             <form onSubmit={verifySlip} className="space-y-3 text-left">
               <label className="block text-sm text-still-mist">Upload payment slip
