@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     const form = await request.formData()
     const slip = form.get('slip')
-    if (!slip || typeof slip.arrayBuffer !== 'function') return NextResponse.json({ ok: false, reason: 'bad_file' }, { status: 400 })
+    if (!(slip instanceof File)) return NextResponse.json({ ok: false, reason: 'bad_file' }, { status: 400 })
     if (slip.size <= 0 || slip.size > MAX_SLIP_BYTES) return NextResponse.json({ ok: false, reason: 'bad_file' }, { status: 400 })
 
     const bytes = new Uint8Array(await slip.arrayBuffer())
@@ -35,12 +35,15 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await verifySlip(bytes, slip.type || 'application/octet-stream', issuedAt)
-    if (!result.ok) return NextResponse.json({ ok: false, paid: false, reason: result.reason, code: result.code ?? null, diagnostics: result.diagnostics }, { status: result.reason === 'pending' ? 425 : result.reason === 'service' || result.reason === 'quota' ? 503 : 422 })
+    if (!result.ok) {
+      const status = result.reason === 'pending' ? 425 : result.reason === 'service' || result.reason === 'quota' ? 503 : 422
+      return NextResponse.json({ ok: false, paid: false, reason: result.reason, code: result.code ?? null, diagnostics: result.diagnostics }, { status })
+    }
 
     await activateDirectPayment(sessionId, result.ref, null, null)
     return NextResponse.json({ ok: true, paid: true, amount: result.amount / 100, currency: result.currency })
   } catch (error) {
-    console.error('[/api/payment/verify-slip]', error?.name || 'error')
+    console.error('[/api/payment/verify-slip]', error instanceof Error ? error.name : 'error')
     return NextResponse.json({ ok: false, reason: 'service' }, { status: 503 })
   }
 }
