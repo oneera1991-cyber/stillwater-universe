@@ -9,8 +9,8 @@ export default function PaymentPage() {
   const [lang, setLang] = useState<'th' | 'en'>('en')
   const [loading, setLoading] = useState(false)
   const [qr, setQr] = useState<string | null>(null)
-  const [chargeId, setChargeId] = useState<string | null>(null)
-  const [status, setStatus] = useState<'idle' | 'waiting' | 'checking' | 'paid' | 'error'>('idle')
+  const [slip, setSlip] = useState<File | null>(null)
+  const [status, setStatus] = useState<'idle' | 'waiting' | 'checking' | 'verifying' | 'paid' | 'error'>('idle')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -20,11 +20,11 @@ export default function PaymentPage() {
   }, [router])
 
   useEffect(() => {
-    if (!chargeId || status === 'paid') return
+    if (status === 'paid') return
     const timer = window.setInterval(async () => {
       setStatus('checking')
       try {
-        const response = await fetch(`/api/payment/promptpay/status?charge=${encodeURIComponent(chargeId)}`, { cache: 'no-store' })
+        const response = await fetch('/api/payment/promptpay/status', { cache: 'no-store' })
         const data = await response.json()
         if (data.paid) {
           setStatus('paid')
@@ -38,7 +38,7 @@ export default function PaymentPage() {
       }
     }, 3000)
     return () => window.clearInterval(timer)
-  }, [chargeId, router, status])
+  }, [router, status])
 
   const startPromptPay = async () => {
     setLoading(true)
@@ -49,21 +49,37 @@ export default function PaymentPage() {
       const response = await fetch('/api/payment/promptpay/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          analyticsSessionId: getAnalyticsSessionId(),
-          source: captureAcquisitionSource(),
-        }),
+        body: JSON.stringify({ analyticsSessionId: getAnalyticsSessionId(), source: captureAcquisitionSource() }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Could not create PromptPay payment.')
       setQr(data.qr)
-      setChargeId(data.chargeId)
       setStatus('waiting')
     } catch (err) {
       setStatus('error')
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const verifySlip = async () => {
+    if (!slip) return
+    setStatus('verifying')
+    setError('')
+    try {
+      const form = new FormData()
+      form.append('slip', slip)
+      const response = await fetch('/api/payment/verify-slip', { method: 'POST', body: form })
+      const data = await response.json()
+      if (!response.ok || !data.paid) throw new Error(data.reason || data.error || 'Could not verify the slip.')
+      setStatus('paid')
+      void trackClientEvent('deeper_payment_verified')
+      window.setTimeout(() => router.push('/reading?pack=deeper'), 700)
+    } catch (err) {
+      setStatus('error')
+      const reason = err instanceof Error ? err.message : String(err)
+      setError(reason === 'wrong_amount' ? (lang === 'th' ? 'ยอดเงินในสลิปไม่ตรง ฿59' : 'The slip amount is not ฿59.') : reason)
     }
   }
 
@@ -99,25 +115,16 @@ export default function PaymentPage() {
 
           {!qr && (
             <>
-              <button
-                onClick={startPromptPay}
-                disabled={loading}
-                className="w-full border border-still-gold/50 bg-still-gold/10 py-4 text-still-gold text-sm tracking-widest uppercase hover:bg-still-gold/20 transition-colors disabled:opacity-50"
-              >
+              <button onClick={startPromptPay} disabled={loading} className="w-full border border-still-gold/50 bg-still-gold/10 py-4 text-still-gold text-sm tracking-widest uppercase hover:bg-still-gold/20 transition-colors disabled:opacity-50">
                 {loading ? (lang === 'th' ? 'กำลังสร้าง QR…' : 'Creating QR…') : (lang === 'th' ? 'ชำระด้วย PromptPay' : 'Pay with PromptPay')}
               </button>
-
               <div className="flex items-center gap-3 text-still-text-dim text-xs">
                 <div className="flex-1 h-px bg-still-border" />
                 <span>{lang === 'th' ? 'หรือ' : 'or'}</span>
                 <div className="flex-1 h-px bg-still-border" />
               </div>
-
-              <button
-                onClick={goPayhip}
-                className="w-full border border-still-border bg-still-card/40 py-4 text-still-text-dim text-sm tracking-widest uppercase hover:border-still-gold/30 hover:text-still-text transition-colors"
-              >
-                {lang === 'th' ? 'บัตรเครดิต / Payhip' : 'Credit card / Payhip'}
+              <button onClick={goPayhip} className="w-full border border-still-border bg-still-card/40 py-4 text-still-text-dim text-sm tracking-widest uppercase hover:border-still-gold/30 hover:text-still-text transition-colors">
+                {lang === 'th' ? 'หรือจ่ายด้วยบัตร / PayPal' : 'Or pay by card / PayPal'}
               </button>
             </>
           )}
@@ -130,9 +137,18 @@ export default function PaymentPage() {
               <p className="text-still-text text-center text-sm">
                 {status === 'paid'
                   ? (lang === 'th' ? 'ชำระเงินแล้ว กำลังเปิดคำอ่าน…' : 'Payment confirmed. Opening your reading…')
-                  : (lang === 'th' ? 'สแกน QR เพื่อชำระ ฿59 ระบบจะตรวจสอบให้อัตโนมัติ' : 'Scan to pay ฿59. We will verify your payment automatically.')}
+                  : (lang === 'th' ? 'สแกน QR เพื่อชำระ ฿59' : 'Scan to pay ฿59.')}
               </p>
-              {status !== 'paid' && <p className="text-still-text-dim text-xs">{lang === 'th' ? 'กำลังรอการชำระเงิน…' : 'Waiting for payment…'}</p>}
+              {status !== 'paid' && (
+                <div className="w-full flex flex-col gap-3">
+                  <label className="text-still-text-dim text-xs">{lang === 'th' ? 'หลังชำระเงิน อัปโหลดสลิปเพื่อยืนยัน' : 'After paying, upload your slip to verify.'}</label>
+                  <input type="file" accept="image/jpeg,image/png" onChange={(e) => setSlip(e.target.files?.[0] ?? null)} className="w-full text-xs text-still-text-dim file:mr-3 file:border file:border-still-border file:bg-still-card file:px-3 file:py-2 file:text-still-text" />
+                  <button onClick={verifySlip} disabled={!slip || status === 'verifying'} className="w-full border border-still-gold/50 py-3 text-still-gold text-sm disabled:opacity-50">
+                    {status === 'verifying' ? (lang === 'th' ? 'กำลังตรวจสอบสลิป…' : 'Verifying slip…') : (lang === 'th' ? 'ยืนยันการชำระเงิน' : 'Verify payment')}
+                  </button>
+                  <p className="text-still-text-dim text-xs text-center">{lang === 'th' ? 'หรือรอระบบตรวจสอบอัตโนมัติ' : 'Or wait for automatic confirmation.'}</p>
+                </div>
+              )}
             </div>
           )}
 
