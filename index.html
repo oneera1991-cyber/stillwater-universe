@@ -324,6 +324,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 #scene-offering .hint{font-size:.82rem;line-height:1.85;color:var(--soft);margin-top:.9rem}
 #scene-offering .qr-actions{display:flex;justify-content:center;margin-top:.2rem}
 #scene-offering .qr-actions .btn-quiet{margin-top:.6rem;text-decoration:none;display:inline-block}
+#scene-offering .pay-alt{display:table;margin:1rem auto 0;font-family:var(--sans);text-decoration:none}
 #scene-offering .slip{border-top:1px solid var(--line);margin-top:1.1rem;padding-top:1.1rem}
 #scene-offering .slip-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 #scene-offering .slip-pick{display:inline-block}
@@ -502,7 +503,6 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
       <img class="qr" id="payQr" alt="QR พร้อมเพย์ 59 บาท" data-i18n-alt="offering.qrAlt" hidden>
       <p class="payee" id="payPayee" hidden></p>
       <code class="qr-payload" id="payQrPayload" hidden></code>
-      <a class="btn" id="btnPayhip" href="#" target="_blank" rel="noopener" data-i18n="offering.payPayhip" hidden>เข้าสู่การชำระเงิน</a>
       <p class="hint" id="payHint" data-i18n="offering.hint" hidden>สแกน QR นี้ หรือบันทึกรูปไปเปิดในแอปธนาคาร
 โอน 59 บาท แล้วแนบสลิปด้านล่างนะคะ</p>
       <div class="qr-actions" id="payQrActions" hidden>
@@ -514,6 +514,7 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
         <img class="slip-preview" id="slipPreview" alt="สลิปที่แนบ" data-i18n-alt="offering.slipAlt" hidden>
         <button class="btn btn-quiet" id="btnRetrySlip" type="button" data-i18n="offering.retry" hidden>ตรวจสลิปอีกครั้ง</button>
       </div>
+      <a class="btn" id="btnPayhip" href="#" target="_blank" rel="noopener" data-i18n="offering.payPayhip" hidden>เข้าสู่การชำระเงิน</a>
       <p class="status" id="payStatus" aria-live="polite"></p>
       <p class="small" data-i18n="offering.small">เมื่อตรวจสลิปผ่าน พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ</p>
     </div>
@@ -1137,7 +1138,7 @@ function resetOffering(){
   $('payHint').hidden = true;
   $('payQrActions').hidden = true;
   $('slipBox').hidden = true;
-  $('btnPayhip').hidden = true; state.payhip = false;
+  $('btnPayhip').hidden = true; state.payhip = false; state.dual = false;
   resetSlip();
   setPayStatus('');
 }
@@ -1183,7 +1184,8 @@ async function createPayment(){
     });
     const data = await res.json().catch(() => ({}));
     if(!res.ok) throw new Error(data.code ? errorKey(data.code) : 'pay.createFailed');
-    if(data.checkoutUrl){
+    if(data.order) { state.order = data.order; save(); } // expired order renewed by the server
+    if(data.checkoutUrl && data.flow !== 'slip'){
       // Payhip: checkout in a new tab; the webhook confirms, we poll /api/pay-status.
       state.paymentId = data.paymentId; state.payhip = true; save();
       $('btnPay').hidden = true;
@@ -1204,6 +1206,13 @@ async function createPayment(){
       if(data.qr){ $('btnSaveQr').href = data.qr; $('payQrActions').hidden = false; }
       $('slipBox').hidden = false;
       setPayStatus(data.mode === 'test' ? 'pay.testSlip' : '');
+      if(data.checkoutUrl && data.paymentId){
+        // Dual: secondary card / PayPal (Payhip). Whichever confirms first unlocks.
+        state.paymentId = data.paymentId; state.payhip = true; state.dual = true; save();
+        const a = $('btnPayhip'); a.href = data.checkoutUrl; a.classList.add('btn-quiet', 'pay-alt'); setText(a, 'offering.payAlt'); a.hidden = false;
+        a.onclick = () => { tlog('pay_payhip_open', { latency_ms: Date.now() - tPay, reason_detail: 'dual' }); };
+        startPolling();
+      }
     }else{
       const paymentId = data.paymentId || data.chargeId;
       if(!paymentId) throw new Error('pay.noQr');
@@ -1274,6 +1283,7 @@ async function submitSlip(){
   if(ok){
     state.paid = data.paid;
     state.stage = 'paid';
+    if(state.dual){ stopPolling(); $('btnPayhip').hidden = true; }
     save();
     trackEvent('payment_paid', { method:'slip' });
     $('slipPick').hidden = true;
@@ -1298,6 +1308,7 @@ async function submitSlip(){
     setText($('slipPick'), 'offering.attachAgain');
   }
   if(/order_/.test(data.reason || '')){ $('slipBox').hidden = true; }
+  if(data.reason === 'order_expired'){ stopPolling(); resetOffering(); $('btnPay').hidden = false; $('btnPay').disabled = false; setPayStatus(msgKey, 'error'); } // tap pay again → fresh order + QR
 }
 
 /* Receiving account name under the QR (from the server, PAYEE_NAME_TH / _EN); nothing when missing. */
@@ -1332,6 +1343,7 @@ function startPolling(){
     if(Date.now() - started > 20 * 60 * 1000){
       stopPolling();
       if(state.payhip){ tlog('pay_payhip_fail', { reason: 'timeout' }); $('btnPayhip').hidden = true; }
+      if(state.dual){ state.paymentId = null; save(); return; } // QR + slip stay as they are
       setPayStatus('pay.qrExpired', true);
       state.paymentId = null; save();
       $('btnPay').hidden = false; $('btnPay').disabled = false; $('payQr').hidden = true;
@@ -1351,6 +1363,7 @@ function startPolling(){
       }else if(['failed','expired','reversed'].includes(data.status)){
         stopPolling();
         if(state.payhip){ tlog('pay_payhip_fail', { reason: data.status }); $('btnPayhip').hidden = true; }
+        if(state.dual){ state.paymentId = null; save(); return; }
         state.paymentId = null; save();
         setPayStatus('pay.failed', true);
         $('btnPay').hidden = false; $('btnPay').disabled = false; $('payQr').hidden = true;

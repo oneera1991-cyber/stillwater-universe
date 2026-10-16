@@ -59,6 +59,34 @@ setSink({
   async writeMany(rows) { for (const row of rows) { loggedEvents.push(row); if (process.env.LOG_QUIET !== "1") await consoleSink.write(row); } if (devRedis) await devRedis.writeMany(rows); }
 });
 
+/* ---------------- mock Slip2Sure (SLIP_PROVIDER=slip2sure) — same MOCK:<scenario># markers ---------------- */
+process.env.SLIP2SURE_API_KEY ||= "mock-slip2sure-key";
+const seen2 = new Set();
+async function mockSlip2Sure(url, init) {
+  const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  const err = (status, result, message) => json(status, { result, message });
+  if (url.pathname !== "/api/v0/bank/v0/verifyByFile" || init.method !== "POST") return err(404, "NOT_FOUND", "mock: unknown route");
+  if (String(init.headers?.["x-api-key"] || "") !== process.env.SLIP2SURE_API_KEY) return err(401, "UNAUTHORIZED", "Unauthorized");
+  const image = init.body instanceof FormData ? init.body.get("image") : null;
+  if (!image || typeof image.arrayBuffer !== "function") return err(400, "FILE_REQUIRED", "File required");
+  const bytes = Buffer.from(await image.arrayBuffer());
+  await new Promise((r) => setTimeout(r, 1200));
+  const scenario = (bytes.toString("latin1").match(/MOCK:([a-z_]+)#/) || [])[1] || "success";
+  if (scenario === "timeout") return new Promise((_, reject) => { const sig = init.signal; if (sig) sig.addEventListener("abort", () => reject(sig.reason), { once: true }); });
+  if (scenario === "down") return err(500, "SERVER_ERROR", "Server error");
+  if (scenario === "pending") return err(400, "SLIP_BBL_PENDING", "Slip pending");
+  if (scenario === "unreadable") return err(404, "SLIP_QRCODE_NOT_EXIST", "Slip QRCode not exist");
+  if (scenario === "quota") return err(402, "CREDIT_INSUFFIENCT", "Credit insufficient");
+  const transRef = "S2S" + crypto.createHash("sha256").update(bytes).digest("hex").slice(0, 20).toUpperCase();
+  const is_exist = seen2.has(transRef); seen2.add(transRef);
+  const id = String(process.env.PROMPTPAY_ID || "0000000000");
+  const masked = scenario === "wrong_account" ? "xxx-xxx-9999" : "xxx-xxx-" + id.slice(-4);
+  const when = new Date(Date.now() - (scenario === "old" ? 3 * 864e5 : 60e3) + 7 * 3600e3).toISOString().replace("Z", "+07:00");
+  return json(200, { info: { payload: "mock", transRef, transDateTime: when, amount: scenario === "wrong_amount" ? 5.9 : 59, paidLocalCurrency: "764",
+    sender: { displayName: "MR. TEST S" }, receiver: { displayName: "นาย ทดสอบ ต", proxy: { type: "MSISDN", value: masked }, account: { type: null, value: null } } },
+    credit: { before: 10, usage: 1, after: 9 }, is_exist });
+}
+
 /* ---------------- mock EasySlip v2 ---------------- */
 const seenTransRefs = new Set();
 const easyslipCalls = [];
@@ -147,6 +175,7 @@ globalThis.fetch = async (input, init = {}) => {
   if (/openai\.com/i.test(String(input?.url || input))) throw new Error("dev/server.mjs: OpenAI calls are blocked in local tests");
   const url = new URL(typeof input === "string" ? input : input.url);
   if (url.hostname === "api.easyslip.com") return mockEasySlip(url, init);
+  if (url.hostname === "api.slip2sure.com") return mockSlip2Sure(url, init);
   if (url.hostname !== "api.omise.co") return realFetch(input, init);
   const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   const auth = String(init.headers?.Authorization || "");

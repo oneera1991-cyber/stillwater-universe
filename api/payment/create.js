@@ -7,7 +7,7 @@ Errors:   { error (localized by the ORDER's lang), code }
 Verifies the order token, then asks the active payment provider
 (api/_lib/payment.js) for a ฿59 PromptPay QR. No provider code here.
 */
-import { OrderError, parseBody, verifyOrder } from "../_lib/order.js";
+import { OrderError, parseBody, renewOrder, verifyOrder } from "../_lib/order.js";
 import { PaymentError, createPayment, payeeNames } from "../_lib/payment.js";
 import { errorText } from "../../i18n/strings.js";
 import { cleanSid, deviceType, logEvent, orderColumns } from "../_lib/log.js";
@@ -25,12 +25,20 @@ export default async function handler(req, res) {
     device: deviceType(req.headers?.["user-agent"]), sid: cleanSid(body.sid), latency_ms: Date.now() - t0, ...extra
   });
   try {
-    order = verifyOrder(body.order);
+    let renewed = null;
+    try { order = verifyOrder(body.order); }
+    catch (e) {
+      // Expired order (> 24 h): re-issue a fresh order (new orderId, same reading) so "pay" still works.
+      if (!(e instanceof OrderError) || e.code !== "order_expired") throw e;
+      renewed = renewOrder(body.order);
+      order = renewed.order;
+    }
     lang = order.lang;
     const p = await createPayment(order);
     logQr({ result: "ok", reason_detail: p.mode === "test" ? "test" : "" });
     return res.status(200).json({
       ok: true,
+      ...(renewed ? { order: renewed.token } : {}),
       flow: p.flow,
       paymentId: p.paymentId || null,
       chargeId: p.paymentId || null, // legacy alias

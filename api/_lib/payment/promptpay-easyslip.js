@@ -33,6 +33,7 @@ Docs: https://document.easyslip.com/en/v2/verify/bank/
 */
 import generatePayload from "promptpay-qr";
 import QRCode from "qrcode";
+import { verifyWithSlip2Sure } from "./slip2sure.js";
 import { checkMaeManeeSlip, maemaneeConfig, maemaneePayload, orderRef, receiverSnapshot } from "./maemanee.js";
 
 export function qrMode(env = process.env) {
@@ -44,6 +45,10 @@ function maemanee(PaymentError) {
 }
 
 export const FLOW = "slip";
+/** Slip verifier: SLIP_PROVIDER=slip2sure | easyslip (default). Mae Manee mode always uses EasySlip. */
+export function slipProvider(env = process.env) {
+  return String(env.SLIP_PROVIDER || "easyslip").trim().toLowerCase() === "slip2sure" ? "slip2sure" : "easyslip";
+}
 export const EASYSLIP_URL = "https://api.easyslip.com/v2/verify/bank";
 export const MAX_SLIP_BYTES = 4 * 1024 * 1024; // EasySlip limit: 4,194,304 bytes
 const SLIP_CLOCK_SLACK_MS = 15 * 60 * 1000;
@@ -145,6 +150,14 @@ export async function rememberTransRef(/* transRef, orderId */) {
 export async function verifySlip(order, { bytes, mime }, { PRICE_THB, PRICE_SATANG, CURRENCY, PaymentError }) {
   const type = sniffImage(bytes);
   if (!type || bytes.length > MAX_SLIP_BYTES) return { ok: false, reason: "bad_file", reason_detail: type ? "too_large" : "not_image", diag: { slip_bytes: bytes ? bytes.length : 0, slip_type: type || "other" } };
+  if (slipProvider() === "slip2sure" && qrMode() === "promptpay") {
+    const r = await verifyWithSlip2Sure(order, { bytes, type }, {
+      PRICE_THB, PRICE_SATANG, CURRENCY, PaymentError, promptpayId: promptpayId(PaymentError),
+      payeeNames: [process.env.PAYEE_NAME_TH, process.env.PAYEE_NAME_EN], timeoutMs: easyslipTimeoutMs()
+    });
+    if (r.ok) await rememberTransRef(r.ref, order.orderId);
+    return r;
+  }
   const key = easyslipKey(PaymentError);
   const mm = qrMode() === "maemanee" ? maemanee(PaymentError) : null;
   const ref = mm ? orderRef(order.orderId) : "";
@@ -159,7 +172,7 @@ export async function verifySlip(order, { bytes, mime }, { PRICE_THB, PRICE_SATA
   let status = 0, body = null;
   const t0 = Date.now();
   // Log-only diagnostics (api/_lib/log.js slip_verify): never shown to the customer.
-  const diag = { http_status: 0, provider_code: "", provider_message: "", latency_ms: 0, slip_bytes: bytes.length, slip_type: type };
+  const diag = { provider: "easyslip", http_status: 0, provider_code: "", provider_message: "", latency_ms: 0, slip_bytes: bytes.length, slip_type: type };
   try {
     const response = await fetch(EASYSLIP_URL, {
       method: "POST",

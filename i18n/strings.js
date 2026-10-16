@@ -106,6 +106,7 @@ export const STRINGS = {
       price: "฿59",
       pay: "เข้าสู่การชำระเงิน",
       payPayhip: "เข้าสู่การชำระเงิน",
+      payAlt: "หรือจ่ายด้วยบัตร / PayPal",
       qrAlt: "QR พร้อมเพย์ 59 บาท",
       hint: "สแกน QR นี้ หรือบันทึกรูปไปเปิดในแอปธนาคาร\nโอน 59 บาท แล้วแนบสลิปด้านล่างนะคะ",
       saveQr: "บันทึกรูป QR",
@@ -270,6 +271,7 @@ export const STRINGS = {
       price: "฿59", // [Palm]
       pay: "Pay with PromptPay QR", // [Palm]
       payPayhip: "Pay securely",
+      payAlt: "Or pay by card / PayPal",
       qrAlt: "PromptPay QR, 59 baht",
       hint: "Scan this QR, or save the image and open it in your banking app.\nTransfer 59 baht, then attach your slip below.",
       saveQr: "Save QR image",

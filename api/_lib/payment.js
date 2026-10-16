@@ -21,6 +21,9 @@ Adapters (process.env.PAYMENT_PROVIDER, default "promptpay"):
     account + EasySlip v2 slip verification → api/_lib/payment/promptpay-easyslip.js
   - "payhip" (INACTIVE until Palm switches): Payhip checkout (new tab) + paid
     webhook (/api/payhip-webhook) + polling (/api/pay-status) → api/_lib/payment/payhip.js
+  - "dual": PromptPay QR + slip (primary) AND a secondary Payhip button; whichever confirms
+    first unlocks → api/_lib/payment/dual.js
+  Slip verifier (promptpay / dual): SLIP_PROVIDER=easyslip (default) | slip2sure → ./payment/slip2sure.js
   - "omise" (INACTIVE, kept as an option): PromptPay via Omise charges,
     polled → api/_lib/payment/omise.js. Omise and Stripe both list
     tarot/fortune-telling as prohibited, so this is not the live path.
@@ -31,6 +34,7 @@ import QRCode from "qrcode";
 import * as omise from "./payment/omise.js";
 import * as promptpay from "./payment/promptpay-easyslip.js";
 import * as payhip from "./payment/payhip.js";
+import * as dual from "./payment/dual.js";
 
 export const PRICE_SATANG = 5900; // ฿59
 export const PRICE_THB = 59;
@@ -38,7 +42,7 @@ export const CURRENCY = "THB";
 export const PRODUCT = "STILLWATER_DEEPER_3";
 export const DEFAULT_PROVIDER = "promptpay";
 
-const ADAPTERS = { promptpay, easyslip: promptpay, omise, payhip };
+const ADAPTERS = { promptpay, easyslip: promptpay, omise, payhip, dual };
 
 export class PaymentError extends Error {
   constructor(message, status = 502, code = "payment_error") {
@@ -123,7 +127,7 @@ export async function verifySlip(order, file) {
 
 export async function getPaymentStatus(paymentId) {
   const impl = adapter();
-  if (impl.FLOW !== "poll") throw new PaymentError("ช่องทางนี้ไม่ใช้การตรวจสถานะ", 400, "not_supported");
+  if (typeof impl.getPaymentStatus !== "function") throw new PaymentError("ช่องทางนี้ไม่ใช้การตรวจสถานะ", 400, "not_supported");
   if (!isPaymentId(paymentId)) throw new PaymentError("ไม่พบรายการจ่าย", 400, "payment_missing");
   const s = await impl.getPaymentStatus(paymentId, ctx());
   return {

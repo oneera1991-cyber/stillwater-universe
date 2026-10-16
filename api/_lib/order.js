@@ -201,6 +201,14 @@ export function verifyOrder(token, { now = Date.now(), ttlMs = ORDER_TTL_MS } = 
   return p;
 }
 
+export const RENEW_MAX_MS = 30 * 24 * 60 * 60 * 1000;
+/** Expired-but-genuine order token (≤ 30 days) → fresh order { token, order } with a NEW orderId. */
+export function renewOrder(token) {
+  const p = verifyOrder(token, { ttlMs: RENEW_MAX_MS });
+  return signOrder({ question: p.question, context: p.context, card1: p.card1, card1Name: p.card1Name, card1Text: p.card1Text,
+    openThread: p.open_thread, lang: p.lang, source: p.source, topic: p.topic });
+}
+
 /* ---------------- paid token (slip flow) ---------------- */
 
 /** Issued only after the payment provider verified a slip for this order. */

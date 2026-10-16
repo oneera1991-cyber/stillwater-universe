@@ -108,7 +108,8 @@ export const COLUMNS = [
   "slip_amount",        // amount read from the slip (THB) when EasySlip read it
   "slip_age_min",       // minutes between the question (order issued) and the slip time
   "detail",             // short free note (client JS error message, etc.), PII-redacted, ≤ 300 chars
-  "client_ts"           // client events: the browser's time of the event (ISO; client clock)
+  "client_ts",          // client events: the browser's time of the event (ISO; client clock),
+  "provider"            // slip_verify: easyslip | slip2sure (appended last: keeps Sheet columns stable)
 ];
 
 /* ---------------- helpers ---------------- */

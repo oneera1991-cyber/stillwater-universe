@@ -48,7 +48,7 @@ function logVerify(req, t0, { order = null, form = null, result = "", reason = "
       sid: cleanSid(form?.get?.("sid")), attempt: Number(form?.get?.("attempt")) > 0 ? Math.min(99, Math.floor(Number(form.get("attempt")))) : "",
       topic: order?.topic || "", card1: order ? order.card1 : "",
       result, reason, reason_detail,
-      http_status: d.http_status || "", provider_code: d.provider_code || "", provider_message: d.provider_message || "",
+      http_status: d.http_status || "", provider: d.provider || "", provider_code: d.provider_code || "", provider_message: d.provider_message || "",
       latency_ms: d.latency_ms ?? "", slip_bytes: d.slip_bytes ?? "", slip_type: d.slip_type || "",
       slip_amount: d.slip_amount ?? "", slip_age_min: d.slip_age_min ?? "",
       trans_ref: ref, amount_thb: amount ?? "",
