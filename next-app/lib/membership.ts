@@ -203,6 +203,14 @@ export async function verifyEasySlipForMembership(purchaseToken: unknown, bytes:
   const purchase = verifyMembershipPurchase(purchaseToken)
   if (purchase.method !== 'promptpay') throw new Error('membership_payment_method_invalid')
   if (!isValidEasySlipImage(bytes) || bytes.length > 4*1024*1024) throw new Error('membership_slip_invalid')
+  // Preview-only fake confirmation for E2E testing. Vercel Production is always real verification.
+  const testMode = String(process.env.VERCEL_ENV || '').toLowerCase() !== 'production' && String(process.env.PAYMENT_TEST_MODE || '') === '1'
+  if (testMode) {
+    const ref = 'TEST-' + randomBytes(8).toString('hex').toUpperCase()
+    const used = await redis(['SET', transRefKey(ref), JSON.stringify({purchaseId:purchase.purchaseId,pending:true}), 'NX', 'EX', RECORD_TTL_SECONDS])
+    if (used !== 'OK') throw new Error('membership_slip_duplicate')
+    return { paidToken: sign({kind:'paid',purchaseId:purchase.purchaseId,method:'promptpay-slip-test',ref,amount:MEMBERSHIP_PRICE_SATANG,currency:'THB',slipDate:new Date().toISOString(),expiresAt:Date.now()+24*60*60*1000}) }
+  }
   const key = String(process.env.EASYSLIP_API_KEY || '').trim()
   if (!key) throw new Error('membership_payment_not_configured')
   const type = bytes[0] === 0x89 ? 'image/png' : 'image/jpeg'
