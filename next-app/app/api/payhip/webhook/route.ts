@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PayhipEvent, processPayhipEvent, verifyPayhipSignature } from '../../../../lib/payhip'
+import { ProductionPayhipEvent, processProductionRefund, recordProductionPaidEvent, verifyProductionPayhipSignature } from '../../../../lib/payhip-production'
 
 export const runtime = 'nodejs'
 
@@ -7,25 +7,28 @@ export async function POST(request: NextRequest) {
   const apiKey = process.env.PAYHIP_API_KEY
   if (!apiKey) return NextResponse.json({ error: 'Webhook is not configured.' }, { status: 503 })
 
-  let event: PayhipEvent
+  let event: ProductionPayhipEvent
   try {
-    event = await request.json() as PayhipEvent
+    event = await request.json() as ProductionPayhipEvent
   } catch {
     return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 })
   }
 
-  // Payhip documents signature = SHA-256 hash of the account API key.
-  // Do not trust other payload fields until this check succeeds.
-  if (!verifyPayhipSignature(event?.signature, apiKey)) {
+  if (!verifyProductionPayhipSignature(event?.signature, apiKey)) {
     return NextResponse.json({ error: 'Invalid webhook signature.' }, { status: 401 })
   }
 
   try {
-    const result = await processPayhipEvent(event)
-    if (result === 'invalid') return NextResponse.json({ error: 'Webhook did not match the expected purchase.' }, { status: 400 })
-    return NextResponse.json({ received: true, result })
+    if (event.type === 'paid') {
+      const result = await recordProductionPaidEvent(event)
+      return NextResponse.json({ received: true, result: result === 'invalid' ? 'ignored' : result })
+    }
+    if (event.type === 'refunded') {
+      const result = await processProductionRefund(event)
+      return NextResponse.json({ received: true, result })
+    }
+    return NextResponse.json({ received: true, result: 'ignored' })
   } catch {
-    // Non-200 causes Payhip to retry; no payload or secret is logged.
     return NextResponse.json({ error: 'Webhook processing failed.' }, { status: 503 })
   }
 }
