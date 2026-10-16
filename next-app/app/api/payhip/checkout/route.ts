@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createCheckoutSession, PURCHASE_COOKIE } from '../../../../lib/payhip'
+import { openPayhipOrder } from '../../../../lib/payhip-production'
 import { recordServerAnalytics } from '../../../../lib/analytics-server'
 
 export const runtime = 'nodejs'
@@ -7,10 +8,14 @@ export const runtime = 'nodejs'
 export async function GET(request: NextRequest) {
   try {
     const sessionId = await createCheckoutSession()
+    await openPayhipOrder(sessionId)
+
     const analyticsSessionId = request.nextUrl.searchParams.get('analyticsSessionId')
     const source = request.nextUrl.searchParams.get('source')
     const checkout = new URL('https://payhip.com/buy')
     checkout.searchParams.set('link', 'hS8ou')
+    // Metadata is best-effort only. Payhip does not guarantee it is present in the paid webhook,
+    // so the server also uses the production FIFO claim flow.
     checkout.searchParams.set('metadata[sw_session_id]', sessionId)
     if (analyticsSessionId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(analyticsSessionId)) {
       checkout.searchParams.set('metadata[sw_analytics_session_id]', analyticsSessionId)
@@ -26,7 +31,7 @@ export async function GET(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24 * 365,
+      maxAge: 60 * 60 * 2,
     })
     return response
   } catch {
