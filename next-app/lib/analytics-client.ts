@@ -6,6 +6,18 @@ export type ClientAnalyticsEvent =
   | 'question_submitted'
   | 'starter_result_viewed'
   | 'deeper_cta_clicked'
+  | 'deeper_payment_verified'
+  | 'deeper_promptpay_clicked'
+  | 'deeper_payhip_clicked'
+  | 'qr_created'
+  | 'slip_verify'
+  | 'payment_verified'
+  | 'read_free'
+  | 'read_full'
+  | 'rating'
+  | 'share'
+  | 'close'
+  | 'payhip_webhook'
 
 const SESSION_KEY = 'sw_analytics_session_id'
 const SOURCE_KEY = 'sw_acquisition_source'
@@ -21,7 +33,7 @@ export function getAnalyticsSessionId(): string {
 
 export function captureAcquisitionSource(): string | null {
   const params = new URLSearchParams(window.location.search)
-  const source = (params.get('utm_source') ?? '').trim().toLowerCase()
+  const source = (params.get('src') ?? params.get('utm_source') ?? '').trim().toLowerCase()
   const supported = ['facebook', 'tiktok', 'instagram', 'youtube']
   if (supported.includes(source)) sessionStorage.setItem(SOURCE_KEY, source)
   return sessionStorage.getItem(SOURCE_KEY)
