@@ -14,15 +14,32 @@ export default function HomePage() {
   const [birthdate, setBirthdate] = useState('')
   const [birthtime, setBirthtime] = useState('')
   const [error, setError] = useState('')
+  const [memberProfile, setMemberProfile] = useState<{email:string;birthDate:string;birthTime:string;expiresAt:number}|null>(null)
 
   useEffect(() => {
     captureAcquisitionSource()
     void trackClientEvent('landing_page_view')
+    const token = localStorage.getItem('sw_member_token')
+    if (token) {
+      fetch('/api/membership/me', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+        .then(async response => {
+          if (!response.ok) { localStorage.removeItem('sw_member_token'); localStorage.removeItem('sw_member_profile'); return }
+          const data = await response.json()
+          if (data.member?.email) {
+            setMemberProfile(data.member)
+            localStorage.setItem('sw_member_profile', JSON.stringify(data.member))
+          }
+        })
+        .catch(() => {
+          try { const cached = localStorage.getItem('sw_member_profile'); if (cached) setMemberProfile(JSON.parse(cached)) } catch {}
+        })
+    }
   }, [])
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const isoBirthdate = birthdateToIso(birthdate)
+    const isoBirthdate = memberProfile?.birthDate || birthdateToIso(birthdate)
+    const savedBirthtime = memberProfile?.birthTime || birthtime
     if (!question.trim()) { setError('Please enter the question you want to explore.'); return }
     if (!isoBirthdate) { setError('Please enter a valid date in DD / MM / YYYY format.'); return }
     setError('')
@@ -30,7 +47,9 @@ export default function HomePage() {
     // Preserve the local date/time entered; only serialize the date as the API's ISO calendar date.
     sessionStorage.setItem('sw_question', question.trim())
     sessionStorage.setItem('sw_birthdate', isoBirthdate)
-    sessionStorage.setItem('sw_birthtime', birthtime)
+    sessionStorage.setItem('sw_birthtime', savedBirthtime)
+    if (!sessionStorage.getItem('sw_sid')) sessionStorage.setItem('sw_sid', crypto.randomUUID())
+    if (memberProfile) sessionStorage.setItem('sw_memberToken', localStorage.getItem('sw_member_token') || '')
     sessionStorage.removeItem('sw_birthtimezone')
     sessionStorage.removeItem('sw_reading_starter')
     sessionStorage.removeItem('sw_reading_deeper')
@@ -78,7 +97,9 @@ export default function HomePage() {
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-              <div className="flex flex-col gap-2">
+              {memberProfile && <div className="border border-still-gold/30 px-4 py-3 text-xs text-still-mist">Unlimited member · Vera remembers your birth details and reading history.</div>}
+              {!memberProfile && (<>
+<div className="flex flex-col gap-2">
                 <label htmlFor="question" className="form-label">Your question</label>
                 <textarea id="question" value={question} onChange={(event) => setQuestion(event.target.value)} rows={3} placeholder="Type the question you most want answered..." className="form-field min-h-28 resize-y" required />
               </div>
@@ -111,7 +132,8 @@ export default function HomePage() {
                 <p className="text-xs text-still-mist/80">Leave blank if you don't know your birth time.</p>
               </div>
 
-              <p className="border-l border-still-gold/40 pl-3 text-xs leading-relaxed text-still-mist">I can't offer guidance on medical diagnoses, legal matters, or major financial decisions. Some questions deserve support from a qualified professional.</p>
+              
+              </>)}<p className="border-l border-still-gold/40 pl-3 text-xs leading-relaxed text-still-mist">I can't offer guidance on medical diagnoses, legal matters, or major financial decisions. Some questions deserve support from a qualified professional.</p>
               <p className="text-xs leading-relaxed text-still-mist/70">Your question and anonymous usage events are stored for service improvement and deleted after 90 days.</p>
               {error && <p role="alert" className="text-center text-sm text-rose-200">{error}</p>}
               <button type="submit" className="experience-button mt-1 w-full">I'm Ready for My Answer</button>
