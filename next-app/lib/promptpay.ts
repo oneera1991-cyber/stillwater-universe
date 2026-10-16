@@ -111,7 +111,7 @@ export async function verifySlip(bytes: Uint8Array, mime: string, issuedAt: numb
   if (!key) throw new Error('SLIP2SURE_API_KEY is not configured.')
 
   const form = new FormData()
-  form.append('image', new Blob([bytes], { type }), type === 'image/png' ? 'slip.png' : 'slip.jpg')
+  form.append('image', new Blob([Buffer.from(bytes)], { type }), type === 'image/png' ? 'slip.png' : 'slip.jpg')
   const started = Date.now()
   try {
     const response = await fetch(SLIP2SURE_URL, {
