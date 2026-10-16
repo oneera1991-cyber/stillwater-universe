@@ -90,7 +90,7 @@ function interpret(httpStatus: number, body: any, issuedAt: number): SlipResult 
   const receiver = info.receiver || {}
   const promptpayId = String(process.env.PROMPTPAY_ID || '').replace(/[\s-]/g, '')
   const names = [process.env.PAYEE_NAME_TH, process.env.PAYEE_NAME_EN].filter((v): v is string => Boolean(v))
-  const receiverOk = promptpayId && (maskedMatch(receiver.proxy?.value, promptpayId) || maskedMatch(receiver.account?.value, promptpayId))
+  const receiverOk = Boolean(promptpayId && (maskedMatch(receiver.proxy?.value, promptpayId) || maskedMatch(receiver.account?.value, promptpayId)))
   if (!receiverOk && !nameMatch(receiver.displayName, names)) return { ok: false, reason: 'wrong_account', diagnostics }
 
   if (typeof info.transRef !== 'string' || !info.transRef) return { ok: false, reason: 'unreadable', diagnostics }
@@ -104,6 +104,7 @@ export async function verifySlip(bytes: Uint8Array, mime: string, issuedAt: numb
   const type = sniffImage(bytes)
   const diagnostics: Record<string, unknown> = { provider: 'slip2sure', http_status: 0, slip_bytes: bytes.length, slip_type: type || 'other' }
   if (!type || bytes.length > MAX_SLIP_BYTES) return { ok: false, reason: 'bad_file', diagnostics }
+  if (String(process.env.SLIP_PROVIDER || 'slip2sure').trim().toLowerCase() !== 'slip2sure') return { ok: false, reason: 'service', code: 'provider_not_supported', diagnostics }
 
   const key = process.env.SLIP2SURE_API_KEY
   if (!key) throw new Error('SLIP2SURE_API_KEY is not configured.')
