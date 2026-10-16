@@ -454,7 +454,7 @@ console.warn = warn;
   console.log = qlog; console.warn = qwarn; globalThis.fetch = f0;
   assert.deepEqual(["o3", "o4", "o5"].map((o) => printed.some((l) => l.startsWith("STILLWATER_EVENT ") && l.includes(`"order_id":"${o}"`))), [true, true, true], "failed appends fall back to the console log line");
   assert.equal(sheets.timeoutMs, 8000); assert.equal(realFetch, 0, "never touches the network in tests");
-  ok("sheets sink: service-account JWT (RS256, verifiable), token cached, 52-column RAW append to events!A1, PII redacted, failures → console fallback, never throws");
+  ok("sheets sink: service-account JWT (RS256, verifiable), token cached, 53-column RAW append to events!A1, PII redacted, failures → console fallback, never throws");
 }
 
 /* routes log events; logging can never break a reading */
@@ -524,7 +524,7 @@ const cl = await CL({ order: ordTok, step: 3, question: "leak?" }); assert.equal
 await new Promise((r) => setTimeout(r, 20));
 const closes = events.slice(beforeClose).filter((e) => e.event === "close");
 assert.equal(closes.length, 1); assert.equal(closes[0].order_id, ordObj.orderId); assert.equal(closes[0].lang, "en"); assert.equal(closes[0].src, "tiktok");
-assert.ok(!closes[0].question, "close row never carries body text"); assert.equal(log.COLUMNS.length, 52, "no new column for close");
+assert.ok(!closes[0].question, "close row never carries body text"); assert.equal(log.COLUMNS.length, 53, "no new column for close");
 ok("close event: silent, order/lang/source from the token, no new Sheet column");
 { // index.html: V2 scene 4/6 structure (static)
   const html = (await import("node:fs")).readFileSync(new URL("../index.html", import.meta.url), "utf8");
@@ -691,7 +691,7 @@ ok("stub overview (final) ties all four cards");
   assert.equal(r1.statusCode, 200); assert.equal(d1.statusCode, 200);
   for (const b of [r1.body, d1.body]) assert.ok(!JSON.stringify(b).includes("keep_question_flags"), "never in an API response");
   assert.ok(evs.length >= 2 && evs.every((e) => !("keep_question_flags" in e)), "never in a Sheet row");
-  assert.ok(!log.COLUMNS.includes("keep_question_flags") && log.COLUMNS.length === 52, "no Sheet column");
+  assert.ok(!log.COLUMNS.includes("keep_question_flags") && log.COLUMNS.length === 53, "no Sheet column");
   ok("vera.js a179c20: keep_question_flags internal + console-only (not in /api/read or /api/deeper responses, no Sheet row field or column); 'Stillwater' brand not flagged");
 }
 }
@@ -735,7 +735,7 @@ ok("stub overview (final) ties all four cards");
   assert.equal(r1.statusCode, 200); assert.equal(d1.statusCode, 200);
   for (const b of [r1.body, d1.body]) assert.ok(!JSON.stringify(b).includes("card_name_flags"), "never in an API response");
   assert.ok(evs.length >= 2 && evs.every((e) => !("card_name_flags" in e)), "never in a Sheet row");
-  assert.ok(!log.COLUMNS.includes("card_name_flags") && log.COLUMNS.length === 52, "no Sheet column");
+  assert.ok(!log.COLUMNS.includes("card_name_flags") && log.COLUMNS.length === 53, "no Sheet column");
   const stub = await import("../api/_lib/vera.stub.js");
   assert.deepEqual((await stub.generateFree({ question: "งานใหม่ที่กำลังจะเริ่มจะไปได้ดีไหม", card: (await import("../api/_lib/vera.js")).cardById(3, "th"), lang: "th" })).card_name_flags, []);
   ok("vera.js 5c79b3e: card_name_flags internal + console-only (not in API responses, no Sheet row field or column); stub returns []");
