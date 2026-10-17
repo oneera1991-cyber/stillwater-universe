@@ -24,8 +24,7 @@ export const {drawOne,drawThree,cardById,normalizeLang,POSITION_KEYS}=real;
   The AI must NOT calculate BaZi, infer missing BaZi rules, invent chart facts,
   or let tarot override deterministic BaZi evidence.
 
-  We intentionally do not pass free-form args.context through to Vera. That
-  context is not an evidence source and can contain unsupported interpretation.
+  Free-form args.context is never forwarded as an evidence source.
 */
 const MAX_CONTEXT_WITH_BAZI=10000;
 
@@ -55,9 +54,8 @@ function evidenceAppliesToDomain(item,domains){
     item.relevance
   ].filter(Boolean).join(" ").toLowerCase();
   if(domains.some(d=>DOMAIN_KEYWORDS[d]?.test(text)))return true;
-  /* Deterministic annual interactions are relevant to the active question
-     because they describe how the 2026 pillar interacts with the natal chart.
-     They are retained for all concrete domains; no new interpretation is added. */
+  /* Existing deterministic annual interaction evidence is retained for the
+     active question because it describes 2026 × natal-chart interaction. */
   if(item.source?.layer==="stillwater-rule" && /annual|four pillars|deterministic/i.test(String(item.source?.work||" "))){
     return true;
   }
@@ -70,7 +68,7 @@ function pickDomainEvidence(evidence,domains){
   const chart=evidence?.chart||{};
   const annual=evidence?.annual||{};
 
-  /* Only select existing deterministic fields. This is a filter, not a new
+  /* Select existing deterministic fields only. This is a filter, not a new
      divination/calculation layer. */
   const chartByDomain={
     career:["strength","patternCandidates","usefulCandidates"],
@@ -121,8 +119,23 @@ function compactReadingEvidence(evidence,question){
   };
 }
 
+function lockedInstruction(context){
+  return [
+    "[STILLWATER READING EVIDENCE — LOCKED SOURCE]",
+    "Use ONLY deterministic BaZi evidence supplied here plus the tarot card(s) already drawn by the server.",
+    "Do NOT calculate BaZi again. Do NOT infer or invent missing pillars, Ten Gods, strength, 格局, 用神, interactions, yearly effects, or any other BaZi rule.",
+    "Priority: (1) BaZi evidence relevant to the question → (2) 2026 impact → (3) Tarot as the second interpretive layer → (4) answer the exact question directly.",
+    "Tarot may add perspective or emotional/contextual framing, but it MUST NOT override, contradict, or replace deterministic BaZi evidence.",
+    "Do not use unsupported facts from user context. If evidence does not establish something, do not present it as a fact.",
+    context,
+    "[/STILLWATER READING EVIDENCE]"
+  ].join("\n");
+}
+
 function enrichWithBazi(args){
-  if(!args?.birthDate||!args?.birthTime)return args;
+  if(!args?.birthDate||!args?.birthTime){
+    return {...args,context:lockedInstruction(JSON.stringify({baziEvidenceAvailable:false,reason:"birth data unavailable; do not invent BaZi"}))};
+  }
   const evidence=buildReadingEvidence({
     birthDate:args.birthDate,
     birthTime:args.birthTime,
@@ -132,17 +145,7 @@ function enrichWithBazi(args){
     question:args.question||""
   });
   const compact=compactReadingEvidence(evidence,args.question||"");
-  const baziContext=[
-    "[STILLWATER READING EVIDENCE — LOCKED SOURCE]",
-    "Use ONLY the deterministic BaZi evidence below plus the tarot card(s) already drawn by the server.",
-    "Do NOT calculate BaZi again. Do NOT infer or invent missing pillars, Ten Gods, strength, 格局, 用神, interactions, yearly effects, or any other BaZi rule.",
-    "Priority: (1) BaZi evidence relevant to the question → (2) 2026 impact → (3) Tarot as the second interpretive layer → (4) answer the exact question directly.",
-    "Tarot may add perspective or emotional/contextual framing, but it MUST NOT override, contradict, or replace deterministic BaZi evidence.",
-    "Do not use unsupported facts from user context. If the evidence does not establish something, do not present it as a fact.",
-    JSON.stringify(compact),
-    "[/STILLWATER READING EVIDENCE]"
-  ].join("\n");
-  return {...args,context:baziContext.slice(0,MAX_CONTEXT_WITH_BAZI)};
+  return {...args,context:lockedInstruction(JSON.stringify(compact)).slice(0,MAX_CONTEXT_WITH_BAZI)};
 }
 
 export const generateFree=(args)=>impl().generateFree(enrichWithBazi(args));
