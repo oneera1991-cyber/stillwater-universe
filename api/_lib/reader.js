@@ -16,14 +16,9 @@ export const {drawOne,drawThree,cardById,normalizeLang,POSITION_KEYS}=real;
 /*
   READING EVIDENCE CONTRACT
   -------------------------
-  Vera may synthesize ONLY from:
-    1) deterministic BaZi evidence produced by bazi.js and filtered below
-       for the customer's question; and
-    2) tarot cards already drawn server-side and passed to Vera.
-
-  The AI must NOT calculate BaZi, infer missing BaZi rules, invent chart facts,
-  or let tarot override deterministic BaZi evidence.
-
+  Vera may synthesize ONLY from deterministic BaZi evidence filtered for the
+  question and tarot cards already drawn server-side. AI must not calculate
+  BaZi, invent chart facts, or let tarot override deterministic evidence.
   Free-form args.context is never forwarded as an evidence source.
 */
 const MAX_CONTEXT_WITH_BAZI=10000;
@@ -47,15 +42,8 @@ function questionDomains(question,evidenceDomains=[]){
 
 function evidenceAppliesToDomain(item,domains){
   if(!item||domains.includes("general"))return true;
-  const text=[
-    item.statement,
-    ...(Array.isArray(item.observations)?item.observations:[]),
-    ...(Array.isArray(item.conditions)?item.conditions:[]),
-    item.relevance
-  ].filter(Boolean).join(" ").toLowerCase();
+  const text=[item.statement,...(Array.isArray(item.observations)?item.observations:[]),...(Array.isArray(item.conditions)?item.conditions:[]),item.relevance].filter(Boolean).join(" ").toLowerCase();
   if(domains.some(d=>DOMAIN_KEYWORDS[d]?.test(text)))return true;
-  /* Existing deterministic annual interaction evidence is retained for the
-     active question because it describes 2026 × natal-chart interaction. */
   if(item.source?.layer==="stillwater-rule" && /annual|four pillars|deterministic/i.test(String(item.source?.work||" "))){
     return true;
   }
@@ -67,9 +55,6 @@ function pickDomainEvidence(evidence,domains){
   const filtered=qEvidence.filter(item=>evidenceAppliesToDomain(item,domains));
   const chart=evidence?.chart||{};
   const annual=evidence?.annual||{};
-
-  /* Select existing deterministic fields only. This is a filter, not a new
-     divination/calculation layer. */
   const chartByDomain={
     career:["strength","patternCandidates","usefulCandidates"],
     money:["strength","patternCandidates","usefulCandidates"],
@@ -81,20 +66,14 @@ function pickDomainEvidence(evidence,domains){
   };
   const fields=[...new Set(domains.flatMap(d=>chartByDomain[d]||chartByDomain.general))];
   const selectedChart={};
-  for(const field of fields){
-    if(chart[field]!==undefined)selectedChart[field]=chart[field];
-  }
-
+  for(const field of fields)if(chart[field]!==undefined)selectedChart[field]=chart[field];
   return {
     domains,
     evidence:filtered,
     chart:selectedChart,
     annual:{
-      year:annual.year,
-      annualStem:annual.annualStem,
-      annualBranch:annual.annualBranch,
-      tenGod:annual.tenGod,
-      element:annual.element,
+      year:annual.year,annualStem:annual.annualStem,annualBranch:annual.annualBranch,
+      tenGod:annual.tenGod,element:annual.element,
       natalInteractions:Array.isArray(annual.natalInteractions)?annual.natalInteractions:[],
       usefulFactorImpact:Array.isArray(annual.usefulFactorImpact)?annual.usefulFactorImpact:[],
       climateImpact:Array.isArray(annual.climateImpact)?annual.climateImpact:[],
@@ -104,31 +83,44 @@ function pickDomainEvidence(evidence,domains){
 }
 
 export function filterQuestionEvidence(evidence,question=""){
-  const domains=questionDomains(question,evidence?.question?.domains);
-  return pickDomainEvidence(evidence,domains);
+  return pickDomainEvidence(evidence,questionDomains(question,evidence?.question?.domains));
 }
 
+/* Keep the evidence compact because vera.js enforces its own 1200-char context
+   cap. Evidence is placed BEFORE the instruction tail so it cannot be clipped
+   away while still keeping the hierarchy explicit. */
 function compactReadingEvidence(evidence,question){
   const filtered=filterQuestionEvidence(evidence,question);
+  const chart=filtered.chart||{};
   return {
-    v:evidence.version,
-    question:{text:String(question||"").slice(0,500),domains:filtered.domains},
-    bazi:filtered.chart,
-    year2026:filtered.annual,
-    evidence:filtered.evidence
+    q:{text:String(question||"").slice(0,500),domains:filtered.domains},
+    b:{
+      p:Array.isArray(evidence?.chart?.pillars)?evidence.chart.pillars.map(p=>`${p.stem}${p.branch}`):undefined,
+      dm:evidence?.chart?.dayMaster,
+      el:evidence?.chart?.dayMasterElement,
+      str:chart.strength?.level,
+      cl:chart.climate?.notes,
+      int:chart.interactions,
+      pat:Array.isArray(chart.patternCandidates)?chart.patternCandidates.map(x=>x.type):undefined,
+      use:Array.isArray(chart.usefulCandidates)?chart.usefulCandidates.map(x=>x.element):undefined
+    },
+    y:{
+      year:filtered.annual.year,p:`${filtered.annual.annualStem||""}${filtered.annual.annualBranch||""}`,
+      tg:filtered.annual.tenGod,el:filtered.annual.element,
+      int:filtered.annual.natalInteractions,
+      use:filtered.annual.usefulFactorImpact,
+      dir:filtered.annual.overallDirection
+    },
+    e:filtered.evidence
   };
 }
 
 function lockedInstruction(context){
   return [
-    "[STILLWATER READING EVIDENCE — LOCKED SOURCE]",
-    "Use ONLY deterministic BaZi evidence supplied here plus the tarot card(s) already drawn by the server.",
-    "Do NOT calculate BaZi again. Do NOT infer or invent missing pillars, Ten Gods, strength, 格局, 用神, interactions, yearly effects, or any other BaZi rule.",
-    "Priority: (1) BaZi evidence relevant to the question → (2) 2026 impact → (3) Tarot as the second interpretive layer → (4) answer the exact question directly.",
-    "Tarot may add perspective or emotional/contextual framing, but it MUST NOT override, contradict, or replace deterministic BaZi evidence.",
-    "Do not use unsupported facts from user context. If evidence does not establish something, do not present it as a fact.",
+    "[STILLWATER LOCKED READING SOURCE]",
     context,
-    "[/STILLWATER READING EVIDENCE]"
+    "Rules: use only the deterministic BaZi evidence above + tarot cards already drawn by the server. Never recalculate or invent BaZi. Order: BaZi relevant to question → 2026 impact → Tarot second layer → direct answer. Tarot cannot override BaZi. Unsupported facts are not allowed.",
+    "[/STILLWATER LOCKED READING SOURCE]"
   ].join("\n");
 }
 
@@ -137,15 +129,11 @@ function enrichWithBazi(args){
     return {...args,context:lockedInstruction(JSON.stringify({baziEvidenceAvailable:false,reason:"birth data unavailable; do not invent BaZi"}))};
   }
   const evidence=buildReadingEvidence({
-    birthDate:args.birthDate,
-    birthTime:args.birthTime,
-    timeZone:args.timeZone||"Asia/Bangkok",
-    utcOffsetMinutes:args.utcOffsetMinutes,
-    year:Number(args.year)||2026,
-    question:args.question||""
+    birthDate:args.birthDate,birthTime:args.birthTime,
+    timeZone:args.timeZone||"Asia/Bangkok",utcOffsetMinutes:args.utcOffsetMinutes,
+    year:Number(args.year)||2026,question:args.question||""
   });
-  const compact=compactReadingEvidence(evidence,args.question||"");
-  return {...args,context:lockedInstruction(JSON.stringify(compact)).slice(0,MAX_CONTEXT_WITH_BAZI)};
+  return {...args,context:lockedInstruction(JSON.stringify(compactReadingEvidence(evidence,args.question||""))).slice(0,MAX_CONTEXT_WITH_BAZI)};
 }
 
 export const generateFree=(args)=>impl().generateFree(enrichWithBazi(args));
