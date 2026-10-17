@@ -52,7 +52,7 @@ await page.waitForTimeout(1500);
 await page.screenshot({ path: "/workspace/vera-build-shots/payhip-02-unlocked.png" }); ok("unlocked → full reading scene");
 await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
 await page.waitForTimeout(4500);
-const all = JSON.stringify(await (await fetch((process.env.KV_REST_API_URL || "http://127.0.0.1:8079"), { method: "POST", headers: { authorization: "Bearer devtoken" }, body: JSON.stringify(["LRANGE", "vera:events", "0", "-1"]) })).json());
+const all = JSON.stringify(await (await fetch((process.env.E2E_KV_URL || "http://127.0.0.1:8079"), { method: "POST", headers: { authorization: "Bearer devtoken" }, body: JSON.stringify(["LRANGE", "vera:events", "0", "-1"]) })).json());
 for (const e of ["pay_payhip_open", "pay_payhip_ok"]) assert.ok(all.includes("c_" + e), e + " beacon"); ok("beacons pay_payhip_open + pay_payhip_ok sent");
 assert.deepEqual(errors, []);
 await browser.close();

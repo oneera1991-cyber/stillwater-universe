@@ -21,7 +21,7 @@ trust the client for any of them.
 // Vera comes ONLY through api/_lib/reader.js: Stillwater's api/_lib/vera.js when
 // an OpenAI key is set, else the same-interface stub (local dev / tests).
 import { drawOne, generateFree, readerMode } from "./_lib/reader.js";
-import { baziFromBirth } from "../lib/bazi.js";
+import { baziFromBirth, ageOn, MIN_AGE } from "../lib/bazi.js";
 import { detectSelfHarm } from "./_lib/vera.js";
 import { cleanSid, deviceType, logEvent, sourceColumns } from "./_lib/log.js";
 import { classifyTopic } from "./_lib/topic.js";
@@ -60,8 +60,9 @@ export default async function handler(req, res) {
     const birthIn = body.birth && typeof body.birth === "object" ? body.birth : {};
     // A crisis question is never blocked by a missing date: it goes on to the safety reply.
     const bazi = birthIn.date ? baziFromBirth({ date: String(birthIn.date), time: birthIn.time ? String(birthIn.time) : null }) : null;
-    if (!bazi && !detectSelfHarm(question, context)) {
-      const code = birthIn.date ? "birth_invalid" : "birth_required";
+    const underage = !!bazi && ageOn(bazi.date) < MIN_AGE;
+    if ((!bazi || underage) && !detectSelfHarm(question, context)) {
+      const code = underage ? "birth_underage" : birthIn.date ? "birth_invalid" : "birth_required";
       return res.status(400).json({ error: t(lang, "errors." + code), code });
     }
     const birth = bazi ? { date: bazi.date, time: bazi.time } : null;

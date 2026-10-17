@@ -298,7 +298,11 @@ body[data-scene="door"] #bg-door,body[data-scene="window"] #bg-vera,body[data-sc
 #scene-question .label .opt{display:inline-block;font-size:.7rem;color:var(--soft);border:1px solid var(--line);border-radius:999px;padding:.05rem .55rem;margin-left:.5rem;vertical-align:.08em}
 #scene-question .hint{font-size:.74rem;line-height:1.7;color:var(--soft);margin:.1rem 0 .5rem}
 #scene-question .sel-row{display:grid;gap:.5rem;grid-template-columns:4.6rem 1fr 6.4rem}
-#scene-question .sel-row.time{grid-template-columns:1fr 6.4rem}
+#scene-question .time-wrap{position:relative;width:100%}
+#scene-question .time-ico{position:absolute;left:.9rem;top:50%;width:1.15rem;height:1.15rem;transform:translateY(-50%);fill:none;stroke:rgba(235,220,180,.75);stroke-width:1.5;stroke-linecap:round;pointer-events:none}
+#scene-question .time-input{width:100%;min-height:3.2rem;padding:.75rem .9rem .75rem 2.7rem;font:400 1.08rem var(--sans);letter-spacing:.12em;color:var(--text);background:rgba(8,10,28,.55)}
+#scene-question .time-input::placeholder{letter-spacing:.02em;color:var(--soft);opacity:.75}
+#scene-question .time-input.is-bad{border-color:rgba(255,190,190,.7)}
 #scene-question select.input{
   -webkit-appearance:none;appearance:none;min-height:3.2rem;padding:.75rem 1.9rem .75rem .8rem;font:400 1rem var(--sans);color:var(--text);
   background:rgba(8,10,28,.55) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23cdd6f4' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right .7rem center;
@@ -497,10 +501,11 @@ body[data-scene="door"] #bg-door,body[data-scene="window"] #bg-vera,body[data-sc
         <p class="field-err" id="birthErr" role="alert" hidden></p>
         <span class="label" id="timeLabel"><span data-i18n="question.timeLabel">เวลาเกิด</span><span class="opt" data-i18n="question.timeOptional">ไม่บังคับ</span></span>
         <p class="hint" data-i18n="question.timeHint">ไม่ทราบเวลาเกิดก็ได้ค่ะ</p>
-        <div class="sel-row time" role="group" aria-labelledby="timeLabel">
-          <select class="input" id="birthHour" data-i18n-aria-label="question.hour" aria-label="ชั่วโมง"></select>
-          <select class="input" id="birthMinute" data-i18n-aria-label="question.minute" aria-label="นาที"></select>
+        <div class="time-wrap">
+          <svg class="time-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>
+          <input class="input time-input" id="birthTime" type="text" inputmode="numeric" autocomplete="off" maxlength="5" pattern="[0-9]{2}:[0-9]{2}" placeholder="เช่น 14:30" data-i18n-placeholder="question.timePlaceholder" aria-labelledby="timeLabel">
         </div>
+        <p class="field-err" id="timeErr" role="alert" hidden></p>
       </div>
       <label class="label" for="contextInput" data-i18n="question.contextLabel">เล่าเพิ่มอีกนิด (ไม่ต้องก็ได้)</label>
       <textarea class="input" id="contextInput" maxlength="1200" rows="2" placeholder="เช่น เรื่องนี้เริ่มเมื่อไร ตอนนี้รู้สึกอย่างไร" data-i18n-placeholder="question.contextPlaceholder"></textarea>
@@ -1090,7 +1095,8 @@ function goQuestion({ note, noteText } = {}){
    พ.ศ./ค.ศ. confusion (Thai shows พ.ศ., the value is always the Gregorian year).
    Kept in sessionStorage so a reload keeps it; never sent to telemetry. */
 const BIRTH_STORE = 'stillwater.birth';
-const BIRTH_IDS = ['birthDay','birthMonth','birthYear','birthHour','birthMinute'];
+const BIRTH_IDS = ['birthDay','birthMonth','birthYear','birthTime'];
+const MIN_AGE = 18;
 const pad2 = (n) => String(n).padStart(2, '0');
 function fillSelect(sel, items, placeholder){
   const keep = sel.value;
@@ -1103,21 +1109,13 @@ function renderBirthSelects(){
   const nowY = new Date().getFullYear();
   const days = []; for(let d = 1; d <= 31; d++) days.push([String(d), String(d)]);
   const months = t('question.months').map((m, i) => [String(i + 1), m]);
-  const years = []; for(let y = nowY; y >= 1920; y--) years.push([String(y), uiLang === 'th' ? String(y + 543) : String(y)]);
-  const hours = []; for(let h = 0; h < 24; h++) hours.push([pad2(h), pad2(h) + (uiLang === 'th' ? ' น.' : ':00')]);
-  const mins = []; for(let m = 0; m < 60; m++) mins.push([pad2(m), pad2(m)]);
+  const years = []; for(let y = nowY - MIN_AGE; y >= 1920; y--) years.push([String(y), uiLang === 'th' ? String(y + 543) : String(y)]);
   fillSelect($('birthDay'), days, t('question.day'));
   fillSelect($('birthMonth'), months, t('question.month'));
   fillSelect($('birthYear'), years, t('question.year'));
-  fillSelect($('birthHour'), hours, t('question.timeUnknown'));
-  fillSelect($('birthMinute'), mins, t('question.minute'));
   syncBirthUi();
 }
 function syncBirthUi(){
-  const unknown = !$('birthHour').value;
-  $('birthMinute').disabled = unknown || $('birthHour').disabled;
-  if(unknown) $('birthMinute').value = '';
-  else if(!$('birthMinute').value) $('birthMinute').value = '00';
   for(const id of BIRTH_IDS) $(id).classList.toggle('is-empty', !$(id).value);
 }
 function saveBirth(){
@@ -1126,7 +1124,7 @@ function saveBirth(){
 function restoreBirth(){
   try{
     const v = JSON.parse(sessionStorage.getItem(BIRTH_STORE) || 'null');
-    if(v) for(const id of BIRTH_IDS) if(v[id] && [...$(id).options].some((o) => o.value === v[id])) $(id).value = v[id];
+    if(v) for(const id of BIRTH_IDS){ const el = $(id); if(!v[id]) continue; if(el.tagName !== 'SELECT' || [...el.options].some((o) => o.value === v[id])) el.value = v[id]; }
   }catch(e){}
   syncBirthUi();
 }
@@ -1137,18 +1135,48 @@ function readBirth(){
   const dt = new Date(y, m - 1, d);
   if(dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return { err: 'question.birthInvalid' };
   if(dt.getTime() > Date.now()) return { err: 'question.birthFuture' };
-  const h = $('birthHour').value;
-  return { date: y + '-' + pad2(m) + '-' + pad2(d), time: h ? h + ':' + ($('birthMinute').value || '00') : null };
+  const now = new Date();
+  const age = now.getFullYear() - y - ((now.getMonth() < m - 1 || (now.getMonth() === m - 1 && now.getDate() < d)) ? 1 : 0);
+  if(age < MIN_AGE) return { err: 'question.birthUnderage' };
+  const tm = readTime();
+  if(tm === false) return { err: 'question.timeInvalid', field: 'time' };
+  return { date: y + '-' + pad2(m) + '-' + pad2(d), time: tm };
+}
+/* typed time "HH:MM" → string, '' → null (unknown), anything else → false */
+function readTime(){
+  const v = $('birthTime').value.trim();
+  if(!v) return null;
+  const mm = /^(\d{1,2}):?(\d{2})$/.exec(v);
+  if(!mm || +mm[1] > 23 || +mm[2] > 59) return false;
+  return pad2(+mm[1]) + ':' + mm[2];
+}
+function formatTimeInput(el){
+  const digits = el.value.replace(/\D/g, '').slice(0, 4);
+  el.value = digits.length > 2 ? digits.slice(0, 2) + ':' + digits.slice(2) : digits;
+}
+function showTimeErr(key){
+  const e = $('timeErr');
+  $('birthTime').classList.toggle('is-bad', !!key);
+  if(!key){ setText(e, null); e.hidden = true; return; }
+  setText(e, key); e.hidden = false;
 }
 function showBirthErr(key){
   const e = $('birthErr');
   if(!key){ setText(e, null); e.hidden = true; ['birthDay','birthMonth','birthYear'].forEach((id) => $(id).classList.remove('is-bad')); return; }
   setText(e, key); e.hidden = false;
+  if(key === 'question.timeInvalid'){ showTimeErr(key); return; }
   const bad = (id) => key === 'question.birthMissing' ? !$(id).value : key === 'question.birthInvalid' ? id !== 'birthYear' : id === 'birthYear';
   ['birthDay','birthMonth','birthYear'].forEach((id) => $(id).classList.toggle('is-bad', bad(id)));
 }
 function setBirthDisabled(on){ for(const id of BIRTH_IDS) $(id).disabled = on; if(!on) syncBirthUi(); }
-for(const id of BIRTH_IDS) $(id).addEventListener('change', () => { syncBirthUi(); saveBirth(); if(!$('birthErr').hidden){ const b = readBirth(); showBirthErr(b.err || null); } });
+for(const id of BIRTH_IDS) $(id).addEventListener('change', () => { syncBirthUi(); saveBirth(); if(!$('birthErr').hidden){ const b = readBirth(); showBirthErr(b.err && b.field !== 'time' ? b.err : null); } });
+$('birthTime').addEventListener('input', (ev) => {
+  const el = $('birthTime');
+  if(!(ev.inputType || '').startsWith('delete')) formatTimeInput(el);
+  saveBirth();
+  if(!$('timeErr').hidden && readTime() !== false) showTimeErr(null);
+});
+$('birthTime').addEventListener('blur', () => { const tm = readTime(); if(tm) $('birthTime').value = tm; showTimeErr(tm === false ? 'question.timeInvalid' : null); saveBirth(); });
 renderBirthSelects();
 restoreBirth();
 
@@ -1163,9 +1191,10 @@ async function submitQuestion(event){
     return;
   }
   const birth = readBirth();
+  showTimeErr(null);
   if(birth.err){
     showBirthErr(birth.err);
-    try{ $('birthBox').scrollIntoView({ block:'center', behavior: reduceMotion ? 'auto' : 'smooth' }); }catch(e){}
+    try{ (birth.field === 'time' ? $('birthTime') : $('birthBox')).scrollIntoView({ block:'center', behavior: reduceMotion ? 'auto' : 'smooth' }); }catch(e){}
     return;
   }
   showBirthErr(null);
@@ -1216,7 +1245,7 @@ async function startDraw(){
     setText($('drawErrorText'),
       status === 429 || code === 'rate_limited' ? 'draw.rateLimited' :
       code === 'question_required' ? 'errors.question_required' :
-      code === 'birth_required' || code === 'birth_invalid' ? 'errors.' + code : 'draw.failed');
+      code === 'birth_required' || code === 'birth_invalid' || code === 'birth_underage' ? 'errors.' + code : 'draw.failed');
     $('drawError').hidden = false;
     return;
   }

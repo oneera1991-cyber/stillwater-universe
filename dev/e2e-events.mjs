@@ -11,7 +11,9 @@ abandoning visitor. Then reads the Redis list (the same RPUSH path as production
 import assert from "node:assert/strict";
 const { chromium } = await import(process.env.PLAYWRIGHT || "playwright");
 const BASE = process.env.BASE || "http://localhost:3123";
-const KV = process.env.KV_REST_API_URL || "http://127.0.0.1:8079", KVT = process.env.KV_REST_API_TOKEN || "devtoken";
+// Safety: this test DELs the list. Only ever talk to a LOCAL mock (E2E_KV_URL), never the KV_* of a real store left in the shell.
+const KV = process.env.E2E_KV_URL || "http://127.0.0.1:8079", KVT = process.env.E2E_KV_TOKEN || "devtoken";
+if (!/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(KV)) { console.error("e2e-events: refusing non-local KV " + KV.replace(/\/\/.*/, "//…")); process.exit(2); }
 const KEY = process.env.LOG_REDIS_KEY || "vera:events";
 const log = (...a) => console.log("✓", ...a);
 const redis = async (cmd) => (await (await fetch(KV, { method: "POST", headers: { authorization: "Bearer " + KVT }, body: JSON.stringify(cmd) })).json()).result;
