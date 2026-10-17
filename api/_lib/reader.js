@@ -39,32 +39,49 @@ function questionDomains(question) {
   return domains.length ? domains : ["general"];
 }
 
+const STEMS = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
+const ELEMENTS = ["wood","wood","fire","fire","earth","earth","metal","metal","water","water"];
+const HARMONY_PAIRS = new Set(["0-1","1-0","2-11","11-2","3-10","10-3","4-9","9-4","5-8","8-5","6-7","7-6"]);
+const CLASH_PAIRS = new Set(["0-6","6-0","1-7","7-1","2-8","8-2","3-9","9-3","4-10","10-4","5-11","11-5"]);
+
 function relation(a, b) {
+  const key = `${a}-${b}`;
   if (a === b) return "same_branch";
-  if ((a - b + 12) % 12 === 6) return "clash";
-  if ((a - b + 12) % 12 === 4 || (a - b + 12) % 12 === 8) return "harmony";
+  if (CLASH_PAIRS.has(key)) return "clash";
+  if (HARMONY_PAIRS.has(key)) return "harmony";
   return null;
+}
+
+function tenGodForAnnual(dayMasterStemIndex) {
+  const dmEl = ELEMENTS[dayMasterStemIndex];
+  const annualIndex = 2; // 2026 = 丙午
+  const annualEl = ELEMENTS[annualIndex];
+  const samePolarity = (dayMasterStemIndex % 2) === (annualIndex % 2);
+  if (annualEl === dmEl) return samePolarity ? "peer_same" : "peer_rob_wealth";
+  const generates = { wood: "fire", fire: "earth", earth: "metal", metal: "water", water: "wood" };
+  const controls = { wood: "earth", earth: "water", water: "fire", fire: "metal", metal: "wood" };
+  if (generates[dmEl] === annualEl) return samePolarity ? "output_food" : "output_hurt_officer";
+  if (controls[dmEl] === annualEl) return samePolarity ? "wealth_indirect" : "wealth_direct";
+  if (controls[annualEl] === dmEl) return samePolarity ? "authority_seven_killings" : "authority_officer";
+  return samePolarity ? "resource_indirect" : "resource_direct";
 }
 
 function annual2026(bazi) {
   if (!bazi) return null;
-  const annualStem = "丙";
-  const annualBranch = "午";
-  const annualStemElement = "fire";
   const natalBranches = [bazi.year, bazi.month, bazi.day, bazi.hour].filter(Boolean);
   const branchRelations = natalBranches.map((p) => ({
     pillar: p.chars,
     relation: relation(p.branchIndex, 6)
   })).filter((x) => x.relation);
-  const dayMasterElement = bazi.dayMaster?.element;
+  const dmIndex = bazi.day?.stemIndex;
   return {
     year: 2026,
-    annualStem,
-    annualBranch,
-    annualStemElement,
-    dayMasterElement,
-    branchRelations,
-    fireCountChange: dayMasterElement === "fire" ? "same_element" : null
+    annualStem: "丙",
+    annualBranch: "午",
+    annualStemElement: "fire",
+    dayMasterElement: bazi.dayMaster?.element,
+    tenGodToDayMaster: Number.isInteger(dmIndex) ? tenGodForAnnual(dmIndex) : null,
+    branchRelations
   };
 }
 
@@ -85,7 +102,7 @@ function evidenceForDomain(bazi, annual, domain) {
   if (annual) {
     base.push({
       type: "annual_2026",
-      statement: `2026 annual pillar=${annual.annualStem}${annual.annualBranch}; annual stem element=${annual.annualStemElement}; branch relations=${JSON.stringify(annual.branchRelations)}`
+      statement: `2026 annual pillar=${annual.annualStem}${annual.annualBranch}; annual stem element=${annual.annualStemElement}; annual stem relation to Day Master=${annual.tenGodToDayMaster}; branch relations=${JSON.stringify(annual.branchRelations)}`
     });
   }
   return base;
