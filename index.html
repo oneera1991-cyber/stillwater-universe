@@ -292,6 +292,22 @@ body[data-scene="door"] #bg-door,body[data-scene="window"] #bg-vera,body[data-sc
 #scene-question .label{display:block;text-align:left;font-size:.78rem;color:var(--soft);margin:1rem 0 .45rem}
 #scene-question .rule{font-size:.76rem;line-height:1.8;color:var(--soft);margin:1rem 0 .2rem}
 #scene-question .btn{margin-top:1rem}
+#scene-question .birth{text-align:left;margin-top:1rem}
+#scene-question .birth .label{margin:0 0 .2rem;font-size:.88rem;color:var(--cream)}
+#scene-question .birth #timeLabel{margin-top:1.2rem}
+#scene-question .label .opt{display:inline-block;font-size:.7rem;color:var(--soft);border:1px solid var(--line);border-radius:999px;padding:.05rem .55rem;margin-left:.5rem;vertical-align:.08em}
+#scene-question .hint{font-size:.74rem;line-height:1.7;color:var(--soft);margin:.1rem 0 .5rem}
+#scene-question .sel-row{display:grid;gap:.5rem;grid-template-columns:4.6rem 1fr 6.4rem}
+#scene-question .sel-row.time{grid-template-columns:1fr 6.4rem}
+#scene-question select.input{
+  -webkit-appearance:none;appearance:none;min-height:3.2rem;padding:.75rem 1.9rem .75rem .8rem;font:400 1rem var(--sans);color:var(--text);
+  background:rgba(8,10,28,.55) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23cdd6f4' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right .7rem center;
+  text-overflow:ellipsis;cursor:pointer}
+#scene-question select.input:disabled{opacity:.45}
+#scene-question select.input.is-empty{color:var(--soft)}
+#scene-question select.input.is-bad{border-color:rgba(255,190,190,.7)}
+#scene-question select option{background:#0b0d22;color:#e8ecff}
+#scene-question .field-err{font-size:.82rem;line-height:1.7;color:rgba(255,205,205,.95);margin:.45rem 0 0}
 
 /* =========================================================
    #scene-draw — The Draw
@@ -470,6 +486,22 @@ body[data-scene="door"] #bg-door,body[data-scene="window"] #bg-vera,body[data-sc
       <p class="note" id="rewriteNote" role="alert" hidden></p>
       <label class="sr-only" for="questionInput" data-i18n="question.label">คำถามของคุณ</label>
       <textarea class="input" id="questionInput" maxlength="500" rows="3" placeholder="พิมพ์คำถามที่คุณอยากรู้ที่สุด..." data-i18n-placeholder="question.placeholder" required></textarea>
+      <div class="birth" id="birthBox">
+        <span class="label" id="birthLabel" data-i18n="question.birthLabel">วันเกิดของคุณ</span>
+        <p class="hint" data-i18n="question.birthHint">พี่เวราจะดูธาตุประจำตัวของคุณประกอบกับไพ่ค่ะ</p>
+        <div class="sel-row" role="group" aria-labelledby="birthLabel">
+          <select class="input" id="birthDay" data-i18n-aria-label="question.day" aria-label="วัน" required></select>
+          <select class="input" id="birthMonth" data-i18n-aria-label="question.month" aria-label="เดือน" required></select>
+          <select class="input" id="birthYear" data-i18n-aria-label="question.year" aria-label="ปี พ.ศ." required></select>
+        </div>
+        <p class="field-err" id="birthErr" role="alert" hidden></p>
+        <span class="label" id="timeLabel"><span data-i18n="question.timeLabel">เวลาเกิด</span><span class="opt" data-i18n="question.timeOptional">ไม่บังคับ</span></span>
+        <p class="hint" data-i18n="question.timeHint">ไม่ทราบเวลาเกิดก็ได้ค่ะ</p>
+        <div class="sel-row time" role="group" aria-labelledby="timeLabel">
+          <select class="input" id="birthHour" data-i18n-aria-label="question.hour" aria-label="ชั่วโมง"></select>
+          <select class="input" id="birthMinute" data-i18n-aria-label="question.minute" aria-label="นาที"></select>
+        </div>
+      </div>
       <label class="label" for="contextInput" data-i18n="question.contextLabel">เล่าเพิ่มอีกนิด (ไม่ต้องก็ได้)</label>
       <textarea class="input" id="contextInput" maxlength="1200" rows="2" placeholder="เช่น เรื่องนี้เริ่มเมื่อไร ตอนนี้รู้สึกอย่างไร" data-i18n-placeholder="question.contextPlaceholder"></textarea>
       <p class="rule" data-i18n="question.rule">พี่เวรายังไม่รับคำถามเรื่องสุขภาพ กฎหมาย
@@ -688,6 +720,7 @@ function applyLang(){
   $('langToggle').setAttribute('aria-pressed', uiLang === 'en' ? 'true' : 'false');
   if(currentScene === 'safety') renderSafety(true);
   try{ renderPayee(); }catch(e){} // state may not exist yet on the first call
+  try{ renderBirthSelects(); }catch(e){}
   document.documentElement.classList.remove('lang-pending');
 }
 function setLang(lang){
@@ -1048,8 +1081,76 @@ function goQuestion({ note, noteText } = {}){
   $('btnAsk').disabled = false;
   $('questionInput').disabled = false;
   $('contextInput').disabled = false;
+  setBirthDisabled(false);
   showScene('question').then(() => { try{ $('questionInput').focus({ preventScroll:true }); }catch(e){} });
 }
+
+/* ---- birth date (required) + time (optional) for BaZi ----
+   Plain <select>s: big native pickers on iOS/Android, no typing, no date-format or
+   พ.ศ./ค.ศ. confusion (Thai shows พ.ศ., the value is always the Gregorian year).
+   Kept in sessionStorage so a reload keeps it; never sent to telemetry. */
+const BIRTH_STORE = 'stillwater.birth';
+const BIRTH_IDS = ['birthDay','birthMonth','birthYear','birthHour','birthMinute'];
+const pad2 = (n) => String(n).padStart(2, '0');
+function fillSelect(sel, items, placeholder){
+  const keep = sel.value;
+  sel.textContent = '';
+  if(placeholder !== null){ const o = document.createElement('option'); o.value = ''; o.textContent = placeholder; sel.appendChild(o); }
+  for(const [v, label] of items){ const o = document.createElement('option'); o.value = v; o.textContent = label; sel.appendChild(o); }
+  if([...sel.options].some((o) => o.value === keep)) sel.value = keep;
+}
+function renderBirthSelects(){
+  const nowY = new Date().getFullYear();
+  const days = []; for(let d = 1; d <= 31; d++) days.push([String(d), String(d)]);
+  const months = t('question.months').map((m, i) => [String(i + 1), m]);
+  const years = []; for(let y = nowY; y >= 1920; y--) years.push([String(y), uiLang === 'th' ? String(y + 543) : String(y)]);
+  const hours = []; for(let h = 0; h < 24; h++) hours.push([pad2(h), pad2(h) + (uiLang === 'th' ? ' น.' : ':00')]);
+  const mins = []; for(let m = 0; m < 60; m++) mins.push([pad2(m), pad2(m)]);
+  fillSelect($('birthDay'), days, t('question.day'));
+  fillSelect($('birthMonth'), months, t('question.month'));
+  fillSelect($('birthYear'), years, t('question.year'));
+  fillSelect($('birthHour'), hours, t('question.timeUnknown'));
+  fillSelect($('birthMinute'), mins, t('question.minute'));
+  syncBirthUi();
+}
+function syncBirthUi(){
+  const unknown = !$('birthHour').value;
+  $('birthMinute').disabled = unknown || $('birthHour').disabled;
+  if(unknown) $('birthMinute').value = '';
+  else if(!$('birthMinute').value) $('birthMinute').value = '00';
+  for(const id of BIRTH_IDS) $(id).classList.toggle('is-empty', !$(id).value);
+}
+function saveBirth(){
+  try{ sessionStorage.setItem(BIRTH_STORE, JSON.stringify(Object.fromEntries(BIRTH_IDS.map((id) => [id, $(id).value])))); }catch(e){}
+}
+function restoreBirth(){
+  try{
+    const v = JSON.parse(sessionStorage.getItem(BIRTH_STORE) || 'null');
+    if(v) for(const id of BIRTH_IDS) if(v[id] && [...$(id).options].some((o) => o.value === v[id])) $(id).value = v[id];
+  }catch(e){}
+  syncBirthUi();
+}
+/* → { date:'YYYY-MM-DD', time:'HH:MM'|null } or { err: strings key } */
+function readBirth(){
+  const d = +$('birthDay').value, m = +$('birthMonth').value, y = +$('birthYear').value;
+  if(!d || !m || !y) return { err: 'question.birthMissing' };
+  const dt = new Date(y, m - 1, d);
+  if(dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return { err: 'question.birthInvalid' };
+  if(dt.getTime() > Date.now()) return { err: 'question.birthFuture' };
+  const h = $('birthHour').value;
+  return { date: y + '-' + pad2(m) + '-' + pad2(d), time: h ? h + ':' + ($('birthMinute').value || '00') : null };
+}
+function showBirthErr(key){
+  const e = $('birthErr');
+  if(!key){ setText(e, null); e.hidden = true; ['birthDay','birthMonth','birthYear'].forEach((id) => $(id).classList.remove('is-bad')); return; }
+  setText(e, key); e.hidden = false;
+  const bad = (id) => key === 'question.birthMissing' ? !$(id).value : key === 'question.birthInvalid' ? id !== 'birthYear' : id === 'birthYear';
+  ['birthDay','birthMonth','birthYear'].forEach((id) => $(id).classList.toggle('is-bad', bad(id)));
+}
+function setBirthDisabled(on){ for(const id of BIRTH_IDS) $(id).disabled = on; if(!on) syncBirthUi(); }
+for(const id of BIRTH_IDS) $(id).addEventListener('change', () => { syncBirthUi(); saveBirth(); if(!$('birthErr').hidden){ const b = readBirth(); showBirthErr(b.err || null); } });
+renderBirthSelects();
+restoreBirth();
 
 async function submitQuestion(event){
   event.preventDefault();
@@ -1061,8 +1162,16 @@ async function submitQuestion(event){
     $('questionInput').focus();
     return;
   }
-  state.question = question; state.context = context;
+  const birth = readBirth();
+  if(birth.err){
+    showBirthErr(birth.err);
+    try{ $('birthBox').scrollIntoView({ block:'center', behavior: reduceMotion ? 'auto' : 'smooth' }); }catch(e){}
+    return;
+  }
+  showBirthErr(null);
+  state.question = question; state.context = context; state.birth = birth; saveBirth();
   $('btnAsk').disabled = true;
+  setBirthDisabled(true);
   $('questionInput').disabled = true;
   $('contextInput').disabled = true;
   buttonSound('submit');
@@ -1092,7 +1201,7 @@ async function startDraw(){
   try{
     const res = await fetch('/api/read', {
       method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ question: state.question, context: state.context || undefined, lang: uiLang, source: currentSource(), sid: tsid })
+      body: JSON.stringify({ question: state.question, context: state.context || undefined, birth: state.birth || undefined, lang: uiLang, source: currentSource(), sid: tsid })
     });
     status = res.status;
     data = await res.json().catch(() => ({}));
@@ -1106,7 +1215,8 @@ async function startDraw(){
     tlog('draw_failed', { http_status: status, reason: code || 'network', latency_ms: readMs });
     setText($('drawErrorText'),
       status === 429 || code === 'rate_limited' ? 'draw.rateLimited' :
-      code === 'question_required' ? 'errors.question_required' : 'draw.failed');
+      code === 'question_required' ? 'errors.question_required' :
+      code === 'birth_required' || code === 'birth_invalid' ? 'errors.' + code : 'draw.failed');
     $('drawError').hidden = false;
     return;
   }

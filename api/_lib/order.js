@@ -169,7 +169,7 @@ export function newOrderId() {
   return "ord_" + crypto.randomBytes(12).toString("base64url");
 }
 
-export function signOrder({ orderId, question, context, card1, card1Name, card1Text, openThread, lang, source, topic }) {
+export function signOrder({ orderId, question, context, card1, card1Name, card1Text, openThread, lang, source, topic, birth }) {
   const order = {
     lang: normLang(lang),
     orderId: orderId || newOrderId(),
@@ -181,6 +181,7 @@ export function signOrder({ orderId, question, context, card1, card1Name, card1T
     open_thread: openThread ? String(openThread) : null,
     source: sanitizeSource(source), // { first, last } traffic source (lib/source.js) — carried to paid events
     topic: typeof topic === "string" ? topic.slice(0, 20) : "", // log-only question topic (api/_lib/topic.js)
+    birth: birth && typeof birth.date === "string" ? { date: birth.date.slice(0, 10), time: typeof birth.time === "string" ? birth.time.slice(0, 5) : null } : null, // BaZi input (sealed; never logged)
     issuedAt: Date.now()
   };
   return { token: seal("order", order), order };
@@ -206,7 +207,7 @@ export const RENEW_MAX_MS = 30 * 24 * 60 * 60 * 1000;
 export function renewOrder(token) {
   const p = verifyOrder(token, { ttlMs: RENEW_MAX_MS });
   return signOrder({ question: p.question, context: p.context, card1: p.card1, card1Name: p.card1Name, card1Text: p.card1Text,
-    openThread: p.open_thread, lang: p.lang, source: p.source, topic: p.topic });
+    openThread: p.open_thread, lang: p.lang, source: p.source, topic: p.topic, birth: p.birth });
 }
 
 /* ---------------- paid token (slip flow) ---------------- */

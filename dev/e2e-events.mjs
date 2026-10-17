@@ -43,7 +43,7 @@ if (await pa.isVisible("#scene-door.is-active")) { await pa.click("#btnDoor"); a
 await pa.waitForTimeout(800);
 await pa.click("#btnEnter");
 await pa.waitForSelector("#scene-question.is-active");
-await pa.fill("#questionInput", "แฟนเก่าจะกลับมาคืนดีไหม โทรหาเราได้ที่ 0812345678");
+await pa.fill("#questionInput", "แฟนเก่าจะกลับมาคืนดีไหม โทรหาเราได้ที่ 0812345678"); await pa.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
 await pa.click("#btnAsk");
 await pa.waitForSelector("#scene-first.is-active", { timeout: 30000 });
 await pa.waitForSelector("#btnToOffer.is-in", { timeout: 30000 });
@@ -88,7 +88,7 @@ if (await pb.isVisible("#scene-door.is-active")) { await pb.click("#btnDoor"); a
 await pb.waitForTimeout(600);
 await pb.click("#btnEnter");
 await pb.waitForSelector("#scene-question.is-active");
-await pb.fill("#questionInput", "Will I pass the exam next month?");
+await pb.fill("#questionInput", "Will I pass the exam next month?"); await pb.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
 await pb.click("#btnAsk");
 await pb.waitForSelector("#btnToOffer.is-in", { timeout: 30000 });
 await pb.click("#btnToOffer");

@@ -28,7 +28,7 @@ if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"
 await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
 await page.waitForTimeout(1100);
 await page.click("#btnEnter");
-await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม");
+await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
 await page.click("#btnAsk");
 await page.waitForSelector("#btnToOffer.is-in", { timeout: 30000 });
 await page.waitForTimeout(1100);

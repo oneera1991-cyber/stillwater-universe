@@ -2,7 +2,7 @@
 ====================================================
 STILLWATER — FREE 1-CARD READING  (POST /api/read)
 ====================================================
-Body:     { question, context?, lang?, source? }   lang: "th" | "en" (validated; default "th")
+Body:     { question, context?, birth: { date: "YYYY-MM-DD", time?: "HH:MM" }, lang?, source? }   lang: "th" | "en" (validated; default "th")
           source: { first, last } touches from lib/source.js (re-sanitized here, sealed in the order token)
 Response: { ok, needs_rewrite, safety,
             card: { id, name, file, image, text } | null,
@@ -21,6 +21,8 @@ trust the client for any of them.
 // Vera comes ONLY through api/_lib/reader.js: Stillwater's api/_lib/vera.js when
 // an OpenAI key is set, else the same-interface stub (local dev / tests).
 import { drawOne, generateFree, readerMode } from "./_lib/reader.js";
+import { baziFromBirth } from "../lib/bazi.js";
+import { detectSelfHarm } from "./_lib/vera.js";
 import { cleanSid, deviceType, logEvent, sourceColumns } from "./_lib/log.js";
 import { classifyTopic } from "./_lib/topic.js";
 import { sanitizeSource } from "../lib/source.js";
@@ -54,6 +56,15 @@ export default async function handler(req, res) {
     if (!question) {
       return res.status(400).json({ error: t(lang, "errors.question_required"), code: "question_required" });
     }
+    // Birth date (required) + time (optional) → BaZi pillars, computed here (lib/bazi.js).
+    const birthIn = body.birth && typeof body.birth === "object" ? body.birth : {};
+    // A crisis question is never blocked by a missing date: it goes on to the safety reply.
+    const bazi = birthIn.date ? baziFromBirth({ date: String(birthIn.date), time: birthIn.time ? String(birthIn.time) : null }) : null;
+    if (!bazi && !detectSelfHarm(question, context)) {
+      const code = birthIn.date ? "birth_invalid" : "birth_required";
+      return res.status(400).json({ error: t(lang, "errors." + code), code });
+    }
+    const birth = bazi ? { date: bazi.date, time: bazi.time } : null;
 
     const source = sanitizeSource(body.source); // server-side sanitize; sealed into the order token
     const topic = classifyTopic(question, context); // log-only keyword rules, microseconds
@@ -65,7 +76,7 @@ export default async function handler(req, res) {
 
     const drawn = drawOne(); // the ONLY free-card draw (crypto.randomInt)
     const t0 = Date.now();
-    const result = await generateFree({ question, context, card: drawn.id, lang });
+    const result = await generateFree({ question, context, card: drawn.id, lang, bazi });
     logBase.latency_ms = Date.now() - t0;
     if (result.usage) console.log("Stillwater /api/read usage:", JSON.stringify({ lang, fallback: result.fallback, attempts: result.attempts, usage: result.usage }));
 
@@ -90,7 +101,8 @@ export default async function handler(req, res) {
       card1Name: card.name,
       card1Text: String(card.text),
       openThread: result.open_thread,
-      topic
+      topic,
+      birth
     });
     const order = signed.token;
     logEvent("read_free", { ...logBase, order_id: signed.order.orderId, card1: drawn.id, safety: false, needs_rewrite: false, result: "ok" }); // fire-and-forget

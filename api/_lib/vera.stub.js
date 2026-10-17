@@ -51,7 +51,7 @@ const NOT_ACCEPTED = [
 ];
 const meta = () => ({ fallback: false, attempts: 0, retry_log: [], usage: null });
 
-export async function generateFree({ question, context, card, lang } = {}) {
+export async function generateFree({ question, context, card, lang, bazi } = {}) { // bazi: accepted, not used by the stub
   const L = normalizeLang(lang);
   const q = String(question || "").trim();
   const ctx = String(context || "").trim();
@@ -91,7 +91,7 @@ export async function generateFree({ question, context, card, lang } = {}) {
   };
 }
 
-export async function generateThree({ question, context, card1, openThread, cards3, lang } = {}) {
+export async function generateThree({ question, context, card1, openThread, cards3, lang, bazi } = {}) { // bazi: accepted, not used by the stub
   const L = normalizeLang(lang);
   const POS = positionsFor(L);
   const c1 = card1 && typeof card1 === "object" ? card1 : { id: card1 };

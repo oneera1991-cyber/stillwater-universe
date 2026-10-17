@@ -34,6 +34,7 @@ serverless routes.
 
 import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
+import { baziPromptBlock } from "../../lib/bazi.js";
 
 export const MODEL = "gpt-5.4-mini";
 
@@ -540,6 +541,7 @@ const STR = {
     callA: CALL_A_INSTRUCTIONS,
     callB: CALL_B_INSTRUCTIONS,
     openHint: OPEN_READING_HINT,
+    baziHint: "- ปาจื่อของลูกค้า (ด้านล่าง) เป็นเสียงเสริมของไพ่ ไม่ใช่ตัวเอก: สอดธาตุประจำตัว (Day Master) หรือสมดุลธาตุเข้าไปอย่างเป็นธรรมชาติอย่างน้อยหนึ่งครั้ง ให้รับกับความหมายของไพ่และคำถาม (เช่น \"คนธาตุน้ำอย่างคุณ...\") ไม่บรรยายหลักวิชา ไม่ไล่เสาทีละเสา ไม่ใช้ศัพท์จีนเกินหนึ่งคำ ไม่ต้องบอกวันเกิดซ้ำ ถ้าไม่มีเสายามห้ามพูดถึงเวลาเกิด",
     question: "คำถาม",
     context: "บริบท",
     none: "(ไม่มี)",
@@ -595,6 +597,7 @@ const STR = {
     callA: CALL_A_INSTRUCTIONS_EN,
     callB: CALL_B_INSTRUCTIONS_EN,
     openHint: OPEN_READING_HINT_EN,
+    baziHint: "- The customer's BaZi (below) is a supporting voice for the cards, never the lead: weave their Day Master or element balance in naturally at least once, in tune with the card's meaning and the question (e.g. \"for a Water person like you...\"). Don't lecture on theory, don't list the pillars one by one, use at most one Chinese term, don't repeat the birth date. If there is no hour pillar, never mention birth time.",
     question: "Question",
     context: "Context",
     none: "(none)",
@@ -804,7 +807,7 @@ Returns:
   keep_question_flags, // INTERNAL, model readings only: "keeping your question (in still water)" phrases (log only)
   card_name_flags }   // INTERNAL, model readings only: [{ index, name }] if the text opens with a card name (log only)
 */
-export async function generateFree({ question, context, card, lang } = {}) {
+export async function generateFree({ question, context, card, lang, bazi } = {}) {
   const L = normalizeLang(lang);
   const t = STR[L];
   const q = clip(question, MAX_QUESTION_CHARS);
@@ -830,6 +833,8 @@ export async function generateFree({ question, context, card, lang } = {}) {
     `${t.question}: ${q}`,
     `${t.context}: ${ctx || t.none}`,
     openReading ? t.openHint : "",
+    bazi ? t.baziHint : "",
+    bazi ? baziPromptBlock(bazi, L) : "",
     t.drawnOne,
     JSON.stringify(meaningEntry(entry)),
     t.fileMust(entry.file)
@@ -943,7 +948,7 @@ export function validateCards3(cards3, card1Id) {
   return ids;
 }
 
-export async function generateThree({ question, context, card1, openThread, cards3, lang } = {}) {
+export async function generateThree({ question, context, card1, openThread, cards3, lang, bazi } = {}) {
   const L = normalizeLang(lang);
   const t = STR[L];
   const POS = positionsFor(L);
@@ -978,6 +983,8 @@ export async function generateThree({ question, context, card1, openThread, card
     `${t.question}: ${q}`,
     `${t.context}: ${ctx || t.none}`,
     openReading ? t.openHint : "",
+    bazi ? t.baziHint : "",
+    bazi ? baziPromptBlock(bazi, L) : "",
     `${t.freeCardName}: ${free ? free.name : clip(c1.name, 60) || t.unknown}`,
     `${t.freeCardText}: ${clip(c1.text, 1500) || t.none}`,
     `${t.openThread}: ${clip(openThread, 300) || t.openThreadDefaultB}`,

@@ -278,8 +278,9 @@ delete process.env.VERCEL_ENV; assert.equal(reader.readerMode(), "stub"); proces
 
 // Fake OpenAI client for vera.js (no network): canned JSON echoing the files in the prompt.
 let fakeCalls = 0;
+const fakeInputs = [];
 vera.setClientForTesting({ responses: { create: async ({ instructions, input }) => {
-  fakeCalls++;
+  fakeCalls++; fakeInputs.push(input);
   const files = [...input.matchAll(/"file":"([a-z]+\.jpg)"/g)].map((m) => m[1]);
   const out = instructions.includes("[CALL_A]")
     ? { needs_rewrite: false, safety: false, card: { file: files[0], text: "l1\nl2\nl3\nl4" }, open_thread: "thread" }
@@ -327,7 +328,8 @@ function fakeRes() {
   r.setHeader = (k, v) => { r.headers[k] = v; };
   return r;
 }
-const req = (body) => ({ method: "POST", headers: { "x-forwarded-for": "10.0.0." + (n % 250) }, body });
+const withBirth = (body) => (body && body.question && !("birth" in body) ? { ...body, birth: { date: "1990-05-15", time: "14:30" } } : body);
+const req = (body) => ({ method: "POST", headers: { "x-forwarded-for": "10.0.0." + (n % 250) }, body: withBirth(body) });
 process.env.VERA_READER = "real";
 const readRoute = (await import("../api/read.js")).default;
 const deeperRoute = (await import("../api/deeper.js")).default;
@@ -344,6 +346,38 @@ assert.ok(!r2.body.cards.some((c) => c.id === ord.card1)); ok("/api/deeper (real
 const r3 = fakeRes(); await deeperRoute(req({ order: r1.body.order, paid: "v1.bad.sig" }), r3);
 assert.equal(r3.body.error, t("en", "errors.paid_bad")); ok("deeper errors localized by the order's lang");
 assert.equal(fakeCalls, 6, "fake client only (no network)");
+/* BaZi: birth date required + validated, sealed into the order, both prompts get the pillars */
+{
+  const bz = await import("../lib/bazi.js");
+  const P = (d, t) => { const b = bz.baziFromBirth({ date: d, time: t, now: new Date("2026-10-17T00:00:00Z") }); return [b.year.chars, b.month.chars, b.day.chars, b.hour ? b.hour.chars : ""].join(" ").trim(); };
+  assert.equal(P("2024-02-10"), "甲辰 丙寅 甲辰");            // Lunar New Year 2024 = 甲辰 day
+  assert.equal(P("2000-01-01", "12:00"), "己卯 丙子 戊午 戊午"); // J2000 = 戊午 day
+  assert.equal(P("1984-02-02"), "癸亥 乙丑 丙寅");            // before Li Chun → previous year
+  assert.equal(P("1984-02-05"), "甲子 丙寅 己巳");
+  assert.equal(P("1990-05-15", "23:30"), "庚午 辛巳 庚辰 丙子"); // 23:xx = 子 hour
+  const lc = (ms) => bz.sunLongitude(ms);
+  assert.ok(lc(Date.UTC(2024, 1, 4, 8, 0)) < 315 && lc(Date.UTC(2024, 1, 4, 9, 0)) >= 315, "Li Chun 2024 ≈ 08:27 UTC");
+  for (const bad of ["1990-02-30", "1990-13-01", "15/05/1990", "", "2999-01-01", "1850-01-01"]) assert.equal(bz.baziFromBirth({ date: bad }), null, bad);
+  assert.equal(bz.baziFromBirth({ date: "1990-05-15", time: "25:00" }), null);
+  const nob = fakeRes(); await readRoute({ method: "POST", headers: { "x-forwarded-for": "10.7.0.1" }, body: { question: "Will my new job go well?", lang: "th" } }, nob);
+  assert.equal(nob.statusCode, 400); assert.equal(nob.body.code, "birth_required"); assert.equal(nob.body.error, "บอกวันเกิดให้พี่เวราสักนิดนะคะ");
+  const bad = fakeRes(); await readRoute({ method: "POST", headers: { "x-forwarded-for": "10.7.0.2" }, body: { question: "Will my new job go well?", lang: "en", birth: { date: "1990-02-30" } } }, bad);
+  assert.equal(bad.statusCode, 400); assert.equal(bad.body.code, "birth_invalid");
+  const sfb = fakeRes(); await readRoute({ method: "POST", headers: { "x-forwarded-for": "10.7.0.3" }, body: { question: "I want to kill myself", lang: "en" } }, sfb);
+  assert.equal(sfb.statusCode, 200); assert.equal(sfb.body.safety, true, "crisis question never blocked by a missing birth date");
+  fakeInputs.length = 0;
+  const okr = fakeRes(); await readRoute({ method: "POST", headers: { "x-forwarded-for": "10.7.0.4" }, body: { question: "งานใหม่จะไปได้ดีไหม", lang: "th", birth: { date: "1990-05-15" } } }, okr);
+  assert.equal(okr.statusCode, 200);
+  assert.match(fakeInputs.at(-1), /ปาจื่อ/); assert.match(fakeInputs.at(-1), /庚辰/); assert.match(fakeInputs.at(-1), /ไม่ทราบเวลาเกิด/);
+  const o2 = verifyOrder(okr.body.order); assert.deepEqual(o2.birth, { date: "1990-05-15", time: null });
+  assert.ok(!JSON.stringify(okr.body).includes("1990-05-15"), "birth date not echoed to the client");
+  const paidB = signPaid({ orderId: o2.orderId, method: "promptpay-slip", ref: "RB1", amount: 5900, currency: "THB" });
+  const dr = fakeRes(); await deeperRoute({ method: "POST", headers: { "x-forwarded-for": "10.7.0.5" }, body: { order: okr.body.order, paid: paidB } }, dr);
+  assert.equal(dr.statusCode, 200); assert.match(fakeInputs.at(-1), /\[?ปาจื่อ/); assert.match(fakeInputs.at(-1), /庚辰/);
+  const { renewOrder } = await import("../api/_lib/order.js");
+  assert.deepEqual(verifyOrder(renewOrder(okr.body.order).token).birth, { date: "1990-05-15", time: null }, "renewed order keeps birth");
+  ok("BaZi: pillars verified (Li Chun, 子 hour, J2000), birth required/invalid → friendly 400, safety unaffected, sealed in order (+renew), Call A + Call B prompts carry the pillars");
+}
 vera.setClientForTesting(null); process.env.VERA_READER = "stub";
 
 /* ---------------- source tracking ---------------- */
@@ -460,7 +494,7 @@ console.warn = warn;
 /* routes log events; logging can never break a reading */
 const events = []; log.setSink({ name: "mem", async write(r) { events.push(r); } });
 const ua = { "user-agent": "Mozilla/5.0 (iPhone)" };
-const reqUA = (body) => ({ method: "POST", headers: { ...ua, "x-forwarded-for": "10.1.0." + (n % 250) }, body });
+const reqUA = (body) => ({ method: "POST", headers: { ...ua, "x-forwarded-for": "10.1.0." + (n % 250) }, body: withBirth(body) });
 const rr = fakeRes(); await readRoute(reqUA({ question: "Will my new job go well? call 0812345678", lang: "en", source: { first: { src: "friends", src_type: "tag", utm_campaign: "beta" }, last: { src: "tiktok", src_type: "click", ttclid: true } } }), rr);
 await new Promise((r) => setTimeout(r, 20));
 const ev = events.find((e) => e.event === "read_free" && e.order_id);

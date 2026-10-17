@@ -58,7 +58,23 @@ export const STRINGS = {
       contextPlaceholder: "เช่น เรื่องนี้เริ่มเมื่อไร ตอนนี้รู้สึกอย่างไร",
       rule: "พี่เวรายังไม่รับคำถามเรื่องสุขภาพ กฎหมาย\nและเรื่องเงินก้อนใหญ่นะคะ",
       submit: "พร้อมรับคำตอบ",
-      empty: "พิมพ์คำถามสักนิดก่อนนะคะ"
+      empty: "พิมพ์คำถามสักนิดก่อนนะคะ",
+      birthLabel: "วันเกิดของคุณ",
+      birthHint: "พี่เวราจะดูธาตุประจำตัวของคุณประกอบกับไพ่ค่ะ",
+      day: "วัน",
+      month: "เดือน",
+      year: "ปี พ.ศ.",
+      months: ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"],
+      timeLabel: "เวลาเกิด",
+      timeOptional: "ไม่บังคับ",
+      timeHint: "ไม่ทราบเวลาเกิดก็ได้ค่ะ",
+      hour: "ชั่วโมง",
+      minute: "นาที",
+      timeUnknown: "ไม่ทราบเวลาเกิด",
+      birthMissing: "เลือกวัน เดือน และปีเกิดให้ครบก่อนนะคะ",
+      birthInvalid: "วันที่นี้ไม่มีในปฏิทินค่ะ ลองเช็กวันกับเดือนอีกนิดนะคะ",
+      birthFuture: "วันเกิดยังมาไม่ถึงเลยค่ะ ลองเช็กปีอีกนิดนะคะ",
+      minuteMissing: "เลือกนาทีด้วยนะคะ หรือเลือก \"ไม่ทราบเวลาเกิด\" ก็ได้ค่ะ"
     },
     legal: {
       terms: "ข้อกำหนดการใช้งาน",
@@ -178,6 +194,8 @@ export const STRINGS = {
     errors: {
       method: "Method not allowed",
       question_required: "กรุณาพิมพ์คำถามก่อน",
+      birth_required: "บอกวันเกิดให้พี่เวราสักนิดนะคะ",
+      birth_invalid: "วันเกิดนี้ดูไม่ถูกต้องค่ะ ลองเช็กอีกครั้งนะคะ",
       rate_limited: "วันนี้ถามมาหลายครั้งแล้ว พักใจสักครู่แล้วค่อยกลับมาถามใหม่นะคะ",
       read_failed: "เกิดข้อผิดพลาดในการอ่านไพ่ กรุณาลองใหม่อีกครั้ง",
       order_missing: "ไม่พบรายการคำถามนี้ กรุณาเริ่มใหม่อีกครั้ง",
@@ -232,7 +250,23 @@ export const STRINGS = {
       contextPlaceholder: "e.g. when this started, how you feel right now",
       rule: "Vera doesn't take questions about health, legal matters\nor large sums of money.",
       submit: "Let's begin", // [Palm]
-      empty: "Please write your question first."
+      empty: "Please write your question first.",
+      birthLabel: "Your date of birth",
+      birthHint: "Vera reads your birth element alongside the cards.",
+      day: "Day",
+      month: "Month",
+      year: "Year",
+      months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+      timeLabel: "Time of birth",
+      timeOptional: "optional",
+      timeHint: "It's fine if you don't know it.",
+      hour: "Hour",
+      minute: "Minute",
+      timeUnknown: "I don't know",
+      birthMissing: "Please choose your day, month and year of birth.",
+      birthInvalid: "That date doesn't exist. Please check the day and month.",
+      birthFuture: "That date hasn't happened yet. Please check the year.",
+      minuteMissing: "Please choose the minute too, or pick \"I don't know\"."
     },
     legal: {
       terms: "Terms",
@@ -348,6 +382,8 @@ export const STRINGS = {
     errors: {
       method: "Method not allowed",
       question_required: "Please write your question first.",
+      birth_required: "Please tell Vera your date of birth.",
+      birth_invalid: "That birth date doesn't look right. Please check it again.",
       rate_limited: "You've asked many times today. Take a breath and come back a little later.",
       read_failed: "Something went wrong while reading the cards. Please try again.",
       order_missing: "We couldn't find this question. Please start again.",

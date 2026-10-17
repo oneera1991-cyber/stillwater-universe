@@ -33,7 +33,7 @@ async function scrollScene(page, id, where) {
   await page.waitForTimeout(300);
 }
 async function ask(page, q, ctx) {
-  await page.fill("#questionInput", q);
+  await page.fill("#questionInput", q); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
   if (ctx) await page.fill("#contextInput", ctx);
   await page.click("#btnAsk");
 }
@@ -130,7 +130,7 @@ if (!ONLY) {
     await page.click("#soundToggle"); await page.waitForFunction(() => window.__stillwaterAudio().playing && window.__stillwaterAudio().state === "running");
     log("sound: ambient on entry (" + on.voices + " sources), OFF stops + suspends, ON restarts");
   }
-  await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม");
+  await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
   await page.fill("#contextInput", "เพิ่งลาออกจากที่เดิม ยังกังวลอยู่");
   await shot(page, "02-question"); log("scene 2 question");
 
@@ -305,7 +305,7 @@ if (!ONLY) {
   await page.waitForTimeout(1100);
   assert.equal(await page.inputValue("#questionInput"), "???");
   await shot(page, "09a-needs-rewrite"); log("needs_rewrite → back to scene 2 with message");
-  await page.fill("#questionInput", "ผลตรวจมะเร็งจะออกมาดีไหม");
+  await page.fill("#questionInput", "ผลตรวจมะเร็งจะออกมาดีไหม"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
   await page.click("#btnAsk");
   await page.waitForFunction(() => /สุขภาพ/.test(document.getElementById("rewriteNote").textContent) && document.getElementById("scene-question").classList.contains("is-active"), null, { timeout: 20000 });
   await page.waitForTimeout(1100);
@@ -381,7 +381,7 @@ if (!ONLY || ONLY === "en") {
   await active(page, "question");
   await page.waitForTimeout(1500);
   assert.equal(await page.getAttribute("#questionInput", "placeholder"), "Type the question you most want answered...");
-  await page.fill("#questionInput", "I'm starting a new job next month. Will it go well?");
+  await page.fill("#questionInput", "I'm starting a new job next month. Will it go well?"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
   await page.fill("#contextInput", "I just left my old company and I'm still a bit anxious.");
   await shot(page, "12-en-02-question"); log("EN question");
 
@@ -546,7 +546,7 @@ if (!ONLY || ONLY === "data") {
   await active(page, "question");
   await page.waitForTimeout(1500);
   await noNotices(page);
-  await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มจะไปได้ดีไหม ติดต่อ 081-234-5678");
+  await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มจะไปได้ดีไหม ติดต่อ 081-234-5678"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
   log("question scene (th): no privacy line");
 
   await page.click("#btnAsk");
@@ -621,7 +621,7 @@ if (!ONLY || ONLY === "data") {
   await active(page, "question");
   await page.waitForTimeout(1500);
   await noNotices(page);
-  await page.fill("#questionInput", "I'm starting a new job next month. Will it go well?");
+  await page.fill("#questionInput", "I'm starting a new job next month. Will it go well?"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
   log("question scene (en): no privacy line");
   await page.click("#btnAsk");
   await active(page, "first");
@@ -693,16 +693,16 @@ if (!ONLY || ONLY === "font") {
   const ph = await page.$eval("#questionInput", (el) => getComputedStyle(el, "::placeholder").fontFamily);
   assert.ok(/^"?Noto Sans Thai"?,/.test(ph), "placeholder font " + ph);
   await assertThaiFont(page, ["#questionTitle", "#scene-question .label", "#scene-question .rule", "#btnAsk", "#soundToggle"]);
-  await page.fill("#questionInput", "งานใหม่จะไปได้ดีไหม");
+  await page.fill("#questionInput", "งานใหม่จะไปได้ดีไหม"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
   await page.fill("#contextInput", "เพิ่งลาออกจากที่เดิม ยังกังวลอยู่");
   await assertThaiFont(page, ["#questionInput", "#contextInput"]);
   await shot(page, "14-font-02-question-th"); log("font: question inputs/placeholders/buttons");
   await page.fill("#contextInput", "");
-  await page.fill("#questionInput", "");
+  await page.fill("#questionInput", ""); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
   await page.click("#btnAsk");
   await page.waitForSelector("#rewriteNote:not([hidden])", { timeout: 20000 }); // empty question → note
   await assertThaiFont(page, ["#rewriteNote"]);
-  await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม");
+  await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
   await page.click("#btnAsk");
   await active(page, "draw");
   await page.waitForTimeout(1200);
@@ -809,7 +809,7 @@ for (const L of ["th", "en"]) {
   await page.click("#btnEnter"); await active(page, "question"); await page.waitForTimeout(1500);
   if (L === "th") { assert.equal((await page.textContent("#questionTitle")).trim(), PROTO_TH.qTitle); assert.equal((await page.textContent("#btnAsk")).trim(), PROTO_TH.ask); }
   await noNotices(page); await shot(page, P("2-question"));
-  await page.fill("#questionInput", L === "th" ? "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม" : "I'm starting a new job next month. Will it go well?");
+  await page.fill("#questionInput", L === "th" ? "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม" : "I'm starting a new job next month. Will it go well?"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
   await page.click("#btnAsk"); await active(page, "draw"); await page.waitForTimeout(900);
   if (L === "th") assert.deepEqual(await page.$$eval("#drawLines .ln", (n) => n.map((x) => x.textContent)), PROTO_TH.draw);
   await noNotices(page); await shot(page, P("3-draw"));

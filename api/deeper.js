@@ -23,6 +23,7 @@ TODO(storage): one-time use / idempotency — today a replay of the same
 
 // Vera comes ONLY through api/_lib/reader.js (real vera.js with an OpenAI key, else the stub).
 import { POSITION_KEYS, cardById, drawThree, generateThree, readerMode } from "./_lib/reader.js";
+import { baziFromBirth } from "../lib/bazi.js";
 import { OrderError, parseBody, readingId, verifyOrder, verifyPaidOrder } from "./_lib/order.js";
 import { PaymentError } from "./_lib/payment.js";
 import { errorText, normLang, t } from "../i18n/strings.js";
@@ -56,7 +57,8 @@ export default async function handler(req, res) {
       card1: { id: order.card1, name: order.card1Name || cardById(order.card1, lang)?.name, text: order.card1Text },
       openThread: order.open_thread,
       cards3,
-      lang
+      lang,
+      bazi: order.birth ? baziFromBirth({ date: order.birth.date, time: order.birth.time }) : null // older tokens: no birth → cards only
     });
     if (result.usage) console.log("Stillwater /api/deeper usage:", JSON.stringify({ lang, fallback: result.fallback, attempts: result.attempts, usage: result.usage }));
 
