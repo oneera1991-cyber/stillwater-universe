@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";
+import { calculateBazi, analyzeYear, buildReadingEvidence } from "../api/_lib/bazi.js";
+const palm=calculateBazi({birthDate:"1991-11-01",birthTime:"22:45",timeZone:"Asia/Bangkok"});
+assert.equal(palm.pillars.length,4); assert.equal(palm.dayMaster.length,1); assert.ok(palm.pillars.every(p=>p.stem&&p.branch)); assert.ok(["weak","balanced","strong"].includes(palm.strength.level));
+const annual=analyzeYear(palm,2026); assert.equal(annual.year,2026); assert.equal(annual.annualStem,"丙"); assert.equal(annual.annualBranch,"午"); assert.ok(["supportive","mixed","challenging","unclear"].includes(annual.overallDirection));
+const evidence=buildReadingEvidence({birthDate:"1991-11-01",birthTime:"22:45",timeZone:"Asia/Bangkok",year:2026,question:"ปี 2026 ควรลาออกจากงานไหม"});
+assert.deepEqual(evidence.question.domains,["career"]); assert.equal(evidence.annual.annualStem,"丙"); assert.equal(evidence.annual.annualBranch,"午");
+assert.throws(()=>calculateBazi({birthDate:"1991-11-01",birthTime:"22:45",timeZone:"Europe/London"}),/timezone_requires_utc_offset_v1/);
+assert.throws(()=>calculateBazi({birthDate:"1991-11-01",birthTime:"25:00",timeZone:"Asia/Bangkok"}),/birth_datetime_invalid/);
+console.log("bazi.unit.mjs: PASS");
