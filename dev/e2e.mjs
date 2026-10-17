@@ -1085,6 +1085,7 @@ for (const L of ["th", "en"]) {
     const ff = await fresh.evaluate(() => [JSON.parse(localStorage.getItem("stillwater.src.first")), JSON.parse(localStorage.getItem("stillwater.src.last"))]);
     assert.deepEqual([ff[0].src, ff[0].src_type, ff[1].src], ["share", "referral", "share"]);
     assert.equal(new URL(fresh.url()).search, "", "?src=share stripped from the address bar");
+    await fresh.click("#btnDoor"); await active(fresh, "window"); // intro door
     await fresh.click("#btnEnter"); await active(fresh, "question");
     await ask(fresh, L === "th" ? "งานใหม่จะไปได้ดีไหม" : "Will my new job go well?"); await active(fresh, "first");
     await fresh.waitForTimeout(400);
