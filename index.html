@@ -1096,7 +1096,7 @@ function goQuestion({ note, noteText } = {}){
    Kept in sessionStorage so a reload keeps it; never sent to telemetry. */
 const BIRTH_STORE = 'stillwater.birth';
 const BIRTH_IDS = ['birthDay','birthMonth','birthYear','birthTime'];
-const MIN_AGE = 18;
+const MIN_AGE = 13;
 const pad2 = (n) => String(n).padStart(2, '0');
 function fillSelect(sel, items, placeholder){
   const keep = sel.value;
