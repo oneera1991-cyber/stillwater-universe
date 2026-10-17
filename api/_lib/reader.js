@@ -1,23 +1,13 @@
 /*
-READER SELECTION — the ONLY place the routes get Vera from.
+READER SELECTION + LOCKED READING EVIDENCE
 
-  real  = api/_lib/vera.js       (Stillwater, copied verbatim from
-          /workspace/stillwater/ai-publish branch vera-3card @ d91dfe1,
-          with card-meanings.json + card-meanings.en.json)
-  stub  = api/_lib/vera.stub.js  (same interface, no AI)
+Vera is allowed to synthesize only from:
+  1) deterministic BaZi calculated by lib/bazi.js,
+  2) the deterministic 2026 annual layer below,
+  3) tarot cards already drawn server-side.
 
-Choice (per call):
-  VERA_READER=stub   → stub
-  VERA_READER=real   → real
-  unset              → real when OPENAI_API_KEY is set; otherwise stub —
-                       EXCEPT on Vercel production (VERCEL_ENV=production),
-                       which always uses real so a missing key fails loudly
-                       (500) instead of serving filler readings.
-Tests (dev/server.mjs, dev/unit.mjs) force the stub and unset OPENAI_API_KEY,
-so they never call OpenAI.
-
-Draws always come from vera.js (crypto.randomInt) in both modes — exactly
-one server-side draw per step, done by the routes, passed in as card / cards3.
+The AI never calculates BaZi, chooses cards, or invents chart facts.
+Question Evidence Filter keeps only evidence relevant to the question domain.
 */
 import * as real from "./vera.js";
 import * as stub from "./vera.stub.js";
@@ -28,8 +18,128 @@ export function readerMode() {
   if (process.env.OPENAI_API_KEY) return "real";
   return process.env.VERCEL_ENV === "production" ? "real" : "stub";
 }
-const impl = () => (readerMode() === "real" ? real : stub);
 
+const impl = () => (readerMode() === "real" ? real : stub);
 export const { drawOne, drawThree, cardById, normalizeLang, POSITION_KEYS } = real;
-export const generateFree = (args) => impl().generateFree(args);
-export const generateThree = (args) => impl().generateThree(args);
+
+const DOMAIN_KEYWORDS = {
+  career: /งาน|อาชีพ|ลาออก|เลื่อนตำแหน่ง|ตำแหน่ง|หัวหน้า|บริษัท|การงาน|job|work|career|resign|promotion|boss|company|business/i,
+  money: /เงิน|รายได้|หนี้|ลงทุน|การเงิน|ค่าใช้จ่าย|กำไร|ขาดทุน|ทรัพย์|money|income|debt|invest|finance|profit|loss/i,
+  relationship: /รัก|แฟน|ความสัมพันธ์|แต่งงาน|คู่|คนรัก|รักเก่า|เลิกกัน|ความรัก|love|relationship|partner|marry|marriage|ex|breakup/i,
+  family: /บ้าน|ครอบครัว|แม่|พ่อ|ลูก|ญาติ|family|home|mother|father|parent|child/i,
+  health: /สุขภาพ|ร่างกาย|เจ็บ|ป่วย|โรค|พักผ่อน|นอน|health|body|illness|disease|sleep/i,
+  movement: /ย้าย|เดินทาง|ต่างประเทศ|ย้ายบ้าน|ย้ายงาน|เปลี่ยนที่อยู่|move|moving|travel|abroad|relocation/i
+};
+
+function questionDomains(question) {
+  const q = String(question || "").trim();
+  const domains = Object.entries(DOMAIN_KEYWORDS)
+    .filter(([, re]) => re.test(q))
+    .map(([name]) => name);
+  return domains.length ? domains : ["general"];
+}
+
+function relation(a, b) {
+  if (a === b) return "same_branch";
+  if ((a - b + 12) % 12 === 6) return "clash";
+  if ((a - b + 12) % 12 === 4 || (a - b + 12) % 12 === 8) return "harmony";
+  return null;
+}
+
+function annual2026(bazi) {
+  if (!bazi) return null;
+  const annualStem = "丙";
+  const annualBranch = "午";
+  const annualStemElement = "fire";
+  const natalBranches = [bazi.year, bazi.month, bazi.day, bazi.hour].filter(Boolean);
+  const branchRelations = natalBranches.map((p) => ({
+    pillar: p.chars,
+    relation: relation(p.branchIndex, 6)
+  })).filter((x) => x.relation);
+  const dayMasterElement = bazi.dayMaster?.element;
+  return {
+    year: 2026,
+    annualStem,
+    annualBranch,
+    annualStemElement,
+    dayMasterElement,
+    branchRelations,
+    fireCountChange: dayMasterElement === "fire" ? "same_element" : null
+  };
+}
+
+function evidenceForDomain(bazi, annual, domain) {
+  if (!bazi) return [];
+  const base = [];
+  if (domain === "career" || domain === "money" || domain === "general") {
+    base.push({ type: "day_master", statement: `Day Master=${bazi.dayMaster.stem}, element=${bazi.dayMaster.element}` });
+    base.push({ type: "element_balance", statement: `Element counts=${JSON.stringify(bazi.counts)}` });
+    base.push({ type: "dominant_element", statement: `Strongest element=${bazi.strongest}` });
+  }
+  if (domain === "relationship" || domain === "family" || domain === "movement" || domain === "general") {
+    base.push({ type: "natal_branches", statement: `Natal branches=${[bazi.year,bazi.month,bazi.day,bazi.hour].filter(Boolean).map((p) => p.chars).join(",")}` });
+  }
+  if (domain === "health" || domain === "movement" || domain === "general") {
+    base.push({ type: "element_balance", statement: `Element counts=${JSON.stringify(bazi.counts)}` });
+  }
+  if (annual) {
+    base.push({
+      type: "annual_2026",
+      statement: `2026 annual pillar=${annual.annualStem}${annual.annualBranch}; annual stem element=${annual.annualStemElement}; branch relations=${JSON.stringify(annual.branchRelations)}`
+    });
+  }
+  return base;
+}
+
+function buildLockedEvidence(args) {
+  const bazi = args?.bazi || null;
+  const question = String(args?.question || "").trim().slice(0, 500);
+  const domains = questionDomains(question);
+  if (!bazi) {
+    return {
+      question,
+      domains,
+      bazi: null,
+      annual2026: null,
+      evidence: [],
+      instruction: "Birth data is unavailable. Do not invent or infer BaZi. Use only tarot evidence actually supplied by the server."
+    };
+  }
+
+  const annual = annual2026(bazi);
+  const evidence = [...new Set(domains.flatMap((d) => evidenceForDomain(bazi, annual, d)))];
+  return {
+    question,
+    domains,
+    bazi: {
+      pillars: [bazi.year, bazi.month, bazi.day, bazi.hour].filter(Boolean).map((p) => p.chars),
+      dayMaster: bazi.dayMaster,
+      counts: bazi.counts,
+      strongest: bazi.strongest,
+      missing: bazi.missing,
+      hasTime: bazi.hasTime
+    },
+    annual2026: annual,
+    evidence,
+    instruction: "Use only the deterministic BaZi evidence above and tarot cards already drawn by the server. Never recalculate, reinterpret raw birth data, invent chart facts, or choose/change a card. Order: BaZi relevant to the question → 2026 impact → Tarot second layer → direct answer. Tarot cannot override BaZi. Unsupported facts are not allowed."
+  };
+}
+
+function enrich(args) {
+  const locked = buildLockedEvidence(args);
+  // Keep the evidence block compact enough to survive vera.js's context limit.
+  const context = [
+    "[STILLWATER LOCKED READING SOURCE]",
+    JSON.stringify(locked),
+    locked.instruction,
+    "[/STILLWATER LOCKED READING SOURCE]"
+  ].join("\n").slice(0, 1180);
+  return { ...args, context };
+}
+
+export function filterQuestionEvidence(args) {
+  return buildLockedEvidence(args);
+}
+
+export const generateFree = (args) => impl().generateFree(enrich(args));
+export const generateThree = (args) => impl().generateThree(enrich(args));
