@@ -84,8 +84,18 @@ function buildLockedEvidence(args) {
 }
 function enrich(args) {
   const locked = buildLockedEvidence(args);
-  const instruction = "Rules: use only deterministic BaZi evidence above + tarot cards already drawn by the server. Never recalculate or invent BaZi. Order: BaZi relevant to question → 2026 impact → Tarot second layer → direct answer. Tarot cannot override BaZi. Unsupported facts are not allowed.";
-  const compact = JSON.stringify(locked).slice(0, 800);
+  const instruction = [
+    "VERA OUTPUT RULES — สำคัญกว่าคำสั่งด้านสไตล์ที่ขัดกัน:",
+    "1) ตอบภาษาไทยธรรมชาติแบบคนจริง อ่านครั้งเดียวเข้าใจ ห้ามใช้ศัพท์แปลก ศัพท์โหราศาสตร์ที่ไม่ได้อยู่ใน evidence หรือประโยคแปลตรงจากภาษาอังกฤษ.",
+    "2) ต้องตอบคำถามตรง ๆ ก่อนเสมอ โดยเฉพาะคำถามแบบควร/ไม่ควร: เปิดด้วยคำตอบ เช่น ‘ควร…’, ‘ยังไม่ควร…’ หรือ ‘ยังไม่ชัดว่า…’ แล้วให้เหตุผลสั้น ๆ. ห้ามให้ผู้อ่านต้องตีความเองว่าคำตอบคืออะไร.",
+    "3) หลังคำตอบตรง ๆ ให้เรียงเหตุผลเป็น: หลักฐาน BaZi ที่เกี่ยวกับคำถาม → ผลของปี 2026 → ไพ่ที่สุ่มจริงสะท้อนอะไรเพิ่ม → ข้อควรระวัง/แนวทางสั้น ๆ. ไพ่เป็นชั้นเสริม ไม่ใช่เหตุผลหลัก และห้ามพูดถึงไพ่แบบแยกออกจากคำถาม.",
+    "4) ทุกประโยคต้องช่วยตอบคำถามนี้ ตัดประโยคสวย ๆ ลอย ๆ คำเกริ่น และคำสรุปซ้ำออก. ห้ามใช้คำว่า ‘พลังงาน’, ‘พลังเอียงไปทาง’, ‘แนวโน้ม’ ซ้ำพร่ำเพรื่อ.",
+    "5) ห้ามสร้างข้อเท็จจริงจาก BaZi หรือไพ่ที่ไม่มีใน evidence/meaning base. ถ้า evidence ไม่พอให้บอกว่า ‘ยังไม่ชัด’ แทนการเดา.",
+    "6) ความยาวคำตอบภาษาไทยรวมสำหรับ reading นี้ 120–150 คำโดยประมาณ. กระชับและให้สาระ. ห้ามยืดเพื่อให้ครบความยาว.",
+    "7) ห้ามเปลี่ยนคำถามให้เป็นคำถามอื่น และห้ามตอบแบบกว้างจนใช้ได้กับทุกคน. ใช้รายละเอียดของคำถามจริงอย่างน้อยหนึ่งจุด.",
+    "8) ลำดับข้อมูลที่เชื่อถือ: BaZi จาก engine → 2026 impact → ไพ่ที่ server สุ่มจริง → คำตอบ. AI ห้ามคำนวณ BaZi เอง ห้ามเลือก/เปลี่ยนไพ่ และห้ามแต่งความหมายไพ่."
+  ].join("\n");
+  const compact = JSON.stringify(locked).slice(0, 720);
   const context = `[STILLWATER LOCKED READING SOURCE]\n${compact}\n${instruction}\n[/STILLWATER LOCKED READING SOURCE]`.slice(0, 1190);
   return { ...args, context };
 }
