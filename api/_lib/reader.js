@@ -80,22 +80,22 @@ function buildLockedEvidence(args) {
   const domains = questionDomains(question);
   const annual = annual2026(bazi);
   const evidence = domains.flatMap((d) => evidenceForDomain(bazi, annual, d));
-  return { question, domains, bazi: bazi ? { pillars:[bazi.year,bazi.month,bazi.day,bazi.hour].filter(Boolean).map((p)=>p.chars), dayMaster:bazi.dayMaster, counts:bazi.counts, strongest:bazi.strongest, missing:bazi.missing, hasTime:bazi.hasTime } : null, annual2026:annual, evidence:[...new Set(evidence)] };
+  const tarot = cardById(args?.card, args?.lang) || null;
+  return { question, domains, bazi: bazi ? { pillars:[bazi.year,bazi.month,bazi.day,bazi.hour].filter(Boolean).map((p)=>p.chars), dayMaster:bazi.dayMaster, counts:bazi.counts, strongest:bazi.strongest, missing:bazi.missing, hasTime:bazi.hasTime } : null, annual2026:annual, tarot:tarot ? { id:tarot.id, name:tarot.name } : null, evidence:[...new Set(evidence)] };
 }
 function enrich(args) {
   const locked = buildLockedEvidence(args);
   const instruction = [
-    "VERA OUTPUT RULES — สำคัญกว่าคำสั่งด้านสไตล์ที่ขัดกัน:",
-    "1) ตอบภาษาไทยธรรมชาติแบบคนจริง อ่านครั้งเดียวเข้าใจ ห้ามใช้ศัพท์แปลก ศัพท์โหราศาสตร์ที่ไม่ได้อยู่ใน evidence หรือประโยคแปลตรงจากภาษาอังกฤษ.",
-    "2) ต้องตอบคำถามตรง ๆ ก่อนเสมอ โดยเฉพาะคำถามแบบควร/ไม่ควร: เปิดด้วยคำตอบ เช่น ‘ควร…’, ‘ยังไม่ควร…’ หรือ ‘ยังไม่ชัดว่า…’ แล้วให้เหตุผลสั้น ๆ. ห้ามให้ผู้อ่านต้องตีความเองว่าคำตอบคืออะไร.",
-    "3) หลังคำตอบตรง ๆ ให้เรียงเหตุผลเป็น: หลักฐาน BaZi ที่เกี่ยวกับคำถาม → ผลของปี 2026 → ไพ่ที่สุ่มจริงสะท้อนอะไรเพิ่ม → ข้อควรระวัง/แนวทางสั้น ๆ. ไพ่เป็นชั้นเสริม ไม่ใช่เหตุผลหลัก และห้ามพูดถึงไพ่แบบแยกออกจากคำถาม.",
-    "4) ทุกประโยคต้องช่วยตอบคำถามนี้ ตัดประโยคสวย ๆ ลอย ๆ คำเกริ่น และคำสรุปซ้ำออก. ห้ามใช้คำว่า ‘พลังงาน’, ‘พลังเอียงไปทาง’, ‘แนวโน้ม’ ซ้ำพร่ำเพรื่อ.",
-    "5) ห้ามสร้างข้อเท็จจริงจาก BaZi หรือไพ่ที่ไม่มีใน evidence/meaning base. ถ้า evidence ไม่พอให้บอกว่า ‘ยังไม่ชัด’ แทนการเดา.",
-    "6) ความยาวคำตอบภาษาไทยรวมสำหรับ reading นี้ 120–150 คำโดยประมาณ. กระชับและให้สาระ. ห้ามยืดเพื่อให้ครบความยาว.",
-    "7) ห้ามเปลี่ยนคำถามให้เป็นคำถามอื่น และห้ามตอบแบบกว้างจนใช้ได้กับทุกคน. ใช้รายละเอียดของคำถามจริงอย่างน้อยหนึ่งจุด.",
-    "8) ลำดับข้อมูลที่เชื่อถือ: BaZi จาก engine → 2026 impact → ไพ่ที่ server สุ่มจริง → คำตอบ. AI ห้ามคำนวณ BaZi เอง ห้ามเลือก/เปลี่ยนไพ่ และห้ามแต่งความหมายไพ่."
+    "VERA OUTPUT RULES:",
+    "1) เขียนไทยพูดธรรมชาติ กระชับ อ่านครั้งเดียวเข้าใจ ห้ามศัพท์แปลก/กำกวม/แปลตรงจากอังกฤษ.",
+    "2) 1–2 ประโยคแรกต้องตอบคำถามตรง ๆ เช่น ‘ยังไม่ควรลาออกในปี 2026 เพราะ…’ ห้ามให้คนอ่านตีความเอง.",
+    "3) ต้องกล่าวชื่อไพ่ที่เปิดจริงอย่างน้อย 1 ครั้ง และเชื่อมกับคำถามโดยตรง เช่น ‘The Hierophant สะท้อนว่า…’ ห้ามให้ไพ่หายไปหรือพูดลอย ๆ.",
+    "4) เรียงสั้น ๆ: คำตอบ → หลักฐาน BaZi เฉพาะตัว + ผลปี 2026 → ไพ่ → แนวทางที่ทำได้จริง.",
+    "5) ไม่เกิน 100–120 คำไทย. ห้ามวนซ้ำ ห้ามใช้คำว่า ‘ชั้นที่ยังไม่เปิดหมด’, ‘พลังงาน’, ‘พลังเอียงไปทาง’, ‘แนวโน้ม’ แบบพร่ำเพรื่อ.",
+    "6) ใช้เฉพาะ BaZi/card meaning ที่ระบบส่งให้ ห้ามคำนวณ เลือกไพ่ หรือแต่งเหตุผลเพิ่ม. ถ้าหลักฐานไม่พอให้พูดว่า ‘ยังไม่ชัด’.",
+    "7) ประโยคสุดท้ายต้องเป็นคำแนะนำสั้น ๆ ที่ทำได้จริง และยังตอบคำถามเดิม."
   ].join("\n");
-  const compact = JSON.stringify(locked).slice(0, 720);
+  const compact = JSON.stringify(locked).slice(0, 650);
   const context = `[STILLWATER LOCKED READING SOURCE]\n${compact}\n${instruction}\n[/STILLWATER LOCKED READING SOURCE]`.slice(0, 1190);
   return { ...args, context };
 }
