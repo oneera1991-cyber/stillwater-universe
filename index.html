@@ -10,6 +10,7 @@
      so a looped system fallback never shows. NOT "Noto Sans Thai Looped", NOT Sarabun. -->
 <link rel="preload" href="/fonts/noto-sans-thai-thai.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/noto-sans-thai-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/intro/door.webp" as="image" type="image/webp" fetchpriority="high">
 <!-- Latin display: Cormorant Garamond (unchanged) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -228,8 +229,37 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 .rm .portal.is-on{animation:none}
 
 /* =========================================================
+   Intro backdrops (door → Vera → hands). Fixed layers between the sky
+   canvases (z 0–2) and the scenes (z 10); shown per body[data-scene].
+========================================================= */
+.intro-bg{position:fixed;inset:0;z-index:5;pointer-events:none;opacity:0;transition:opacity 1.2s ease;
+  background-color:var(--deep);background-size:cover;background-position:center top;background-repeat:no-repeat}
+.intro-bg::after{content:"";position:absolute;inset:0}
+#bg-door{background-image:url(/intro/door.jpg);background-image:image-set(url(/intro/door.webp) type("image/webp"),url(/intro/door.jpg) type("image/jpeg"))}
+#bg-door::after{background:linear-gradient(to bottom,rgba(4,4,13,.35) 0,rgba(4,4,13,0) 22%,rgba(4,4,13,0) 45%,rgba(4,4,13,.72) 72%,rgba(4,4,13,.92) 100%)}
+#bg-vera{background-image:url(/intro/vera.jpg);background-image:image-set(url(/intro/vera.webp) type("image/webp"),url(/intro/vera.jpg) type("image/jpeg"))}
+#bg-vera::after{background:linear-gradient(to bottom,rgba(4,4,13,.3) 0,rgba(4,4,13,0) 20%,rgba(4,4,13,.1) 42%,rgba(6,8,22,.82) 62%,rgba(4,4,13,.96) 100%)}
+#bg-hands{background-color:transparent;bottom:auto;height:62vh;background-size:100% auto;
+  background-image:url(/intro/hands.jpg);background-image:image-set(url(/intro/hands.webp) type("image/webp"),url(/intro/hands.jpg) type("image/jpeg"));
+  -webkit-mask-image:linear-gradient(to bottom,#000 55%,transparent 100%);mask-image:linear-gradient(to bottom,#000 55%,transparent 100%)}
+#bg-hands::after{background:linear-gradient(to bottom,rgba(4,4,13,.25),rgba(4,4,13,0) 25%,rgba(12,18,40,.35) 70%,rgba(12,18,40,.6))}
+body[data-scene="door"] #bg-door,body[data-scene="window"] #bg-vera,body[data-scene="question"] #bg-hands{opacity:1}
+.rm .intro-bg{transition:opacity .25s}
+
+/* =========================================================
+   #scene-door — The Door (landing)
+========================================================= */
+#scene-door .scene-inner{justify-content:flex-end;padding-bottom:max(4.2rem,env(safe-area-inset-bottom))}
+#scene-door .title{font:300 1.6rem var(--serif);letter-spacing:.42em;text-indent:.42em;color:rgba(245,240,230,.92);margin:0 0 1rem;text-shadow:0 2px 18px rgba(0,0,0,.6)}
+#scene-door .lead{font-size:1rem;line-height:2;color:var(--text);margin-bottom:1.8rem;text-shadow:0 1px 12px rgba(0,0,0,.7)}
+#scene-door .btn,#scene-window .btn{background:rgba(10,12,30,.42);border-color:rgba(235,220,180,.5);color:var(--cream)}
+
+/* =========================================================
    #scene-window — The Window
 ========================================================= */
+#scene-window .scene-inner{justify-content:flex-end;padding-bottom:max(3.6rem,env(safe-area-inset-bottom))}
+#scene-window .stage{display:none}
+#scene-window .lead{text-shadow:0 1px 12px rgba(0,0,0,.7)}
 #scene-window .stage{height:min(34vh,250px)}
 #scene-window .vera{width:45px;height:105px}
 #scene-window .title{
@@ -241,7 +271,8 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 /* =========================================================
    #scene-question — The Question
 ========================================================= */
-#scene-question .stage{height:150px}
+#scene-question .stage{display:none}
+#scene-question .scene-inner{justify-content:flex-start;padding-top:min(36vh,300px)}
 #scene-question .vera{width:35px;height:82px}
 #scene-question form{width:100%}
 #scene-question h2{font:400 1.2rem var(--sans);margin:.6rem 0 1.1rem}
@@ -383,11 +414,14 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 </style>
 </head>
 
-<body>
+<body data-scene="door">
 
 <canvas class="world" id="cosmos"></canvas>
 <canvas class="world" id="water-canvas"></canvas>
 <div class="fog"></div>
+<div class="intro-bg" id="bg-door" aria-hidden="true"></div>
+<div class="intro-bg" id="bg-vera" aria-hidden="true"></div>
+<div class="intro-bg" id="bg-hands" aria-hidden="true"></div>
 <div class="portal" id="portal"></div>
 
 <div class="top-controls">
@@ -408,11 +442,20 @@ canvas.world{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 
 <main id="vera-app">
 
+<!-- 0. THE DOOR (landing) -->
+<section class="scene is-active" id="scene-door" aria-label="Stillwater">
+  <div class="scene-inner">
+    <h1 class="title">Stillwater</h1>
+    <div class="lead" id="doorLines" data-i18n-lines="door.lines"></div>
+    <button class="btn" id="btnDoor" type="button" data-i18n="door.enter">เข้าไปพบพี่เวรา</button>
+  </div>
+</section>
+
 <!-- 1. THE WINDOW -->
-<section class="scene is-active" id="scene-window" aria-label="Stillwater">
+<section class="scene" id="scene-window" aria-label="Stillwater" hidden>
   <div class="scene-inner">
     <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
-    <h1 class="title">Stillwater</h1>
+    <h2 class="title">Stillwater</h2>
     <div class="lead" id="windowLines" data-i18n-lines="window.lines"></div>
     <button class="btn" id="btnEnter" type="button" data-i18n="window.enter">พร้อมส่งคำถาม</button>
   </div>
@@ -718,7 +761,7 @@ function loadImage(img, src){
 }
 
 /* ================= scenes ================= */
-let currentScene = 'window';
+let currentScene = 'door';
 let sceneSince = Date.now();
 
 async function showScene(name){
@@ -748,7 +791,7 @@ const state = { fullStep:0, readingId:null, ratings:{}, question:'', context:'',
 function save(){
   try{
     localStorage.setItem(STORE, JSON.stringify({
-      order: state.order, card: state.card, lang: state.lang, paymentId: state.paymentId,
+      order: state.order, card: state.card, lang: state.lang, paymentId: state.paymentId, dual: !!state.dual,
       paid: state.paid, deeper: state.deeper, fullStep: state.fullStep || 0, stage: state.stage, ratings: state.ratings, readingId: state.readingId, sid: tsid, savedAt: Date.now()
     }));
   }catch(e){}
@@ -964,6 +1007,17 @@ function startWorld(){
 resize();
 startWorld();
 window.addEventListener('resize', resize);
+
+/* ================= 0. THE DOOR ================= */
+/* Landing → Vera (the window scene). The move is logged by the existing 'scene'
+   event (scene=window, from_scene=door); api/ev.js only accepts its own list. */
+async function openDoor(){
+  $('btnDoor').disabled = true;
+  hideExisting($('windowLines'));
+  $('btnEnter').disabled = false;
+  await showScene('window');
+  revealExisting($('windowLines'), 520);
+}
 
 /* ================= 1. THE WINDOW ================= */
 async function enter(){
@@ -1684,6 +1738,7 @@ function showSafety(message, lang){
 }
 
 /* ================= events ================= */
+$('btnDoor').addEventListener('click', openDoor);
 $('btnEnter').addEventListener('click', enter);
 $('questionForm').addEventListener('submit', submitQuestion);
 $('btnDrawBack').addEventListener('click', () => { tlog('back_tap', { scene: 'draw' }); goQuestion(); });
@@ -1724,6 +1779,8 @@ try{
     ';vw=' + (vw < 400 ? 's' : vw < 800 ? 'm' : 'l') + ';saved=' + ((saved0 && saved0.stage) || '') });
 }catch(e){}
 
+window.addEventListener('load', () => { setTimeout(() => { const ext = (window.CSS && CSS.supports && CSS.supports('background-image', 'image-set(url(a.webp) type("image/webp"))')) ? '.webp' : '.jpg'; for(const n of ['vera','hands']){ const i = new Image(); i.src = '/intro/' + n + ext; } }, 300); });
+
 (function resume(){
   const params = new URLSearchParams(location.search);
   if(!params.get('payment')){
@@ -1738,14 +1795,16 @@ try{
       if(state.deeper || state.paid){ openFull(); return; }
       resetOffering();
       showScene('offering');
-      if(!state.paymentId){ createPayment(); return; }
+      // Dual (QR + slip + Payhip): re-issue the payment for the same order so the
+      // QR, slip upload and Payhip button come back (not just "checking…").
+      if(!state.paymentId || saved.dual){ createPayment(); return; }
       $('btnPay').hidden = true;
       setPayStatus('pay.checking');
       startPolling();
       state.pollTick && state.pollTick();
       return;
     }
-    wait(400).then(() => revealExisting($('windowLines'), 520));
+    wait(400).then(() => revealExisting($('doorLines'), 520));
     return;
   }
   trackEvent('payment_returned');
@@ -1757,6 +1816,7 @@ try{
   if(pid && saved.paymentId && pid !== saved.paymentId) state.paymentId = pid; // server still verifies orderId binding
   $('soundToggle').classList.add('is-on');
   if(state.deeper){ openFull(); return; }
+  if(state.paymentId && saved.dual){ resetOffering(); fillFirstStatic(); showScene('offering'); createPayment(); return; }
   if(state.paymentId){
     resetOffering();
     $('btnPay').hidden = true;

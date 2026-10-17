@@ -39,6 +39,7 @@ const A = await newPage("10.7.0.1");
 const pa = A.page;
 const t0 = Date.now();
 await pa.goto(BASE + "/?src=tiktok&utm_source=tiktok&utm_medium=video&utm_campaign=oct10");
+if (await pa.isVisible("#scene-door.is-active")) { await pa.click("#btnDoor"); await pa.waitForSelector("#scene-window.is-active"); } // intro door
 await pa.waitForTimeout(800);
 await pa.click("#btnEnter");
 await pa.waitForSelector("#scene-question.is-active");
@@ -83,6 +84,7 @@ log("A: 2× 'พี่เวราเล่าต่อค่ะ' → rate 5 →
 const B = await newPage("10.7.0.2");
 const pb = B.page;
 await pb.goto(BASE + "/", { referer: "https://www.instagram.com/" });
+if (await pb.isVisible("#scene-door.is-active")) { await pb.click("#btnDoor"); await pb.waitForSelector("#scene-window.is-active"); } // intro door
 await pb.waitForTimeout(600);
 await pb.click("#btnEnter");
 await pb.waitForSelector("#scene-question.is-active");

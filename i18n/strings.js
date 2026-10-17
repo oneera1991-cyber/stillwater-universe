@@ -32,6 +32,13 @@ export const STRINGS = {
       soundOff: "SOUND OFF",
       langToggleLabel: "เปลี่ยนภาษา / Change language"
     },
+    door: {
+      lines: [
+        "ยินดีต้อนรับนะคะ",
+        "ประตูบานนี้เปิดรอคุณอยู่"
+      ],
+      enter: "เข้าไปพบพี่เวรา"
+    },
     window: {
       title: "Stillwater",
       lines: [
@@ -201,6 +208,13 @@ export const STRINGS = {
       soundOn: "SOUND ON",
       soundOff: "SOUND OFF",
       langToggleLabel: "Change language / เปลี่ยนภาษา"
+    },
+    door: {
+      lines: [
+        "Welcome.",
+        "This door has been waiting for you."
+      ],
+      enter: "Meet Vera"
     },
     window: {
       title: "Stillwater",

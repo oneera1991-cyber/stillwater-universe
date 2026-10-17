@@ -18,6 +18,7 @@ async function toPayment(lang = "th-TH") {
   const page = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: lang })).newPage();
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(BASE + "/");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
   await page.waitForTimeout(1100); await page.click("#btnEnter");
   await page.fill("#questionInput", lang.startsWith("th") ? "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม" : "Will my new job next month go well?");

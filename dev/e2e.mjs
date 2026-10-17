@@ -112,6 +112,7 @@ const THAI = /[\u0E00-\u0E7F]/;
 if (!ONLY) {
   const page = await newPage();
   await page.goto(BASE + "/");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
   await page.waitForTimeout(1100);
   await shot(page, "01-window"); log("scene 1 window");
@@ -278,6 +279,7 @@ if (!ONLY) {
 if (!ONLY) {
   const page = await newPage();
   await page.goto(BASE + "/");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.click("#btnEnter");
   await active(page, "question");
   await ask(page, "ช่วงนี้ไม่อยากมีชีวิตอยู่แล้ว");
@@ -295,6 +297,7 @@ if (!ONLY) {
 if (!ONLY) {
   const page = await newPage();
   await page.goto(BASE + "/");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.click("#btnEnter");
   await active(page, "question");
   await ask(page, "???");
@@ -314,6 +317,7 @@ if (!ONLY) {
 if (!ONLY) {
   const page = await newPage();
   await page.goto(BASE + "/");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.click("#btnEnter");
   await active(page, "question");
   await ask(page, "ควรย้ายที่อยู่ปีนี้ไหม");
@@ -325,6 +329,7 @@ if (!ONLY) {
   await page.waitForSelector("#slipBox:not([hidden])");
   // mobile: going to the bank app may reload the tab → resume on the offering scene
   await page.reload();
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await active(page, "offering");
   await page.waitForSelector("#slipBox:not([hidden])");
   await page.waitForFunction(() => document.getElementById("payPayee").textContent.includes("ชื่อบัญชีผู้รับ"), null, { timeout: 10000 });
@@ -338,6 +343,7 @@ if (!ONLY) {
   await uploadSlip(page, await makeSlip("success", "second"));
   await readThrough(page);
   await page.reload();
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await active(page, "full"); await readThrough(page);
   log("reload after paid → cached full reading");
   await page.context().close();
@@ -347,6 +353,7 @@ if (!ONLY) {
 if (!ONLY) {
   const page = await newPage({ reducedMotion: "reduce" });
   await page.goto(BASE + "/");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   assert.ok(await page.evaluate(() => document.documentElement.classList.contains("rm")));
   await page.click("#btnEnter");
   await active(page, "question");
@@ -362,6 +369,7 @@ const lines = (page, sel) => page.$$eval(sel, (n) => n.map((x) => x.textContent)
 if (!ONLY || ONLY === "en") {
   const page = await newPage({ locale: "en-US" });
   await page.goto(BASE + "/");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
   await page.waitForTimeout(1100);
   assert.equal(await page.getAttribute("html", "lang"), "en");
@@ -466,6 +474,8 @@ if (!ONLY || ONLY === "en") {
   log("EN share Stillwater → site link copied");
 
   await page.reload();
+
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await active(page, "full"); await readThrough(page);
   assert.equal(await page.getAttribute("html", "lang"), "en"); log("EN remembered after reload");
   await page.click("#btnClose");
@@ -479,9 +489,11 @@ if (!ONLY || ONLY === "en") {
   // Thai browser, but the visitor chose English earlier → remembered
   const page = await newPage({ locale: "th-TH" });
   await page.goto(BASE + "/");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   assert.equal(await page.getAttribute("html", "lang"), "th");
   await page.evaluate(() => localStorage.setItem("stillwater.lang", "en"));
   await page.reload();
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   assert.equal(await page.getAttribute("html", "lang"), "en");
   assert.equal((await page.textContent("#btnEnter")).trim(), "I'm ready to ask"); log("stored choice beats navigator.language");
   await page.click("#btnEnter");
@@ -515,15 +527,18 @@ async function rateStars(page, stage, n) {
 if (!ONLY || ONLY === "data") {
   const page = await newPage({ locale: "th-TH", userAgent: IPHONE_UA });
   await page.goto(BASE + "/?src=Friends&utm_source=line&utm_campaign=beta%20round&fbclid=SECRET123");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.waitForFunction(() => !!localStorage.getItem("stillwater.src.first"));
   const f1 = await lsJSON(page, "stillwater.src.first");
   assert.deepEqual([f1.src, f1.src_type, f1.utm_source, f1.utm_campaign, f1.fbclid], ["friends", "tag", "line", "beta_round", true]);
   assert.ok(!JSON.stringify(f1).includes("SECRET123"), "click id value not stored");
   assert.equal(new URL(page.url()).search, "", "tracking params stripped from the address bar");
   await page.goto(BASE + "/?src=TikTok");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.waitForFunction(() => (JSON.parse(localStorage.getItem("stillwater.src.last") || "{}").src === "tiktok"));
   assert.equal((await lsJSON(page, "stillwater.src.first")).src, "friends", "first-touch kept");
   await page.goto(BASE + "/");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.waitForTimeout(300);
   assert.equal((await lsJSON(page, "stillwater.src.last")).src, "tiktok", "direct revisit keeps last-touch"); log("source: first-touch friends, last-touch tiktok, params stripped");
 
@@ -584,6 +599,7 @@ if (!ONLY || ONLY === "data") {
   assert.ok(ev.some((e) => e.event === "rating" && e.rating_key === rf.order_id + ":full" && e.stars === 5));
   log("payment_verified (transRef, ฿59) + read_full (cards3) carry the sealed source");
   await page.reload();
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await active(page, "full"); await readThrough(page);
   assert.equal(await page.$$eval("#rate-full .star.on", (n) => n.length), 5); log("rating remembered after reload");
   await page.click("#btnClose");
@@ -597,6 +613,7 @@ if (!ONLY || ONLY === "data") {
 if (!ONLY || ONLY === "data") {
   const page = await newPage({ locale: "en-US", userAgent: IPHONE_UA });
   await page.goto(BASE + "/", { referer: "https://l.instagram.com/" });
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.waitForFunction(() => !!localStorage.getItem("stillwater.src.first"));
   const f = await lsJSON(page, "stillwater.src.first");
   assert.deepEqual([f.src, f.src_type, f.ref], ["ig", "referrer", "l.instagram.com"]); log("referrer instagram → src ig");
@@ -657,6 +674,7 @@ const noAI = async (page) => assert.ok(!/\bA\.?I\b/.test(await page.evaluate(() 
 if (!ONLY || ONLY === "font") {
   const page = await newPage({ locale: "th-TH" });
   await page.goto(BASE + "/");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
   // Cormorant comes from Google Fonts (external; may be slow/blocked in CI) → best effort.
   await page.evaluate(() => Promise.all([document.fonts.load("300 26px 'Cormorant Garamond'", "Stillwater").catch(() => null), document.fonts.ready]).catch(() => null));
@@ -779,6 +797,7 @@ for (const L of ["th", "en"]) {
   const page = await newPage({ locale: L === "th" ? "th-TH" : "en-US" });
   const P = (n) => `16-${L}-${n}`;
   await page.goto(BASE + "/");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
   await page.waitForTimeout(1100);
   assert.equal(await page.getAttribute("html", "lang"), L);
@@ -924,6 +943,7 @@ for (const L of ["th", "en"]) {
   const page = await newPage({ locale: L === "th" ? "th-TH" : "en-US" });
   const P = (n) => `18-${L}-${n}`;
   await page.goto(BASE + "/");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.click("#btnEnter"); await active(page, "question");
   await ask(page, L === "th" ? "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม" : "I'm starting a new job next month. Will it go well?");
 
@@ -1052,7 +1072,7 @@ for (const L of ["th", "en"]) {
   await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
   assert.equal(await page.evaluate(() => localStorage.getItem("stillwater.vera.v1")), null);
   assert.equal(await page.$$eval("#fullStory .chapter", (n) => n.length), 0);
-  await page.reload(); await active(page, "window"); // a reload after closing stays on the landing
+  await page.reload(); await active(page, "door"); await page.click("#btnDoor"); await active(page, "window"); // a reload after closing stays on the landing (door)
   const closeEv = (await (await page.request.get(`${BASE}/__mock/events`)).json()).filter((e) => e.event === "close" && e.lang === L).at(-1);
   assert.ok(closeEv && closeEv.order_id && orderId, "silent close event");
   await page.click("#btnEnter"); await active(page, "question");
@@ -1073,6 +1093,7 @@ for (const L of ["th", "en"]) {
     await fresh.context().close();
   }
   await page.goto(BASE + "/?src=share");
+  if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
   await page.waitForFunction(() => JSON.parse(localStorage.getItem("stillwater.src.last") || "{}").src === "share");
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.src.first")).src), "direct", "existing first touch (direct) not overwritten");
   log(`18-${L}: share = site link only; close → landing (scene 1), session cleared, silent 'close' event; new question starts from "${L === "th" ? "พร้อมส่งคำถาม" : "I'm ready to ask"}"`);

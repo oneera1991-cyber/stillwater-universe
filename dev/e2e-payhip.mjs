@@ -24,6 +24,7 @@ const page = await (await browser.newContext({ viewport: { width: 390, height: 8
 const errors = []; page.on("pageerror", (e) => errors.push(e.message));
 const beacons = []; page.on("request", (r) => { if (r.url().endsWith("/api/ev")) beacons.push(r.postData() || ""); });
 await page.goto(BASE + "/");
+if (await page.isVisible("#scene-door.is-active")) { await page.click("#btnDoor"); await page.waitForSelector("#scene-window.is-active"); } // intro door
 await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
 await page.waitForTimeout(1100);
 await page.click("#btnEnter");
