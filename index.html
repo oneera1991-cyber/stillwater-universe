@@ -30,6 +30,7 @@ import { STRINGS, DEFAULT_LANG, normLang } from '/i18n/strings.js';
 const $=id=>document.getElementById(id);
 let order=null,paid=null,paymentId=null,poll=null;
 let currentLang=normLang(localStorage.getItem('stillwater_lang')||DEFAULT_LANG);
+let readingByLang={};
 
 const COPY={
   th:{
@@ -54,7 +55,28 @@ const COPY={
 
 function copy(){return COPY[currentLang]||COPY.en}
 function setText(id,text){$(id).textContent=text}
+async function translateVisibleReading(fromLang,toLang){
+  const drawActive=$('draw').classList.contains('active');
+  const fullActive=$('full').classList.contains('active');
+  if(!drawActive&&!fullActive)return;
+  const el=drawActive?$('firstReading'):$('fullReading');
+  const source=readingByLang[fromLang]||el.textContent.trim();
+  if(!source)return;
+  readingByLang[fromLang]=source;
+  if(readingByLang[toLang]){el.textContent=readingByLang[toLang];return}
+  el.textContent=toLang==='en'?'Translating your reading...':'กำลังแปลคำอ่านให้นะคะ…';
+  try{
+    const r=await fetch('/api/translate-reading',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:source,from:fromLang,to:toLang})});
+    const d=await r.json();
+    if(!r.ok||!d.text)throw Error(d.error||'Translation failed');
+    readingByLang[toLang]=d.text.trim();
+    if(currentLang===toLang && (drawActive||fullActive))el.textContent=readingByLang[toLang];
+  }catch(e){
+    if(currentLang===toLang)el.textContent=source;
+  }
+}
 function applyLanguage(lang){
+  const previousLang=currentLang;
   currentLang=normLang(lang);localStorage.setItem('stillwater_lang',currentLang);document.documentElement.lang=currentLang;
   const c=copy();
   setText('doorTag',c.doorTag);setText('doorSupport',c.doorSupport);setText('meet',c.meet);
@@ -64,6 +86,7 @@ function applyLanguage(lang){
   setText('paymentTag',c.paymentTag);setText('paymentTitle',c.paymentTitle);setText('pay',c.pay);setText('slipLabel',c.slipLabel);setText('paymentBack',c.paymentBack);
   setText('fullTag',c.fullTag);setText('fullTitle',c.fullTitle);setText('fullBack',c.fullBack);
   $('langTh').classList.toggle('active',currentLang==='th');$('langEn').classList.toggle('active',currentLang==='en');
+  if(previousLang!==currentLang)void translateVisibleReading(previousLang,currentLang);
 }
 $('langTh').onclick=()=>applyLanguage('th');$('langEn').onclick=()=>applyLanguage('en');
 applyLanguage(currentLang);
@@ -74,13 +97,13 @@ $('meet').onclick=()=>show('welcome');$('ready').onclick=()=>show('form');docume
 async function read(){
   const q=$('question').value.trim();const c=copy();
   if(!q){$('formError').textContent=c.errors.question;return}
-  show('draw');$('drawError').textContent='';$('card').classList.add('hidden');$('deeper').classList.add('hidden');$('drawStatus').textContent=c.drawStatus;
+  show('draw');$('drawError').textContent='';$('card').classList.add('hidden');$('deeper').classList.add('hidden');$('drawStatus').textContent=c.drawStatus;readingByLang={};
   try{
     const r=await fetch('/api/read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,lang:currentLang})});
     const d=await r.json();if(!r.ok)throw Error(d.error||c.errors.read);
     if(d.safety){$('drawError').textContent=d.message||c.errors.safety;return}
     if(d.needs_rewrite){show('form');$('formError').textContent=d.message||c.errors.rewrite;return}
-    order=d.order;$('card').src=d.card.image||d.card.file||'';$('card').classList.remove('hidden');$('cardName').textContent=d.card.name||'';$('firstReading').textContent=d.card.text||'';$('deeper').classList.remove('hidden');
+    order=d.order;$('card').src=d.card.image||d.card.file||'';$('card').classList.remove('hidden');$('cardName').textContent=d.card.name||'';$('firstReading').textContent=d.card.text||'';readingByLang[currentLang]=d.card.text||'';$('deeper').classList.remove('hidden');
   }catch(e){$('drawError').textContent=e.message||c.errors.read}
 }
 $('questionForm').onsubmit=e=>{e.preventDefault();read()};$('deeper').onclick=()=>{show('payment');$('payStatus').textContent=''};
@@ -97,6 +120,6 @@ function startPoll(){if(!paymentId)return;clearInterval(poll);poll=setInterval(a
 
 async function openFull(){
   const c=copy();show('full');$('fullReading').textContent=c.errors.opening;
-  try{const body=paid?{order,paid}:{order,charge:paymentId};const r=await fetch('/api/deeper',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||d.code||c.errors.read);if(d.safety){$('fullReading').textContent=d.message||c.errors.safety;return}let out='';(d.cards||[]).forEach(card=>{out+='\n'+(card.name||'')+'\n\n'+(card.text||'\n')+'\n\n'});if(d.final)out+='\n'+d.final+'\n\n';if(d.closing)out+=d.closing;$('fullReading').textContent=out.trim()}catch(e){$('fullReading').textContent=e.message||c.errors.read}
+  try{const body=paid?{order,paid}:{order,charge:paymentId};const r=await fetch('/api/deeper',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||d.code||c.errors.read);if(d.safety){$('fullReading').textContent=d.message||c.errors.safety;return}let out='';(d.cards||[]).forEach(card=>{out+='\n'+(card.name||'')+'\n\n'+(card.text||'\n')+'\n\n'});if(d.final)out+='\n'+d.final+'\n\n';if(d.closing)out+=d.closing;$('fullReading').textContent=out.trim();readingByLang={ [currentLang]:out.trim() }}catch(e){$('fullReading').textContent=e.message||c.errors.read}
 }
 </script></body></html>
