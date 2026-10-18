@@ -64,14 +64,14 @@ function annual2026(bazi) {
 function evidenceForDomain(bazi, annual, domain) {
   if (!bazi) return [];
   const out = [];
-  if (["career","money","general"].includes(domain)) {
-    out.push(`DM=${bazi.dayMaster.stem}/${bazi.dayMaster.element}`);
-    out.push(`elements=${JSON.stringify(bazi.counts)}`);
-    out.push(`strongest=${bazi.strongest}`);
-  }
-  if (["relationship","family","movement","general"].includes(domain)) out.push(`branches=${[bazi.year,bazi.month,bazi.day,bazi.hour].filter(Boolean).map((p)=>p.chars).join(",")}`);
-  if (["health","movement","general"].includes(domain)) out.push(`elements=${JSON.stringify(bazi.counts)}`);
-  if (annual) out.push(`2026=${annual.annualStem}${annual.annualBranch},stem=${annual.annualStemElement},annualVsDM=${annual.tenGodToDayMaster},branchRelations=${JSON.stringify(annual.branchRelations)}`);
+  if (domain === "career") out.push("เรื่องงานต้องการโครงสร้างและความมั่นคง");
+  if (domain === "money") out.push("เรื่องเงินควรเดินตามแผนที่ชัดและรอบคอบ");
+  if (domain === "relationship") out.push("ความสัมพันธ์ต้องอาศัยการสื่อสารและปรับความเข้าใจกัน");
+  if (domain === "family") out.push("เรื่องครอบครัวต้องการการพูดคุยและแบ่งความรับผิดชอบให้ชัด");
+  if (domain === "health") out.push("ช่วงนี้ควรให้เวลากับการพักและดูแลตัวเอง");
+  if (domain === "movement") out.push("การย้ายหรือเดินทางควรวางแผนเป็นขั้นตอน");
+  if (domain === "general") out.push("ช่วงนี้การมีกรอบและแผนที่ชัดช่วยให้ตัดสินใจได้มั่นคงขึ้น");
+  if (annual) out.push("ปี 2026 มีแรงกดเรื่องความรับผิดชอบ จึงควรวางแผนก่อนตัดสินใจ");
   return [...new Set(out)];
 }
 function buildLockedEvidence(args) {
@@ -80,7 +80,55 @@ function buildLockedEvidence(args) {
   const domains = questionDomains(question);
   const annual = annual2026(bazi);
   const evidence = domains.flatMap((d) => evidenceForDomain(bazi, annual, d));
-  return { question, domains, bazi: bazi ? { pillars:[bazi.year,bazi.month,bazi.day,bazi.hour].filter(Boolean).map((p)=>p.chars), dayMaster:bazi.dayMaster, counts:bazi.counts, strongest:bazi.strongest, missing:bazi.missing, hasTime:bazi.hasTime } : null, annual2026:annual, evidence:[...new Set(evidence)] };
+  return { evidence:[...new Set(evidence)] };
+}
+
+const FORBIDDEN_READING_TERMS = /คนธาตุ|ไม้|หยิน|หยาง|ธาตุ/iu;
+function readingSentences(value) {
+  return String(value || "").split(/\r?\n+/u).flatMap((line) => {
+    if (typeof Intl.Segmenter === "function") {
+      return [...new Intl.Segmenter("th", { granularity:"sentence" }).segment(line)].map((part) => part.segment.trim()).filter(Boolean);
+    }
+    return line.split(/(?<=[.!?。！？])\s*/u).map((part) => part.trim()).filter(Boolean);
+  });
+}
+function readingWordCount(value, lang = "th") {
+  const text = String(value || "").trim();
+  if (!text) return 0;
+  if (typeof Intl.Segmenter === "function") {
+    return [...new Intl.Segmenter(lang, { granularity:"word" }).segment(text)].filter((part) => part.isWordLike).length;
+  }
+  return text.split(/\s+/u).filter(Boolean).length;
+}
+function postProcessText(value, lang = "th", maxWords = 100) {
+  const safe = readingSentences(value).filter((sentence) => !FORBIDDEN_READING_TERMS.test(sentence));
+  const kept = [];
+  for (const sentence of safe) {
+    if (readingWordCount([...kept, sentence].join(" "), lang) > maxWords) break;
+    kept.push(sentence);
+  }
+  return kept.join(" ").trim();
+}
+function postProcessFree(result) {
+  if (!result || typeof result !== "object") return result;
+  const lang = result.lang || "th";
+  return {
+    ...result,
+    card: result.card ? { ...result.card, text:postProcessText(result.card.text, lang) } : result.card,
+    message: result.message ? postProcessText(result.message, lang) : result.message,
+    open_thread: result.open_thread ? postProcessText(result.open_thread, lang) : result.open_thread
+  };
+}
+function postProcessThree(result) {
+  if (!result || typeof result !== "object") return result;
+  const lang = result.lang || "th";
+  return {
+    ...result,
+    cards: Array.isArray(result.cards) ? result.cards.map((card) => ({ ...card, text:postProcessText(card.text, lang, 18) })) : result.cards,
+    final: result.final ? postProcessText(result.final, lang, 30) : result.final,
+    closing: result.closing ? postProcessText(result.closing, lang, 16) : result.closing,
+    message: result.message ? postProcessText(result.message, lang) : result.message
+  };
 }
 function enrich(args) {
   const locked = buildLockedEvidence(args);
@@ -107,7 +155,7 @@ function enrich(args) {
     "5. เล่าเป็นเรื่องเดียวต่อเนื่อง ภาษาไทยธรรมชาติ ไม่เกิน 100 คำ",
     "6. จบด้วยสิ่งที่ลูกค้าควรทำจริง"
   ].join("\n");
-  const lockedWithCard = { ...locked, drawnCard: { id: args?.card, name: cardName } };
+  const lockedWithCard = { ...locked, drawnCard: { name: cardName } };
   const compact = JSON.stringify(lockedWithCard).slice(0, 720);
   const context = `[STILLWATER LOCKED READING SOURCE]\n${compact}\n${instruction}\n[/STILLWATER LOCKED READING]`;
   return { locked, cardName, context };
@@ -115,10 +163,14 @@ function enrich(args) {
 
 export async function generateFree(args) {
   const { context } = enrich(args);
-  return impl().generateFree({ ...args, context });
+  const readingArgs = { ...(args || {}) };
+  delete readingArgs.bazi;
+  return postProcessFree(await impl().generateFree({ ...readingArgs, context }));
 }
 
 export async function generateThree(args) {
   const { context } = enrich(args);
-  return impl().generateThree({ ...args, context });
+  const readingArgs = { ...(args || {}) };
+  delete readingArgs.bazi;
+  return postProcessThree(await impl().generateThree({ ...readingArgs, context }));
 }
