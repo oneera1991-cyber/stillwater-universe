@@ -1,56 +1,88 @@
 /*
 ====================================================
-STILLWATER — PAID 3-CARD READING  (POST /api/deeper)
+STILLWATER — PAID READING  (POST /api/deeper)
 ====================================================
-Body:     { order, paid }     // slip flow (active): paid = token from /api/payment/verify-slip
-       or { order, charge }   // poll flow (Omise, inactive): charge = paymentId
-Response: { ok, safety, lang,
-            cards: [{ position_key, position, label (=position), id, name, file, image, text } x3],
-            final, closing, message }
-
-Gate (api/_lib/order.js → verifyPaidOrder):
-  1. order token signature + expiry (question / context / card 1 / lang come ONLY from it)
-  2. payment: a signed paid token bound to the same orderId (slip verified by
-     EasySlip server-side), or — poll flow — a server-side provider check
-Then 3 cards are drawn HERE (drawThree → crypto.randomInt, no card 1, no
-repeats) and passed to the generator as cards3 (ids, past/present/ahead).
-The generator never draws and rejects duplicates / card 1 / bad ids.
-Language = the order token's lang; the client's lang is ignored here.
-
-TODO(storage): one-time use / idempotency — today a replay of the same
-(order, payment) redraws. See the TODO block in api/_lib/order.js.
+Body: { order, package, paid } for slip flow, or { order, package, charge } for poll flow.
+Starter returns a concise reading. Deeper keeps the existing 3-card paid reading.
+The package is checked against the verified payment amount before any reading is generated.
 */
 
-// Vera comes ONLY through api/_lib/reader.js (real vera.js with an OpenAI key, else the stub).
-import { POSITION_KEYS, cardById, drawThree, generateThree, readerMode } from "./_lib/reader.js";
+import { POSITION_KEYS, cardById, drawThree, generateFree, generateThree, readerMode } from "./_lib/reader.js";
 import { baziFromBirth } from "../lib/bazi.js";
-import { OrderError, parseBody, readingId, verifyOrder, verifyPaidOrder } from "./_lib/order.js";
-import { PaymentError } from "./_lib/payment.js";
+import { OrderError, parseBody, readingId, verifyOrder, verifyPaid } from "./_lib/order.js";
+import { PaymentError, getPaymentStatus, normalizePackage, priceForPackage } from "./_lib/payment.js";
 import { errorText, normLang, t } from "../i18n/strings.js";
 import { cleanSid, deviceType, logEvent, orderColumns } from "./_lib/log.js";
 
+function shortText(text, maxWords = 55) {
+  const source = String(text || "").replace(/\s+/g, " ").trim();
+  if (!source) return "";
+  const sentences = source.split(/(?<=[.!?。！？])\s+/).filter(Boolean);
+  const chosen = sentences.slice(0, 2).join(" ");
+  const words = chosen.split(/\s+/).filter(Boolean);
+  return words.length <= maxWords ? chosen : words.slice(0, maxWords).join(" ").replace(/[,:;\-–—]+$/g, "") + "…";
+}
+
+async function verifySelectedPayment(body) {
+  const order = verifyOrder(body.order);
+  const packageType = String(body.package || "").trim().toLowerCase();
+  if (packageType !== "starter" && packageType !== "deeper") throw new OrderError("กรุณาเลือกแพ็กก่อนชำระเงิน", 400, "package_required");
+  const paymentOrder = { ...order, package: normalizePackage(packageType) };
+  const expected = priceForPackage(paymentOrder.package);
+
+  if (typeof body.paid === "string" && body.paid) {
+    const paid = verifyPaid(body.paid);
+    if (paid.orderId !== order.orderId) throw new OrderError("การชำระเงินนี้ไม่ตรงกับคำถามของคุณ", 403, "order_mismatch");
+    if (paid.amount !== expected || paid.currency !== "THB") throw new OrderError("การชำระเงินนี้ไม่ตรงกับแพ็กที่เลือก", 403, "wrong_amount");
+    return { order: paymentOrder, payment: { method: paid.method, ref: paid.ref }, packageType: paymentOrder.package };
+  }
+
+  const paymentId = String(body.charge || body.payment || "");
+  if (!paymentId) throw new OrderError("ไม่พบการชำระเงินของรายการนี้", 402, "payment_missing");
+  const payment = await getPaymentStatus(paymentId, paymentOrder);
+  if (!payment.paid) throw new OrderError(`ยังไม่พบการชำระเงิน ${expected / 100} บาท`, 402, "not_paid");
+  if (payment.amount !== expected) throw new OrderError("รายการจ่ายนี้ไม่ตรงกับแพ็กที่เลือก", 403, "wrong_amount");
+  if (payment.currency !== "THB") throw new OrderError("รายการจ่ายนี้ไม่ตรงกับแพ็กที่เลือก", 403, "wrong_currency");
+  if (payment.orderId && payment.orderId !== order.orderId) throw new OrderError("รายการจ่ายนี้ไม่ตรงกับคำถามของคุณ", 403, "order_mismatch");
+  return { order: paymentOrder, payment, packageType: paymentOrder.package };
+}
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-  let lang = "th"; // until the order token is verified
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  let lang = "th";
   const t0 = Date.now();
   let body = {}, logOrder = null;
   try {
     body = parseBody(req);
-    // Language for error messages = the order token's lang, even if payment fails.
-    try { lang = normLang(verifyOrder(body.order).lang); } catch { /* verifyPaidOrder reports it */ }
-    const { order } = await verifyPaidOrder({
-      orderToken: body.order,
-      paidToken: typeof body.paid === "string" && body.paid ? body.paid : null,
-      paymentId: String(body.charge || body.payment || "")
-    });
-    lang = normLang(order.lang); // old tokens without lang → "th"
+    try { lang = normLang(verifyOrder(body.order).lang); } catch {}
+    const verified = await verifySelectedPayment(body);
+    const { order, packageType } = verified;
+    lang = normLang(order.lang);
     logOrder = order;
 
-    const cards3 = drawThree(order.card1).map((c) => c.id); // the ONLY paid draw (crypto.randomInt)
+    if (packageType === "starter") {
+      const result = await generateFree({
+        question: order.question,
+        context: order.context,
+        card: order.card1,
+        lang,
+        bazi: order.birth ? baziFromBirth({ date: order.birth.date, time: order.birth.time }) : null
+      });
+      if (result.usage) console.log("Stillwater /api/deeper starter usage:", JSON.stringify({ lang, fallback: result.fallback, attempts: result.attempts, usage: result.usage }));
+      if (result.safety) {
+        const message = (typeof result.message === "string" && result.message.trim()) || t(lang, "safety.paragraphs").join("\n\n");
+        logEvent("read_full_error", { ...orderColumns(order), card1: order.card1, sid: cleanSid(body.sid), device: deviceType(req.headers?.["user-agent"]), result: "safety", latency_ms: Date.now() - t0, package: packageType });
+        return res.status(200).json({ ok: true, safety: true, lang, package: packageType, cards: [], final: "", closing: "", message });
+      }
+      const text = shortText(result.card?.text || order.card1Text, 55);
+      logEvent("read_full", { ...orderColumns(order), device: deviceType(req.headers?.["user-agent"]), card1: order.card1, cards3: "", reader: readerMode(), sid: cleanSid(body.sid), latency_ms: Date.now() - t0, result: "ok", package: packageType });
+      return res.status(200).json({
+        ok: true, safety: false, lang, package: packageType, reading_id: readingId(order.orderId), cards: [],
+        final: text, closing: "นี่คือคำอ่านสั้นสำหรับคำถามนี้ของคุณ", message: null
+      });
+    }
 
+    const cards3 = drawThree(order.card1).map((c) => c.id);
     const result = await generateThree({
       question: order.question,
       context: order.context,
@@ -58,18 +90,16 @@ export default async function handler(req, res) {
       openThread: order.open_thread,
       cards3,
       lang,
-      bazi: order.birth ? baziFromBirth({ date: order.birth.date, time: order.birth.time }) : null // older tokens: no birth → cards only
+      bazi: order.birth ? baziFromBirth({ date: order.birth.date, time: order.birth.time }) : null
     });
     if (result.usage) console.log("Stillwater /api/deeper usage:", JSON.stringify({ lang, fallback: result.fallback, attempts: result.attempts, usage: result.usage }));
 
     if (result.safety) {
       const message = (typeof result.message === "string" && result.message.trim()) || t(lang, "safety.paragraphs").join("\n\n");
-      logEvent("read_full_error", { ...orderColumns(order), card1: order.card1, sid: cleanSid(body.sid), device: deviceType(req.headers?.["user-agent"]), result: "safety", latency_ms: Date.now() - t0 });
-      return res.status(200).json({ ok: true, safety: true, lang, cards: [], final: "", closing: "", message });
+      logEvent("read_full_error", { ...orderColumns(order), card1: order.card1, sid: cleanSid(body.sid), device: deviceType(req.headers?.["user-agent"]), result: "safety", latency_ms: Date.now() - t0, package: packageType });
+      return res.status(200).json({ ok: true, safety: true, lang, package: packageType, cards: [], final: "", closing: "", message });
     }
 
-    // Order by position_key (logic); display the reader's `position` label (reading language).
-    // Every id must be exactly the card we drew for that position.
     const byKey = new Map((result.cards || []).map((c) => [c.position_key, c]));
     const cards = POSITION_KEYS.map((key, i) => {
       const c = byKey.get(key);
@@ -79,38 +109,23 @@ export default async function handler(req, res) {
         throw err;
       }
       const label = (typeof c.position === "string" && c.position) || t(lang, "positions." + key);
-      return {
-        position_key: key,
-        position: label,
-        label,
-        id: c.id,
-        name: c.name,
-        file: c.file,
-        image: c.image,
-        text: String(c.text || "")
-      };
+      return { position_key: key, position: label, label, id: c.id, name: c.name, file: c.file, image: c.image, text: String(c.text || "") };
     });
 
-    logEvent("read_full", { // fire-and-forget; TODO(storage): a replay redraws → another row
-      ...orderColumns(order), device: deviceType(req.headers?.["user-agent"]),
-      card1: order.card1, cards3: cards3.join(","), reader: readerMode(),
-      sid: cleanSid(body.sid), latency_ms: Date.now() - t0, result: "ok"
+    logEvent("read_full", {
+      ...orderColumns(order), device: deviceType(req.headers?.["user-agent"]), card1: order.card1, cards3: cards3.join(","), reader: readerMode(),
+      sid: cleanSid(body.sid), latency_ms: Date.now() - t0, result: "ok", package: packageType
     });
-    return res.status(200).json({
-      ok: true, safety: false, lang, reading_id: readingId(order.orderId), cards,
-      final: String(result.final || ""), closing: String(result.closing || ""), message: null
-    });
+    return res.status(200).json({ ok: true, safety: false, lang, package: packageType, reading_id: readingId(order.orderId), cards, final: String(result.final || ""), closing: String(result.closing || ""), message: null });
   } catch (error) {
     const known = error instanceof OrderError || error instanceof PaymentError;
     if (!known) console.error("Stillwater /api/deeper error:", error?.code || error);
-    logEvent("read_full_error", { // log-only; 402 = payment not confirmed (the page retries)
+    logEvent("read_full_error", {
       ...(logOrder ? orderColumns(logOrder) : { lang }), card1: logOrder ? logOrder.card1 : "",
       sid: cleanSid(body?.sid), device: deviceType(req.headers?.["user-agent"]), result: "failed",
-      reason_detail: String(error?.code || error?.name || "error").slice(0, 60), http_status: known ? error.status : 500, latency_ms: Date.now() - t0
+      reason_detail: String(error?.code || error?.name || "error").slice(0, 60), http_status: known ? error.status : 500, latency_ms: Date.now() - t0,
+      package: String(body?.package || "")
     });
-    return res.status(known ? error.status : 500).json({
-      error: errorText(lang, known ? error.code : "deeper_failed"),
-      code: known ? error.code : "deeper_failed"
-    });
+    return res.status(known ? error.status : 500).json({ error: errorText(lang, known ? error.code : "deeper_failed"), code: known ? error.code : "deeper_failed" });
   }
 }
