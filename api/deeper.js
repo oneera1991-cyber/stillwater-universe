@@ -20,7 +20,9 @@ function shortText(text, maxWords = 55) {
   const sentences = source.split(/(?<=[.!?。！？])\s+/).filter(Boolean);
   const chosen = sentences.slice(0, 2).join(" ");
   const words = chosen.split(/\s+/).filter(Boolean);
-  return words.length <= maxWords ? chosen : words.slice(0, maxWords).join(" ").replace(/[,:;\-–—]+$/g, "") + "…";
+  if (words.length <= maxWords) return chosen;
+  const clipped = words.slice(0, maxWords).join(" ").replace(/[,:;\-–—]+$/g, "").trim();
+  return clipped.replace(/[.!?。！？]?["”’']?$/, ".");
 }
 
 async function verifySelectedPayment(body) {
