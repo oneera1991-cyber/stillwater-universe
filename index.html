@@ -14,7 +14,15 @@
 <!-- Latin display: Cormorant Garamond (unchanged) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap" rel="stylesheet">
+<script>
+/* The display font is optional; do not let a remote stylesheet delay the app boot. */
+window.addEventListener('load', function(){
+  var fontStyles = document.createElement('link');
+  fontStyles.rel = 'stylesheet';
+  fontStyles.href = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap';
+  document.head.appendChild(fontStyles);
+});
+</script>
 
 <script>
 /* Avoid a flash of Thai copy for English visitors before the module applies strings. */
@@ -23,7 +31,11 @@
   try{ l = localStorage.getItem('stillwater.lang'); }catch(e){}
   if(l !== 'th' && l !== 'en') l = /^th/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'th' : 'en';
   document.documentElement.lang = l;
-  if(l !== 'th') document.documentElement.classList.add('lang-pending');
+  if(l !== 'th'){
+    document.documentElement.classList.add('lang-pending');
+    // Fail open if a module fails before applyLang() can reveal the page.
+    setTimeout(function(){ document.documentElement.classList.remove('lang-pending'); }, 5000);
+  }
 })();
 </script>
 
@@ -1906,6 +1918,11 @@ $('soundToggle').addEventListener('click', async () => {
 
 /* ================= payment return / same-browser resume ================= */
 applyLang();
+// Keep optional package UI out of the entry module's static import graph so
+// an initialization issue cannot prevent the landing page and Vera controls.
+import('/lib/package-picker.js')
+  .then(({ initPackagePicker }) => initPackagePicker())
+  .catch((error) => console.error('Package selector initialization failed', error));
 captureSource();
 try{
   const saved0 = load();
