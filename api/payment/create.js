@@ -25,8 +25,8 @@ export default async function handler(req, res) {
     device: deviceType(req.headers?.["user-agent"]), sid: cleanSid(body.sid), latency_ms: Date.now() - t0, ...extra
   });
   try {
-    const packageType = normalizePackage(body.package);
-    if (body.package !== "starter" && body.package !== "deeper") {
+    const packageType = normalizePackage(body.package || "deeper"); // older clients send no package → Deeper
+    if (body.package && body.package !== "deeper" && body.package !== "unlimited") { // starter is free: no payment
       throw new OrderError("กรุณาเลือกแพ็กก่อนชำระเงิน", 400, "package_required");
     }
 

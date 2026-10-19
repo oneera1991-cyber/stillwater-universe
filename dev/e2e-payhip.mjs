@@ -6,6 +6,15 @@ PAYMENT_PROVIDER=payhip PAYHIP_API_KEY=<dummy> KV_REST_API_URL=<mock> KV_REST_AP
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 const { chromium } = await import(process.env.PLAYWRIGHT || "playwright");
+
+/* Packs v1: after the form the customer picks a pack (scene-packs). Old flows = Starter (free card → upsell). */
+async function clickAsk(page, pack = "starter") {
+  await page.click("#btnAsk");
+  const shown = await page.waitForSelector("#scene-packs.is-active", { timeout: 2500 }).then(() => true).catch(() => false);
+  if (!shown) return;
+  await page.waitForSelector(`#packBox [data-pack="${pack}"]`);
+  await page.click(`#packBox [data-pack="${pack}"]`);
+}
 const BASE = process.env.BASE || "http://localhost:3123";
 const SIG = createHash("sha256").update(process.env.PAYHIP_API_KEY).digest("hex");
 const hook = (p) => fetch(BASE + "/api/payhip-webhook", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(p) }).then(async (r) => [r.status, await r.json()]);
@@ -17,6 +26,13 @@ const ok = (...a) => console.log("✓", ...a);
 assert.equal((await hook(paid("BAD1", { signature: "00" })))[0], 401); ok("bad signature → 401");
 assert.equal((await hook(paid("W1", { items: [{ product_key: "zzz" }] })))[1].ignored, "wrong_product"); ok("wrong product ignored");
 assert.equal((await hook(paid("W2", { price: 100 })))[1].ignored, "wrong_amount"); ok("wrong amount ignored");
+const DPS = (Date.now() <= Date.parse("2026-11-30T23:59:59.999+07:00") ? 39 : 59) * 100;
+assert.equal((await hook(paid("W3" + R, { price: DPS, date: Math.floor(Date.now() / 1000) - 3600 })))[1].result, "stored"); ok("Deeper at the current price (" + DPS / 100 + ") stored (59 also accepted during the promo)");
+if (process.env.PAYHIP_UNLIMITED_KEY) { // server started with PAYHIP_UNLIMITED_KEY=<same>
+  const unl = (id, price) => paid(id, { price, date: Math.floor(Date.now() / 1000) - 3600, items: [{ product_key: process.env.PAYHIP_UNLIMITED_KEY }] });
+  assert.equal((await hook(unl("U1" + R, 3900)))[1].ignored, "wrong_amount");
+  assert.equal((await hook(unl("U2" + R, 39900)))[1].result, "stored"); ok("Unlimited product key → ฿399 checked (฿39 ignored)");
+}
 assert.equal((await hook(paid("OLD" + R, { date: Math.floor(Date.now() / 1000) - 3600 })))[1].result, "stored"); ok("old txn stored (must not be claimed)");
 
 const browser = await chromium.launch();
@@ -29,7 +45,7 @@ await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln
 await page.waitForTimeout(1100);
 await page.click("#btnEnter");
 await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
-await page.click("#btnAsk");
+await clickAsk(page);
 await page.waitForSelector("#btnToOffer.is-in", { timeout: 30000 });
 await page.waitForTimeout(1100);
 await page.click("#btnToOffer");

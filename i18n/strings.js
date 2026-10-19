@@ -124,31 +124,31 @@ export const STRINGS = {
       ],
       next: "ให้พี่ถามต่อ"
     },
-    positions: { past: "อดีต", present: "ปัจจุบัน", ahead: "แนวโน้มข้างหน้า" },
+    positions: { summary: "ผลรวม", past: "อดีต", present: "ปัจจุบัน", ahead: "แนวโน้มข้างหน้า" },
     offering: {
       title: "บางคำถาม... ไพ่ใบเดียวอาจยังเล่าไม่หมด",
-      copy: "ให้พี่เปิดไพ่เพิ่มอีกสามใบ เพื่อดูเรื่องราวตั้งแต่อดีต ปัจจุบัน และแนวโน้มข้างหน้า",
-      ppf: "Past · Present · Future",
-      price: "฿59",
+      copy: "ให้พี่เปิดไพ่สี่ใบ ทั้งผลรวมของเรื่อง อดีต ปัจจุบัน และแนวโน้มข้างหน้า",
+      ppf: "Overall · Past · Present · Future",
+      price: "฿39",
       pay: "เข้าสู่การชำระเงิน",
       payPayhip: "เข้าสู่การชำระเงิน",
       payAlt: "หรือจ่ายด้วยบัตร / PayPal",
-      qrAlt: "QR พร้อมเพย์ 59 บาท",
-      hint: "สแกน QR นี้ หรือบันทึกรูปไปเปิดในแอปธนาคาร\nโอน 59 บาท แล้วแนบสลิปด้านล่างนะคะ",
+      qrAlt: "QR พร้อมเพย์",
+      hint: "สแกน QR นี้ หรือบันทึกรูปไปเปิดในแอปธนาคาร\nโอนตามยอดด้านบน แล้วแนบสลิปด้านล่างนะคะ",
       saveQr: "บันทึกรูป QR",
       payee: "ชื่อบัญชีผู้รับ: {name}",
       attach: "แนบสลิป",
       attachAgain: "แนบสลิปใหม่",
       slipAlt: "สลิปที่แนบ",
       retry: "ตรวจสลิปอีกครั้ง",
-      small: "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ",
+      small: "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่ให้ทันทีค่ะ",
       back: "กลับไปดูคำตอบเดิม"
     },
     pay: {
       opening: "กำลังเปิดช่องทางชำระเงิน…",
       testSlip: "โหมดเทส: ระบบตรวจสลิปเป็นแบบจำลอง",
       testPoll: "โหมดเทส สแกน QR แล้วยืนยันการจ่าย",
-      scanPoll: "สแกน QR พร้อมเพย์ 59 บาท",
+      scanPoll: "สแกน QR พร้อมเพย์",
       noOrder: "ไม่พบคำถามของรายการนี้ กรุณาเริ่มถามใหม่อีกครั้ง",
       noQr: "ยังไม่ได้รับ QR สำหรับชำระเงิน",
       createFailed: "ยังไม่สามารถเปิดช่องทางชำระเงินได้",
@@ -161,7 +161,7 @@ export const STRINGS = {
     },
     slip: {
       pending: "สลิปจากธนาคารกรุงเทพอาจใช้เวลาราว 5 นาทีก่อนตรวจได้ค่ะ พักสักครู่ แล้วกดตรวจอีกครั้งนะคะ",
-      wrong_amount: "ยอดในสลิปยังไม่ตรงกับ 59 บาทค่ะ ลองดูสลิปอีกครั้งนะคะ",
+      wrong_amount: "ยอดในสลิปยังไม่ตรงกับราคาแพ็กที่เลือกค่ะ ลองดูสลิปอีกครั้งนะคะ",
       wrong_account: "บัญชีผู้รับในสลิปไม่ใช่บัญชีของ Stillwater ค่ะ ลองสแกน QR ด้านบนอีกครั้งนะคะ",
       duplicate: "สลิปนี้เคยถูกใช้ไปแล้วค่ะ ลองแนบสลิปของการโอนครั้งนี้นะคะ",
       old_slip: "สลิปนี้เป็นรายการก่อนเริ่มคำถามนี้ค่ะ ลองแนบสลิปของการโอนครั้งนี้นะคะ",
@@ -171,9 +171,9 @@ export const STRINGS = {
       service: "ระบบตรวจสลิปยังไม่พร้อมค่ะ ลองใหม่อีกครั้งในอีกสักครู่นะคะ"
     },
     full: {
-      opening: "พี่กำลังเปิดสามใบให้คุณนะคะ",
+      opening: "พี่กำลังเปิดไพ่สี่ใบให้คุณนะคะ",
       // Scene 6 tells the story one card at a time; Vera's spoken headings replace position labels (Palm, 2026-10-09).
-      headings: { past: "เรื่องนี้เริ่มต้นจากอะไร", present: "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", ahead: "ถ้าเรื่องนี้เดินต่อไป..." },
+      headings: { summary: "ผลรวมของเรื่องนี้", past: "เรื่องนี้เริ่มต้นจากอะไร", present: "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", ahead: "ถ้าเรื่องนี้เดินต่อไป..." },
       next: "พี่เวราเล่าต่อค่ะ",
       // Ending (Palm V2): overview (reader `final`) → Vera's words (reader `closing`) → thanks → return line.
       endingHeading: "เมื่อมองไพ่ทั้งสี่ใบรวมกัน",
@@ -184,8 +184,8 @@ export const STRINGS = {
       retry: "ลองเปิดอีกครั้ง",
       copied: "คัดลอกลิงก์แล้วค่ะ",
       shareTitle: "Stillwater",
-      failed: "ยังเปิดสามใบไม่ได้",
-      notPaidYet: "ยังไม่พบการชำระเงิน 59 บาท ถ้าจ่ายแล้ว ลองกดเปิดอีกครั้งนะคะ"
+      failed: "ยังเปิดไพ่ไม่ได้",
+      notPaidYet: "ยังไม่พบการชำระเงิน ถ้าจ่ายแล้ว ลองกดเปิดอีกครั้งนะคะ"
     },
     safety: {
       paragraphs: [ // must equal vera.js SAFETY_MESSAGE (checked in dev/unit.mjs)
@@ -209,7 +209,7 @@ export const STRINGS = {
       paid_bad: "การชำระเงินของรายการนี้ไม่ถูกต้อง",
       paid_expired: "รายการชำระเงินนี้หมดอายุแล้ว",
       payment_missing: "ไม่พบการชำระเงินของรายการนี้",
-      not_paid: "ยังไม่พบการชำระเงิน 59 บาท",
+      not_paid: "ยังไม่พบการชำระเงิน",
       order_mismatch: "การชำระเงินนี้ไม่ตรงกับคำถามของคุณ",
       wrong_amount: "การชำระเงินนี้ไม่ตรงกับคำถามของคุณ",
       deeper_failed: "เปิดไพ่เพิ่มไม่สำเร็จ",
@@ -318,31 +318,31 @@ export const STRINGS = {
       ],
       next: "Reveal the rest" // [Palm]
     },
-    positions: { past: "Past", present: "Present", ahead: "Future" }, // [Palm] = vera.js POSITIONS_EN
+    positions: { summary: "Overall", past: "Past", present: "Present", ahead: "Future" }, // [Palm] = vera.js POSITIONS_EN
     offering: {
       title: "Some questions need more than one card.", // [Palm]
-      copy: "Let me open three more cards to explore what has been, what is, and what may lie ahead.", // [Palm]
-      ppf: "Past · Present · Future", // [Palm]
-      price: "฿59", // [Palm]
+      copy: "Let me open four cards: the whole picture, what has been, what is, and what may lie ahead.",
+      ppf: "Overall · Past · Present · Future",
+      price: "฿39",
       pay: "Pay with PromptPay QR", // [Palm]
       payPayhip: "Pay securely",
       payAlt: "Or pay by card / PayPal",
-      qrAlt: "PromptPay QR, 59 baht",
-      hint: "Scan this QR, or save the image and open it in your banking app.\nTransfer 59 baht, then attach your slip below.",
+      qrAlt: "PromptPay QR",
+      hint: "Scan this QR, or save the image and open it in your banking app.\nTransfer the amount shown, then attach your slip below.",
       saveQr: "Save QR image",
       payee: "Account name: {name}",
       attach: "Attach slip",
       attachAgain: "Attach a new slip",
       slipAlt: "Your attached slip",
       retry: "Check slip again",
-      small: "Once your payment goes through, Vera will open the three cards right away.",
+      small: "Once your payment goes through, Vera will open the cards right away.",
       back: "Back to my first answer"
     },
     pay: {
       opening: "Opening payment…",
       testSlip: "Test mode: slip checking is simulated.",
       testPoll: "Test mode: scan the QR, then confirm the payment.",
-      scanPoll: "Scan the PromptPay QR for 59 baht",
+      scanPoll: "Scan the PromptPay QR",
       noOrder: "We couldn't find this question. Please start again.",
       noQr: "The payment QR didn't arrive yet.",
       createFailed: "Payment can't be opened right now.",
@@ -355,7 +355,7 @@ export const STRINGS = {
     },
     slip: {
       pending: "Bangkok Bank slips can take about 5 minutes before they can be checked. Please wait a moment, then tap check again.",
-      wrong_amount: "The amount on this slip isn't 59 baht. Please check the slip again.",
+      wrong_amount: "The amount on this slip doesn't match the pack you chose. Please check the slip again.",
       wrong_account: "This slip was paid to a different account, not Stillwater's. Please scan the QR above again.",
       duplicate: "This slip has already been used. Please attach the slip for this transfer.",
       old_slip: "This slip is from before you asked this question. Please attach the slip for this transfer.",
@@ -365,8 +365,8 @@ export const STRINGS = {
       service: "Slip checking isn't available right now. Please try again in a moment."
     },
     full: {
-      opening: "Opening three cards for you...",
-      headings: { past: "Where did this begin?", present: "And now, what is happening?", ahead: "If this keeps unfolding..." },
+      opening: "Opening four cards for you...",
+      headings: { summary: "The whole picture", past: "Where did this begin?", present: "And now, what is happening?", ahead: "If this keeps unfolding..." },
       next: "Vera continues",
       endingHeading: "Looking at all four cards together",
       thanks: "Thank you to the universe for sending you this answer.",
@@ -376,8 +376,8 @@ export const STRINGS = {
       retry: "Try opening again",
       copied: "Link copied.",
       shareTitle: "Stillwater",
-      failed: "The three cards couldn't be opened yet.",
-      notPaidYet: "We haven't received the 59 baht payment yet. If you've paid, tap open again."
+      failed: "The cards couldn't be opened yet.",
+      notPaidYet: "We haven't received your payment yet. If you've paid, tap open again."
     },
     safety: {
       paragraphs: [ // must equal vera.js SAFETY_MESSAGE_EN (checked in dev/unit.mjs)
@@ -401,7 +401,7 @@ export const STRINGS = {
       paid_bad: "The payment for this question isn't valid.",
       paid_expired: "This payment has expired.",
       payment_missing: "No payment was found for this question.",
-      not_paid: "We haven't received the 59 baht payment yet.",
+      not_paid: "We haven't received your payment yet.",
       order_mismatch: "This payment doesn't match your question.",
       wrong_amount: "This payment doesn't match your question.",
       deeper_failed: "The extra cards couldn't be opened.",

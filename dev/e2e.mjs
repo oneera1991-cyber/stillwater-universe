@@ -7,6 +7,15 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 
 const { chromium } = await import(process.env.PLAYWRIGHT || "playwright");
+
+/* Packs v1: after the form the customer picks a pack (scene-packs). Old flows = Starter (free card → upsell). */
+async function clickAsk(page, pack = "starter") {
+  await page.click("#btnAsk");
+  const shown = await page.waitForSelector("#scene-packs.is-active", { timeout: 2500 }).then(() => true).catch(() => false);
+  if (!shown) return;
+  await page.waitForSelector(`#packBox [data-pack="${pack}"]`);
+  await page.click(`#packBox [data-pack="${pack}"]`);
+}
 const BASE = process.env.BASE || "http://localhost:3123";
 const SHOTS = process.env.SHOTS || "/workspace/vera-build-shots";
 await mkdir(SHOTS, { recursive: true });
@@ -35,9 +44,10 @@ async function scrollScene(page, id, where) {
 async function ask(page, q, ctx) {
   await page.fill("#questionInput", q); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
   if (ctx) await page.fill("#contextInput", ctx);
-  await page.click("#btnAsk");
+  await clickAsk(page);
 }
 const log = (...a) => console.log("✓", ...a);
+const DP = Date.now() <= Date.parse("2026-11-30T23:59:59.999+07:00") ? 39 : 59; // Deeper price (promo ฿39 → ฿59)
 /* Palm (2026-10-09): customer scenes match the prototype, zero interruptions — no disclaimer,
    no privacy/data note, no Reading ID, no Terms/Privacy links, no other notice. */
 const NOTICE_TEXT = /เพื่อความบันเทิง|Entertainment|Self-Reflection|รหัสการอ่าน|Reading ID|ไม่ระบุตัวตน|anonymous|ข้อกำหนด|ประกาศความเป็นส่วนตัว|\bTerms\b|\bPrivacy\b|Thai bank accounts\) only|ไพ่ใหม่ 3 ใบ สำหรับคำถามเดิม|for the same question/i;
@@ -134,7 +144,7 @@ if (!ONLY) {
   await page.fill("#contextInput", "เพิ่งลาออกจากที่เดิม ยังกังวลอยู่");
   await shot(page, "02-question"); log("scene 2 question");
 
-  await page.click("#btnAsk");
+  await clickAsk(page);
   await active(page, "draw");
   await page.waitForTimeout(1600);
   await shot(page, "03a-draw-waiting");
@@ -158,8 +168,8 @@ if (!ONLY) {
   await active(page, "offering");
   await page.waitForTimeout(1100);
   await shot(page, "05a-offering-locked");
-  assert.equal((await page.textContent("#scene-offering .price")).trim(), "฿59");
-  assert.equal((await page.textContent("#scene-offering .small")).trim(), "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ");
+  assert.equal((await page.textContent("#offerNow")).trim(), "฿" + DP); if (DP === 39) assert.equal((await page.textContent("#offerOld")).trim(), "฿59");
+  assert.equal((await page.textContent("#scene-offering .small")).trim(), "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่ให้ทันทีค่ะ");
   await noNotices(page); log("scene 5 (th): prototype copy, no scope line / legal links");
   await page.click("#btnPay");
   await page.waitForSelector("#payQr:not([hidden])");
@@ -199,7 +209,7 @@ if (!ONLY) {
   await scrollPay(); await page.waitForTimeout(300);
   await shot(page, "11c-slip-checking"); log("slip: uploaded / checking");
   await waitSlipDone(page); await scrollPay();
-  assert.match(await payStatus(page), /59 บาท/);
+  assert.match(await payStatus(page), /ราคาแพ็กที่เลือก/);
   await shot(page, "11d-error-wrong-amount"); log("slip: wrong amount");
 
   for (const [scenario, re, name] of [
@@ -228,7 +238,7 @@ if (!ONLY) {
   await scrollPay(); await page.waitForTimeout(200);
   await shot(page, "11k-success"); log("slip: success → paid token");
   const calls = await (await page.request.get(`${BASE}/__mock/easyslip-calls`)).json();
-  assert.ok(calls.every((c) => c.matchAmount === "59" && c.matchAccount === "true" && c.checkDuplicate === "true"), "EasySlip fields");
+  assert.ok(calls.every((c) => c.matchAmount === String(DP) && c.matchAccount === "true" && c.checkDuplicate === "true"), "EasySlip fields");
 
   await active(page, "full");
   await readThrough(page);
@@ -240,9 +250,9 @@ if (!ONLY) {
   assert.match(rid, /^[A-Z0-9_-]{8}$/);
   await scrollScene(page, "full", "end");
   await noNotices(page); log("scene 6: no Reading ID / disclaimer / links (id kept internally:", rid + ")");
-  assert.deepEqual(await page.$$eval("#fullStory .say", (n) => n.map((x) => x.textContent)), ["เรื่องนี้เริ่มต้นจากอะไร", "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "ถ้าเรื่องนี้เดินต่อไป..."]);
+  assert.deepEqual(await page.$$eval("#fullStory .say", (n) => n.map((x) => x.textContent)), ["ผลรวมของเรื่องนี้", "เรื่องนี้เริ่มต้นจากอะไร", "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "ถ้าเรื่องนี้เดินต่อไป..."]);
   const ids = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper.cards.map((c) => c.id));
-  assert.equal(new Set(ids).size, 3); assert.ok(!ids.includes(first.card.id), "paid cards exclude card 1");
+  assert.equal(new Set(ids).size, 4); assert.equal(ids[0], first.card.id, "card 1 = ผลรวม"); assert.ok(!ids.slice(1).includes(first.card.id), "new cards exclude card 1");
   assert.equal((await page.textContent("#btnClose")).trim(), "ปิดการอ่าน");
   await shot(page, "06a-full-cards");
   await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = s.scrollHeight / 2 - 300; });
@@ -306,7 +316,7 @@ if (!ONLY) {
   assert.equal(await page.inputValue("#questionInput"), "???");
   await shot(page, "09a-needs-rewrite"); log("needs_rewrite → back to scene 2 with message");
   await page.fill("#questionInput", "ผลตรวจมะเร็งจะออกมาดีไหม"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
-  await page.click("#btnAsk");
+  await clickAsk(page);
   await page.waitForFunction(() => /สุขภาพ/.test(document.getElementById("rewriteNote").textContent) && document.getElementById("scene-question").classList.contains("is-active"), null, { timeout: 20000 });
   await page.waitForTimeout(1100);
   await shot(page, "09b-not-accepted-health"); log("health question → not accepted (stub)");
@@ -385,7 +395,7 @@ if (!ONLY || ONLY === "en") {
   await page.fill("#contextInput", "I just left my old company and I'm still a bit anxious.");
   await shot(page, "12-en-02-question"); log("EN question");
 
-  await page.click("#btnAsk");
+  await clickAsk(page);
   await active(page, "first");
   await page.waitForSelector("#btnToOffer.is-in", { timeout: 20000 });
   await page.waitForTimeout(1100);
@@ -421,7 +431,7 @@ if (!ONLY || ONLY === "en") {
   await page.click("#btnToOffer");
   await active(page, "offering");
   await page.waitForTimeout(1100);
-  assert.deepEqual(await lines(page, "#scene-offering .locked figcaption"), ["Past", "Present", "Future"]);
+  assert.deepEqual(await lines(page, "#scene-offering .locked figcaption"), ["Overall", "Past", "Present", "Future"]);
   assert.equal((await page.textContent("#btnPay")).trim(), "Pay with PromptPay QR");
   await noNotices(page); log("scene 5 (en): no scope line / legal links");
   await page.click("#btnPay");
@@ -435,11 +445,11 @@ if (!ONLY || ONLY === "en") {
   const scrollPay = () => page.evaluate(() => { const s = document.getElementById("scene-offering"); s.scrollTop = s.scrollHeight; });
   await uploadSlip(page, await makeSlip("wrong_amount", "wrong amount"));
   await waitSlipDone(page);
-  assert.equal((await payStatus(page)).trim(), "The amount on this slip isn't 59 baht. Please check the slip again.");
+  assert.equal((await payStatus(page)).trim(), "The amount on this slip doesn't match the pack you chose. Please check the slip again.");
   await page.click("#langToggle"); await page.waitForTimeout(300);
-  assert.match(await payStatus(page), /59 บาท/, "status re-rendered in Thai");
+  assert.match(await payStatus(page), /ราคาแพ็กที่เลือก/, "status re-rendered in Thai");
   await page.click("#langToggle"); await page.waitForTimeout(300);
-  assert.match(await payStatus(page), /isn't 59 baht/); log("EN slip error (localized by order lang) + re-render on toggle");
+  assert.match(await payStatus(page), /doesn't match the pack/); log("EN slip error (localized by order lang) + re-render on toggle");
 
   await startTimer(page);
   await uploadSlip(page, await makeSlip("success", "success en"));
@@ -455,12 +465,12 @@ if (!ONLY || ONLY === "en") {
   await noNotices(page);
   await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = 0; });
   await page.waitForTimeout(300);
-  assert.deepEqual(await lines(page, "#fullStory .say"), ["Where did this begin?", "And now, what is happening?", "If this keeps unfolding..."]);
+  assert.deepEqual(await lines(page, "#fullStory .say"), ["The whole picture", "Where did this begin?", "And now, what is happening?", "If this keeps unfolding..."]);
   assert.equal(await page.isVisible("#fullIntro"), false);
   assert.equal((await page.textContent("#btnClose")).trim(), "Close reading");
   assert.equal((await page.textContent("#btnShareSite")).trim(), "Share Stillwater");
   const deeper = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper);
-  assert.equal(deeper.lang, "en"); assert.deepEqual(deeper.cards.map((c) => c.position_key), ["past", "present", "ahead"]);
+  assert.equal(deeper.lang, "en"); assert.deepEqual(deeper.cards.map((c) => c.position_key), ["summary", "past", "present", "ahead"]);
   assert.ok(!THAI.test(await page.textContent("#fullStory")), "English reading");
   await shot(page, "12-en-06a-full-reading");
   await page.evaluate(() => { const s = document.getElementById("scene-full"); s.scrollTop = s.scrollHeight / 2 - 300; });
@@ -549,7 +559,7 @@ if (!ONLY || ONLY === "data") {
   await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มจะไปได้ดีไหม ติดต่อ 081-234-5678"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
   log("question scene (th): no privacy line");
 
-  await page.click("#btnAsk");
+  await clickAsk(page);
   await active(page, "first");
   await page.waitForSelector("#rate-free.is-in", { timeout: 20000 });
   await page.waitForTimeout(1100);
@@ -591,10 +601,10 @@ if (!ONLY || ONLY === "data") {
 
   ev = await events(page);
   const pv = ev.find((e) => e.event === "payment_verified" && e.order_id === rf.order_id);
-  assert.ok(pv && pv.trans_ref && pv.amount_thb === 59 && pv.src === "tiktok" && pv.first_src === "friends");
+  assert.ok(pv && pv.trans_ref && pv.amount_thb === DP && pv.src === "tiktok" && pv.first_src === "friends");
   const rfull = ev.find((e) => e.event === "read_full" && e.order_id === rf.order_id);
   assert.equal(rfull.cards3.split(",").length, 3); assert.equal(rfull.src, "tiktok");
-  const deeperIds = (await lsJSON(page, "stillwater.vera.v1")).deeper.cards.map((c) => c.id).join(",");
+  const deeperIds = (await lsJSON(page, "stillwater.vera.v1")).deeper.cards.slice(1).map((c) => c.id).join(",");
   assert.equal(rfull.cards3, deeperIds);
   assert.ok(ev.some((e) => e.event === "rating" && e.rating_key === rf.order_id + ":full" && e.stars === 5));
   log("payment_verified (transRef, ฿59) + read_full (cards3) carry the sealed source");
@@ -623,7 +633,7 @@ if (!ONLY || ONLY === "data") {
   await noNotices(page);
   await page.fill("#questionInput", "I'm starting a new job next month. Will it go well?"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
   log("question scene (en): no privacy line");
-  await page.click("#btnAsk");
+  await clickAsk(page);
   await active(page, "first");
   await page.waitForSelector("#rate-free.is-in", { timeout: 20000 });
   await page.waitForTimeout(1100);
@@ -699,11 +709,11 @@ if (!ONLY || ONLY === "font") {
   await shot(page, "14-font-02-question-th"); log("font: question inputs/placeholders/buttons");
   await page.fill("#contextInput", "");
   await page.fill("#questionInput", ""); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
-  await page.click("#btnAsk");
+  await clickAsk(page);
   await page.waitForSelector("#rewriteNote:not([hidden])", { timeout: 20000 }); // empty question → note
   await assertThaiFont(page, ["#rewriteNote"]);
   await page.fill("#questionInput", "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
-  await page.click("#btnAsk");
+  await clickAsk(page);
   await active(page, "draw");
   await page.waitForTimeout(1200);
   await noNotices(page); await noAI(page);
@@ -790,7 +800,7 @@ const PROTO_TH = {
   draw: ["รอพี่สักครู่...พี่จะลองขอคำตอบจากจักรวาลให้คุณนะคะ", "คำถามของคุณถูกฝากไว้แล้ว ตอนนี้ลองปล่อยให้คำตอบเดินทางมาหาคุณ"],
   invite: ["คำตอบแรกคือสิ่งที่คุณควรรู้", "แต่บางครั้ง..คำตอบหนึ่งใบไม่ได้เล่าเรื่องทั้งหมด", "พี่เวรายังสามารถถามต่อได้อีกครั้ง", "และครั้งนี้จะเปิดไพ่เพิ่ม 3 ใบ", "เพื่อดูสิ่งที่อยู่เบื้องหลังคำตอบแรก"],
   next: "ให้พี่ถามต่อ", offerTitle: "บางคำถาม... ไพ่ใบเดียวอาจยังเล่าไม่หมด", pay: "เข้าสู่การชำระเงิน",
-  small: "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ", close: "ปิดการอ่าน"
+  small: "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่ให้ทันทีค่ะ", close: "ปิดการอ่าน"
 };
 for (const L of ["th", "en"]) {
   if (ONLY && ONLY !== "proto") break;
@@ -810,7 +820,7 @@ for (const L of ["th", "en"]) {
   if (L === "th") { assert.equal((await page.textContent("#questionTitle")).trim(), PROTO_TH.qTitle); assert.equal((await page.textContent("#btnAsk")).trim(), PROTO_TH.ask); }
   await noNotices(page); await shot(page, P("2-question"));
   await page.fill("#questionInput", L === "th" ? "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม" : "I'm starting a new job next month. Will it go well?"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
-  await page.click("#btnAsk"); await active(page, "draw"); await page.waitForTimeout(900);
+  await clickAsk(page); await active(page, "draw"); await page.waitForTimeout(900);
   if (L === "th") assert.deepEqual(await page.$$eval("#drawLines .ln", (n) => n.map((x) => x.textContent)), PROTO_TH.draw);
   await noNotices(page); await shot(page, P("3-draw"));
   await active(page, "first"); await page.waitForSelector("#btnToOffer.is-in", { timeout: 20000 }); await page.waitForTimeout(1100);
@@ -884,8 +894,8 @@ for (const L of ["th", "en"]) {
    card 1 = scene 4 (free card), cards 2–4 = scene 6 one at a time, then the ending. */
 const FIRST_HEAD = { th: "ไพ่ใบนี้มีบางอย่างอยากบอกคุณ", en: "This card has something to tell you" };
 const HEAD = {
-  th: ["เรื่องนี้เริ่มต้นจากอะไร", "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "ถ้าเรื่องนี้เดินต่อไป..."],
-  en: ["Where did this begin?", "And now, what is happening?", "If this keeps unfolding..."]
+  th: ["ผลรวมของเรื่องนี้", "เรื่องนี้เริ่มต้นจากอะไร", "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "ถ้าเรื่องนี้เดินต่อไป..."],
+  en: ["The whole picture", "Where did this begin?", "And now, what is happening?", "If this keeps unfolding..."]
 };
 const NEXT = { th: "พี่เวราเล่าต่อค่ะ", en: "Vera continues" };
 const ENDING = {
@@ -968,7 +978,7 @@ for (const L of ["th", "en"]) {
   // ---- card 2 alone, with "พี่เวราเล่าต่อค่ะ"
   await page.waitForSelector("#btnNextCard:not([hidden])", { timeout: 40000 }); await page.waitForTimeout(700);
   let st = await storyState(page);
-  assert.equal(st.chapters, 1); assert.deepEqual(st.cards, ["2"]); assert.deepEqual(st.current, ["2"]); assert.deepEqual(st.dividers, [false]);
+  assert.equal(st.chapters, 1); assert.deepEqual(st.cards, ["1"]); assert.deepEqual(st.current, ["1"]); assert.deepEqual(st.dividers, [false]);
   assert.deepEqual(st.heads, HEAD[L].slice(0, 1)); assert.equal(st.nextText, NEXT[L]); assert.equal(st.ending, false);
   assert.equal(st.labels, 0); assert.ok(!LABEL_TEXT.test(st.text), "no position label text: " + (st.text.match(LABEL_TEXT) || [])[0]);
   const deeper = await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper);
@@ -983,12 +993,16 @@ for (const L of ["th", "en"]) {
   await page.waitForSelector("#btnNextCard:not([hidden])", { timeout: 20000 });
   st = await storyState(page); assert.equal(st.chapters, 1); assert.equal(st.ending, false); log(`18-${L}: card 2 + "${NEXT[L]}"; reload resumes`);
 
+  // ---- card 2 (past) after card 1 (ผลรวม)
+  await page.click("#btnNextCard");
+  await page.waitForSelector("#btnNextCard:not([hidden])", { timeout: 30000 }); await page.waitForTimeout(700);
+  st = await storyState(page); assert.deepEqual(st.cards, ["1", "2"]); assert.deepEqual(st.current, ["2"]); assert.deepEqual(st.heads, HEAD[L].slice(0, 2));
   // ---- card 3, glow divider between card 2 and card 3, card 3 highlighted
   await page.click("#btnNextCard");
   assert.equal(await page.isVisible("#btnNextCard"), false, "button hides while the card is told");
   await page.waitForSelector("#btnNextCard:not([hidden])", { timeout: 30000 }); await page.waitForTimeout(700);
   st = await storyState(page);
-  assert.deepEqual(st.cards, ["2", "3"]); assert.deepEqual(st.current, ["3"]); assert.deepEqual(st.dividers, [false, true]); assert.deepEqual(st.heads, HEAD[L].slice(0, 2));
+  assert.deepEqual(st.cards, ["1", "2", "3"]); assert.deepEqual(st.current, ["3"]); assert.deepEqual(st.dividers, [false, true, true]); assert.deepEqual(st.heads, HEAD[L].slice(0, 3));
   const div = await page.evaluate(() => { const d = document.querySelector('#fullStory .chapter[data-card="3"] > .glow-divider'), r = d.getBoundingClientRect(), cs = getComputedStyle(d); return { h: r.height, w: r.width, bg: cs.backgroundImage, shadow: cs.boxShadow }; });
   assert.ok(div.h >= 1 && div.w > 150 && /gradient/.test(div.bg) && div.shadow !== "none", "soft glow divider");
   await scrollTo(page, "full", '#fullStory .chapter[data-card="3"] > .glow-divider', 260);
@@ -999,7 +1013,7 @@ for (const L of ["th", "en"]) {
   await page.click("#btnNextCard");
   await page.waitForSelector("#fullActions:not([hidden])", { timeout: 40000 }); await page.waitForTimeout(900);
   st = await storyState(page);
-  assert.deepEqual(st.cards, ["2", "3", "4"]); assert.deepEqual(st.dividers, [false, true, true]); assert.deepEqual(st.heads, HEAD[L]); assert.equal(st.next, false);
+  assert.deepEqual(st.cards, ["1", "2", "3", "4"]); assert.deepEqual(st.dividers, [false, true, true, true]); assert.deepEqual(st.heads, HEAD[L]); assert.equal(st.next, false);
   assert.deepEqual(st.names, deeper.cards.map((c) => c.name)); assert.ok(!LABEL_TEXT.test(st.text)); await noNotices(page); await noAI(page);
   await scrollTo(page, "full", '#fullStory .chapter[data-card="4"] .say', 40);
   await shot(page, P("4-card4"));
@@ -1056,7 +1070,7 @@ for (const L of ["th", "en"]) {
   // reload after the end → whole story at once
   await page.reload(); await active(page, "full");
   await page.waitForSelector("#fullActions:not([hidden])", { timeout: 20000 });
-  st = await storyState(page); assert.equal(st.chapters, 3); assert.equal(st.next, false);
+  st = await storyState(page); assert.equal(st.chapters, 4); assert.equal(st.next, false);
   assert.equal(await page.$$eval("#endOverview .ln", (n) => n.length) > 0, true);
 
   // share = site link only

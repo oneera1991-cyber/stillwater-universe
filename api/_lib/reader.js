@@ -104,10 +104,10 @@ function postProcessText(value, lang = "th", maxWords = 100) {
   const safe = readingSentences(value).filter((sentence) => !FORBIDDEN_READING_TERMS.test(sentence));
   const kept = [];
   for (const sentence of safe) {
-    if (readingWordCount([...kept, sentence].join(" "), lang) > maxWords) break;
+    if (kept.length && readingWordCount([...kept, sentence].join(" "), lang) > maxWords) break; // always keep the first sentence (never return empty text)
     kept.push(sentence);
   }
-  return kept.join(" ").trim();
+  return kept.join("\n").trim(); // one sentence per line: the page reveals a reading line by line
 }
 function postProcessFree(result) {
   if (!result || typeof result !== "object") return result;
@@ -115,7 +115,7 @@ function postProcessFree(result) {
   return {
     ...result,
     card: result.card ? { ...result.card, text:postProcessText(result.card.text, lang) } : result.card,
-    message: result.message ? postProcessText(result.message, lang) : result.message,
+    message: result.message && !result.safety ? postProcessText(result.message, lang) : result.message /* safety text (1323 / 1669 / embassy) is never trimmed */,
     open_thread: result.open_thread ? postProcessText(result.open_thread, lang) : result.open_thread
   };
 }
@@ -125,10 +125,21 @@ function postProcessThree(result) {
   return {
     ...result,
     cards: Array.isArray(result.cards) ? result.cards.map((card) => ({ ...card, text:postProcessText(card.text, lang, 18) })) : result.cards,
+    summary: result.summary ? postProcessText(result.summary, lang, 40) : result.summary,
     final: result.final ? postProcessText(result.final, lang, 30) : result.final,
     closing: result.closing ? postProcessText(result.closing, lang, 16) : result.closing,
-    message: result.message ? postProcessText(result.message, lang) : result.message
+    message: result.message && !result.safety ? postProcessText(result.message, lang) : result.message /* safety text (1323 / 1669 / embassy) is never trimmed */
   };
+}
+/* Returning-customer memory (api/_lib/memory.js): earlier gist on a similar question from this
+   device. Vera stays consistent and may refer to it gently; it never replaces the new cards. */
+function memoryBlock(memory, lang) {
+  if (!Array.isArray(memory) || !memory.length) return "";
+  const en = String(lang || "").toLowerCase() === "en";
+  const lines = memory.slice(0, 2).map((m) => `- ${String(m.cards || "").slice(0, 60)}: ${String(m.gist || "").slice(0, 160)}`);
+  return (en
+    ? "[MEMORY FROM AN EARLIER READING — same person, similar question. Stay consistent with it, refer to it gently at most once, still read the new cards first]\n"
+    : "[ความจำจากการอ่านครั้งก่อน — คนเดิม คำถามคล้ายกัน ให้สอดคล้องกับที่พี่เวราเคยบอก อ้างถึงแผ่ว ๆ ได้ไม่เกินหนึ่งครั้ง แต่ยังอ่านจากไพ่ใหม่เป็นหลัก]\n") + lines.join("\n").slice(0, 380);
 }
 function enrich(args) {
   const locked = buildLockedEvidence(args);
@@ -157,20 +168,22 @@ function enrich(args) {
   ].join("\n");
   const lockedWithCard = { ...locked, drawnCard: { name: cardName } };
   const compact = JSON.stringify(lockedWithCard).slice(0, 720);
-  const context = `[STILLWATER LOCKED READING SOURCE]\n${compact}\n${instruction}\n[/STILLWATER LOCKED READING]`;
+  const own = String(args?.context || "").trim().slice(0, 300); // vera.js clips context at 1200 chars: keep room for the locked block
+  const memory = memoryBlock(args?.memory, args?.lang);
+  const context = [own, memory, `[STILLWATER LOCKED READING SOURCE]\n${compact}\n${instruction}\n[/STILLWATER LOCKED READING]`].filter(Boolean).join("\n");
   return { locked, cardName, context };
 }
 
 export async function generateFree(args) {
   const { context } = enrich(args);
   const readingArgs = { ...(args || {}) };
-  delete readingArgs.bazi;
+  delete readingArgs.memory; // bazi stays: vera.js adds the pillars (baziHint) to Call A
   return postProcessFree(await impl().generateFree({ ...readingArgs, context }));
 }
 
 export async function generateThree(args) {
   const { context } = enrich(args);
-  const readingArgs = { ...(args || {}) };
-  delete readingArgs.bazi;
+  const readingArgs = { ...(args || {}) }; // Deeper keeps bazi: vera.js weaves tarot + BaZi (baziHint)
+  delete readingArgs.memory;
   return postProcessThree(await impl().generateThree({ ...readingArgs, context }));
 }

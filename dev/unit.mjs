@@ -89,11 +89,12 @@ assert.equal(slip.sniffImage(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0])),
 assert.equal(slip.sniffImage(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), "image/png");
 assert.equal(slip.sniffImage(Buffer.from("GIF89a..")), null); ok("magic-byte sniffing");
 
-/* PromptPay QR */
+/* PromptPay QR (Deeper pack at its current price: ฿39 promo until 2026-11-30 23:59 BKK, then ฿59) */
+const DP = payment.packageInfo("deeper").priceThb, DPS = DP * 100, DPQ = "5405" + DP + ".00";
 process.env.PROMPTPAY_ID = "000-000-0000";
 const p = await payment.createPayment(order);
 assert.equal(p.flow, "slip"); assert.match(p.qr, /^data:image\/png;base64,/);
-assert.match(p.qrPayload, /^000201010212/); assert.ok(p.qrPayload.includes("540559.00"), "amount tag 54 = 59.00"); ok("dynamic PromptPay QR with exact 59.00");
+assert.match(p.qrPayload, /^000201010212/); assert.ok(p.qrPayload.includes(DPQ), "amount tag 54 = Deeper price"); ok("dynamic PromptPay QR with the exact Deeper price (" + DP + ".00)");
 process.env.PROMPTPAY_ID = "12345";
 await assert.rejects(payment.createPayment(order), /PROMPTPAY_ID/); ok("bad PROMPTPAY_ID rejected");
 
@@ -112,7 +113,7 @@ await assert.rejects(payment.createPayment(order), /PROMPTPAY_ID/); ok("bad PROM
   const w0 = console.warn; console.warn = () => {};
   const t1 = await payment.verifySlip(order, { bytes: png, mime: "image/png" });
   const t2 = await payment.verifySlip(order, { bytes: jpg, mime: "image/jpeg" });
-  assert.equal(t1.ok, true); assert.match(t1.ref, /^TEST-[0-9A-F]{12}$/); assert.equal(t1.amount, 5900); assert.equal(t2.ok, true); assert.notEqual(t1.ref, t2.ref);
+  assert.equal(t1.ok, true); assert.match(t1.ref, /^TEST-[0-9A-F]{12}$/); assert.equal(t1.amount, DPS); assert.equal(t2.ok, true); assert.notEqual(t1.ref, t2.ref);
   assert.equal((await payment.verifySlip(order, { bytes: Buffer.from("GIF89a....."), mime: "image/gif" })).reason, "bad_file", "still only images");
   assert.equal(calls, 0, "no EasySlip call in test mode");
   // QR: real PromptPay QR when PROMPTPAY_ID is valid, non-payable demo QR otherwise; UI mode stays "live" (looks identical)
@@ -157,22 +158,22 @@ await assert.rejects(payment.createPayment(order), /PROMPTPAY_ID/); ok("bad PROM
   const pm = await payment.createPayment(order);
   const ref = mm.orderRef(order.orderId);
   assert.equal(pm.flow, "slip"); assert.match(pm.qr, /^data:image\/png;base64,/);
-  assert.equal(pm.qrPayload, mm.maemaneePayload({ shopId: "014000000820910", ref, amount: 59 }));
-  assert.ok(pm.qrPayload.startsWith("000201010211") && pm.qrPayload.includes("0115010753600010286") && pm.qrPayload.includes("0215014000000820910") && pm.qrPayload.includes("03" + String(ref.length).padStart(2, "0") + ref) && pm.qrPayload.includes("540559.00"));
-  assert.equal(mm.crc16(pm.qrPayload.slice(0, -4)), pm.qrPayload.slice(-4)); assert.equal(pm.amount, 5900);
+  assert.equal(pm.qrPayload, mm.maemaneePayload({ shopId: "014000000820910", ref, amount: DP }));
+  assert.ok(pm.qrPayload.startsWith("000201010211") && pm.qrPayload.includes("0115010753600010286") && pm.qrPayload.includes("0215014000000820910") && pm.qrPayload.includes("03" + String(ref.length).padStart(2, "0") + ref) && pm.qrPayload.includes(DPQ));
+  assert.equal(mm.crc16(pm.qrPayload.slice(0, -4)), pm.qrPayload.slice(-4)); assert.equal(pm.amount, DPS);
   process.env.MAEMANEE_SHOP_ID = "01400000082091"; await assert.rejects(payment.createPayment(order), (e) => e.code === "config_missing");
   process.env.MAEMANEE_SHOP_ID = "014-000000-820910"; assert.equal((await payment.createPayment(order)).qrPayload, pm.qrPayload, "separators tolerated");
   ok("createPayment (maemanee): Tag 30 bill payment, Biller 010753600010286, Ref1 = shop id, Ref2 = order ref, 59.00, valid CRC; bad shop id → config_missing");
 
   // slip checks (assumed v2 shape; tolerant)
   const cfg = () => mm.maemaneeConfig(process.env);
-  const mmSlip = (o = {}) => ({ success: true, data: { isDuplicate: false, matchedAccount: null, amountInOrder: 59, amountInSlip: 59, isAmountMatched: true,
-    rawSlip: { transRef: "MM1", date: new Date(issued + 60e3).toISOString(), amount: { amount: 59, local: { amount: 59, currency: "THB" } }, ref1: "014000000820910", ref2: ref, ref3: "",
+  const mmSlip = (o = {}) => ({ success: true, data: { isDuplicate: false, matchedAccount: null, amountInOrder: DP, amountInSlip: DP, isAmountMatched: true,
+    rawSlip: { transRef: "MM1", date: new Date(issued + 60e3).toISOString(), amount: { amount: DP, local: { amount: DP, currency: "THB" } }, ref1: "014000000820910", ref2: ref, ref3: "",
       sender: { bank: { id: "004" }, account: { name: { th: "นาย ผู้โอน" } } },
       receiver: { bank: { id: "014", short: "SCB" }, account: { name: { th: "ร้าน สติลวอเตอร์" }, proxy: { type: "BILLERID", account: "010753600010286" } }, merchantId: null }, ...o } } });
-  const M = (b, c = cfg()) => slip.interpretEasySlip(200, b, { orderIssuedAt: issued, maemanee: c, ref });
+  const M = (b, c = cfg()) => slip.interpretEasySlip(200, b, { orderIssuedAt: issued, maemanee: c, ref, priceThb: DP, priceSatang: DPS });
   assert.equal(M(mmSlip()).ok, true, "matchedAccount null is fine when SCB + identity proofs pass");
-  assert.equal(slip.interpretEasySlip(200, mmSlip(), { orderIssuedAt: issued }).reason, "wrong_account", "promptpay mode still needs matchedAccount");
+  assert.equal(slip.interpretEasySlip(200, mmSlip(), { orderIssuedAt: issued, priceThb: DP, priceSatang: DPS }).reason, "wrong_account", "promptpay mode still needs matchedAccount");
   const rcv = (r) => mmSlip({ receiver: r });
   assert.equal(M(rcv({ bank: { id: "004" }, account: { name: { th: "ร้าน สติลวอเตอร์" } } })).reason, "wrong_account", "not SCB");
   assert.equal(M(rcv({ account: { name: { th: "ร้าน สติลวอเตอร์" } } })).reason, "wrong_account", "bank id missing");
@@ -203,7 +204,7 @@ await assert.rejects(payment.createPayment(order), /PROMPTPAY_ID/); ok("bad PROM
   const vr = await payment.verifySlip({ ...order, issuedAt: issued }, { bytes: png, mime: "image/png" });
   globalThis.fetch = f0; console.info = info0;
   assert.equal(vr.ok, true); assert.equal(sent[0].url, "https://api.easyslip.com/v2/verify/bank");
-  assert.deepEqual(["matchAmount", "matchAccount", "checkDuplicate"].map((k) => sent[0].form.get(k)), ["59", "true", "true"]);
+  assert.deepEqual(["matchAmount", "matchAccount", "checkDuplicate"].map((k) => sent[0].form.get(k)), [String(DP), "true", "true"]);
   const line = infos.find((l) => l.startsWith("MAEMANEE_SLIP ")); assert.ok(line, "calibration log line");
   const logged = JSON.parse(line.slice(14));
   assert.equal(logged.receiver.bank.id, "014"); assert.equal(logged.receiver.ref2, ref); assert.equal(logged.checks.biller, "pass"); assert.equal(logged.result, "ok");
@@ -255,7 +256,7 @@ assert.ok(!/พี่เวรา|Pee Vera|P'Vera/i.test(JSON.stringify(STRINGS.
 assert.ok(!/\bA\.?I\b|ปัญญาประดิษฐ์|artificial intelligence/i.test(JSON.stringify(STRINGS)), "no 'AI' in any page copy");
 assert.ok(!/รับประกัน|แม่นยำ 100|guarantee|100% accurate/i.test(JSON.stringify(STRINGS)), "no guarantee claims"); ok("copy: no 'AI', no guarantees");
 for (const lg of ["th", "en"]) for (const k of ["disclaimer.line", "question.privacy", "legal.readingId", "offering.scope"]) assert.equal(STRINGS[lg][k.split(".")[0]][k.split(".")[1]], undefined, "no in-scene notice string " + k);
-assert.equal(t("th", "offering.small"), "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่อีกสามใบให้ทันทีค่ะ"); ok("no notice/disclaimer strings for the scenes; prototype scene-5 line");
+assert.equal(t("th", "offering.small"), "เมื่อชำระเงินสำเร็จ พี่เวราจะเปิดไพ่ให้ทันทีค่ะ"); ok("no notice/disclaimer strings for the scenes; prototype scene-5 line");
 for (const [x, want] of [["en", "en"], ["EN", "en"], ["en-US", "en"], ["en_GB", "en"], ["th", "th"], ["fr", "th"], [undefined, "th"], ["english", "th"], [{}, "th"]]) {
   assert.equal(normLang(x), want); assert.equal(vera.normalizeLang(x), want);
 }
@@ -340,9 +341,10 @@ assert.equal(ord.lang, "en"); assert.equal(ord.card1, r1.body.card.id); assert.e
 const paidEn = signPaid({ orderId: ord.orderId, method: "promptpay-slip", ref: "R1", amount: 5900, currency: "THB" });
 const r2 = fakeRes(); await deeperRoute(req({ order: r1.body.order, paid: paidEn, lang: "th" }), r2);
 assert.equal(r2.statusCode, 200); assert.equal(r2.body.lang, "en", "token lang wins over client lang");
-assert.deepEqual(r2.body.cards.map((c) => c.position_key), ["past", "present", "ahead"]);
-assert.deepEqual(r2.body.cards.map((c) => c.label), ["Past", "Present", "Future"]);
-assert.ok(!r2.body.cards.some((c) => c.id === ord.card1)); ok("/api/deeper (real vera.js): order lang, position_key order, labels");
+assert.deepEqual(r2.body.cards.map((c) => c.position_key), ["summary", "past", "present", "ahead"]);
+assert.deepEqual(r2.body.cards.map((c) => c.label), ["Overall", "Past", "Present", "Future"]);
+assert.equal(r2.body.cards[0].id, ord.card1, "card 1 = ผลรวม (overall) is the order's card");
+assert.ok(!r2.body.cards.slice(1).some((c) => c.id === ord.card1)); ok("/api/deeper (real vera.js): 4 cards summary + past/present/future, order lang, position_key order, labels");
 const r3 = fakeRes(); await deeperRoute(req({ order: r1.body.order, paid: "v1.bad.sig" }), r3);
 assert.equal(r3.body.error, t("en", "errors.paid_bad")); ok("deeper errors localized by the order's lang");
 assert.equal(fakeCalls, 6, "fake client only (no network)");
@@ -528,7 +530,7 @@ const paidTok = signPaid({ orderId: ordObj.orderId, method: "promptpay-slip", re
 const rd = fakeRes(); await deeperRoute(reqUA({ order: ordTok, paid: paidTok }), rd);
 await new Promise((r) => setTimeout(r, 20));
 const ef = events.find((e) => e.event === "read_full");
-assert.equal(ef.cards3, rd.body.cards.map((c) => c.id).join(",")); assert.equal(ef.src, "tiktok"); assert.equal(ef.order_id, ordObj.orderId); ok("read_full event carries cards3 + sealed source");
+assert.equal(ef.cards3, rd.body.cards.slice(1).map((c) => c.id).join(",")); assert.equal(ef.src, "tiktok"); assert.equal(ef.order_id, ordObj.orderId); ok("read_full event carries cards3 + sealed source");
 const rateRoute = (await import("../api/rate.js")).default;
 const RT = async (body) => { const r = fakeRes(); await rateRoute(reqUA(body), r); return r; };
 for (const bad of [{ stars: 0 }, { stars: 6 }, { stars: "3" }, { stars: 2.5 }, { stars: 3, stage: "x" }, { stars: 3, stage: undefined }]) {
@@ -621,7 +623,7 @@ assert.equal(t("th", "first.heading"), "ไพ่ใบนี้มีบาง�
 assert.equal(t("th", "full.endingHeading"), "เมื่อมองไพ่ทั้งสี่ใบรวมกัน"); assert.equal(t("en", "full.endingHeading"), "Looking at all four cards together");
 for (const lg of ["th", "en"]) assert.equal(STRINGS[lg].full.positionsLine, undefined);
 assert.equal(story.cardHeading({ position_key: "ahead" }, 0, "en"), "If this keeps unfolding...");
-assert.equal(story.cardHeading({}, 1, "th"), "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "falls back to index order");
+assert.equal(story.cardHeading({}, 2, "th"), "แล้วตอนนี้ อะไรกำลังเกิดขึ้น", "falls back to index order (summary, past, present, ahead)");
 assert.deepEqual(story.storyLines({ position_key: "past", label: "อดีต", name: "The Moon", text: "อดีต — The Moon\nใบนี้พูดถึงความไม่ชัด" }), ["ใบนี้พูดถึงความไม่ชัด"], "stiff heading line dropped");
 assert.deepEqual(story.storyLines({ position_key: "ahead", position: "Future", name: "The Star", text: "Future: The Star, where the energy is heading. More." }), ["The Star, where the energy is heading. More."], "fallback 'Future:' prefix dropped");
 assert.deepEqual(story.storyLines({ position_key: "present", name: "The Sun", text: "Present day feels heavy.\nLine 2" }), ["Present day feels heavy.", "Line 2"], "a sentence starting with the word is kept");

@@ -55,7 +55,7 @@ TODO(storage — needs a database once Vercel access exists):
 import crypto from "node:crypto";
 import { normLang } from "../../i18n/strings.js";
 import { sanitizeSource } from "../../lib/source.js";
-import { CURRENCY, PRICE_SATANG, getPaymentStatus, isPaymentId, paymentProblem } from "./payment.js";
+import { CURRENCY, acceptedSatang, getPaymentStatus, isPaymentId, paymentProblem } from "./payment.js";
 
 export const ORDER_TTL_MS = 24 * 60 * 60 * 1000; // pay + open within 24h
 export const PAID_TTL_MS = 24 * 60 * 60 * 1000;
@@ -169,7 +169,7 @@ export function newOrderId() {
   return "ord_" + crypto.randomBytes(12).toString("base64url");
 }
 
-export function signOrder({ orderId, question, context, card1, card1Name, card1Text, openThread, lang, source, topic, birth }) {
+export function signOrder({ orderId, question, context, card1, card1Name, card1Text, openThread, lang, source, topic, birth, did }) {
   const order = {
     lang: normLang(lang),
     orderId: orderId || newOrderId(),
@@ -182,6 +182,7 @@ export function signOrder({ orderId, question, context, card1, card1Name, card1T
     source: sanitizeSource(source), // { first, last } traffic source (lib/source.js) — carried to paid events
     topic: typeof topic === "string" ? topic.slice(0, 20) : "", // log-only question topic (api/_lib/topic.js)
     birth: birth && typeof birth.date === "string" ? { date: birth.date.slice(0, 10), time: typeof birth.time === "string" ? birth.time.slice(0, 5) : null } : null, // BaZi input (sealed; never logged)
+    did: typeof did === "string" && /^[A-Za-z0-9_-]{16,64}$/.test(did) ? did : null, // device id for returning-customer memory (sealed; never logged)
     issuedAt: Date.now()
   };
   return { token: seal("order", order), order };
@@ -207,7 +208,7 @@ export const RENEW_MAX_MS = 30 * 24 * 60 * 60 * 1000;
 export function renewOrder(token) {
   const p = verifyOrder(token, { ttlMs: RENEW_MAX_MS });
   return signOrder({ question: p.question, context: p.context, card1: p.card1, card1Name: p.card1Name, card1Text: p.card1Text,
-    openThread: p.open_thread, lang: p.lang, source: p.source, topic: p.topic, birth: p.birth });
+    openThread: p.open_thread, lang: p.lang, source: p.source, topic: p.topic, birth: p.birth, did: p.did });
 }
 
 /* ---------------- paid token (slip flow) ---------------- */
@@ -249,7 +250,7 @@ export async function verifyPaidOrder({ orderToken, paidToken, paymentId }) {
     if (paid.orderId !== order.orderId) {
       throw new OrderError("การชำระเงินนี้ไม่ตรงกับคำถามของคุณ", 403, "order_mismatch");
     }
-    if (paid.amount !== PRICE_SATANG || paid.currency !== CURRENCY) {
+    if (!acceptedSatang("deeper").includes(paid.amount) || paid.currency !== CURRENCY) {
       throw new OrderError("การชำระเงินนี้ไม่ตรงกับคำถามของคุณ", 403, "wrong_amount");
     }
     // TODO(storage): one-time use of (orderId, paid.ref) — see top of file.
@@ -261,7 +262,7 @@ export async function verifyPaidOrder({ orderToken, paidToken, paymentId }) {
   }
   const payment = await getPaymentStatus(paymentId);
   const problem = paymentProblem(payment, order.orderId);
-  if (problem === "not_paid") throw new OrderError("ยังไม่พบการชำระเงิน 59 บาท", 402, problem);
+  if (problem === "not_paid") throw new OrderError("ยังไม่พบการชำระเงิน", 402, problem);
   if (problem) throw new OrderError("รายการจ่ายนี้ไม่ตรงกับคำถามของคุณ", 403, problem);
   // TODO(storage): one-time use of (orderId, paymentId) — see top of file.
   return { order, payment };

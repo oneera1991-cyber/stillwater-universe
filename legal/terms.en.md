@@ -24,25 +24,23 @@ If you're having thoughts of harming yourself, please reach out to someone you t
 
 ## Payment and what you get
 
-You type one question. The site draws 1 free card, with Vera's reading of it on screen.
+After you enter your question and birth date, you choose one of three packs:
 
-If you'd like to go further, you can pay ฿59 by PromptPay QR, a Thailand-based payment method. The price and what you get are shown next to the QR before you pay.
+- **Starter (free, normally ฿9):** 1 card with Vera's short reading. No payment.
+- **Deeper (฿59, promotional price ฿39 until 30 November 2026, 23:59 Thailand time; ฿59 after that):** 4 cards for one question: card 1 the overall picture, card 2 the past, card 3 the present, card 4 the tendency ahead, read together with your birth chart (BaZi).
+- **Unlimited (฿399):** unlimited Deeper readings for 30 days from the moment your payment is confirmed. It works in the browser you bought it in, and on other devices with the member code shown after payment, so please keep that code. Membership ends automatically after 30 days; it never renews or charges you again.
 
-We check your payment from your transfer slip. A slip unlocks a reading only if the amount is exactly ฿59, it was paid to Stillwater's registered account, it is dated after you asked your question, and it hasn't been used before. Each slip can be used only once. Invalid or already-used slips can't unlock a reading.
+You can pay by PromptPay QR or through Payhip (card / PayPal). The price of the pack you chose is shown before you pay.
 
-Once your payment is confirmed, the site draws 3 new cards, different from your free card, and reads them for the same question:
-
-- Card 1: energy from the past
-- Card 2: the present situation
-- Card 3: the tendency ahead
+We check PromptPay payments from your transfer slip. A slip unlocks a reading only if the amount exactly matches the current price of the pack you chose, it was paid to Stillwater's registered account, it is dated after you asked your question, and it hasn't been used before. Each slip can be used only once.
 
 Your reading appears on the same page after the system confirms your payment, usually within a minute. For some banks, slip confirmation can take up to about 10 minutes. While you wait, you can tap to check again. Please don't pay again.
 
-Your full reading is kept only in your own browser, not on our servers, so if you'd like to keep it, we recommend taking a screenshot. Please keep your transfer slip and note roughly when you did your reading, for when you contact us.
+Your full reading is kept in your own browser. So that Vera can stay consistent when you come back with a similar question, we keep a short gist of each reading (topic, card names and a brief summary, never your birth date) linked to a random browser id for up to 90 days. If you'd like to keep a reading, we recommend taking a screenshot. Please keep your transfer slip for when you contact us.
 
 ## Scope of purchase
 
-One payment (฿59) unlocks one full 3-card reading for one question. It doesn't include unlimited new questions. A new question starts a new reading.
+One Deeper purchase unlocks one 4-card reading for one question. Unlimited lets you ask Deeper readings without limit for 30 days, for personal use only; please don't share or resell your member code.
 
 ## Data and privacy
 

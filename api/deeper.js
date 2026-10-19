@@ -3,14 +3,17 @@
 STILLWATER — PAID READING  (POST /api/deeper)
 ====================================================
 Body: { order, package, paid } for slip flow, or { order, package, charge } for poll flow.
-Starter returns a concise reading. Deeper keeps the existing 3-card paid reading.
+Body.member = Unlimited membership token (skips payment for Deeper while active).
+Starter (free) returns a concise reading. Deeper returns 4 cards: summary (ผลรวม) + past / present / future.
 The package is checked against the verified payment amount before any reading is generated.
 */
 
 import { POSITION_KEYS, cardById, drawThree, generateFree, generateThree, readerMode } from "./_lib/reader.js";
 import { baziFromBirth } from "../lib/bazi.js";
 import { OrderError, parseBody, readingId, verifyOrder, verifyPaid } from "./_lib/order.js";
-import { PaymentError, getPaymentStatus, normalizePackage, priceForPackage } from "./_lib/payment.js";
+import { PaymentError, getPaymentStatus, paymentProblem, priceForPackage } from "./_lib/payment.js";
+import { activeMembership, countReading } from "./_lib/membership.js";
+import { recall, remember } from "./_lib/memory.js";
 import { errorText, normLang, t } from "../i18n/strings.js";
 import { cleanSid, deviceType, logEvent, orderColumns } from "./_lib/log.js";
 
@@ -25,28 +28,38 @@ function shortText(text, maxWords = 55) {
   return clipped.replace(/[.!?。！？]?["”’']?$/, ".");
 }
 
+/* Payment gate. Body.package: "starter" (free — no payment), "deeper" (slip paid token ฿39 promo / ฿59,
+   or a Payhip claim for the Deeper product), or a membership token (body.member) for an active
+   Unlimited member, who skips payment for Deeper. */
 async function verifySelectedPayment(body) {
   const order = verifyOrder(body.order);
-  const packageType = String(body.package || "").trim().toLowerCase();
-  if (packageType !== "starter" && packageType !== "deeper") throw new OrderError("กรุณาเลือกแพ็กก่อนชำระเงิน", 400, "package_required");
-  const paymentOrder = { ...order, package: normalizePackage(packageType) };
-  const expected = priceForPackage(paymentOrder.package);
+  const packageType = String(body.package || "deeper").trim().toLowerCase(); // older clients send no package → Deeper
+  if (packageType !== "starter" && packageType !== "deeper") throw new OrderError("กรุณาเลือกแพ็กก่อน", 400, "package_required");
+  const paymentOrder = { ...order, package: packageType };
+  if (packageType === "starter") return { order: paymentOrder, payment: { method: "free" }, packageType };
 
+  if (typeof body.member === "string" && body.member) {
+    const m = await activeMembership(body.member);
+    if (m) return { order: paymentOrder, payment: { method: "member", ref: m.id }, packageType, member: m };
+    if (!body.paid && !body.charge && !body.payment) throw new OrderError("membership expired", 402, "member_expired");
+  }
+
+  const expected = priceForPackage("deeper");
   if (typeof body.paid === "string" && body.paid) {
     const paid = verifyPaid(body.paid);
     if (paid.orderId !== order.orderId) throw new OrderError("การชำระเงินนี้ไม่ตรงกับคำถามของคุณ", 403, "order_mismatch");
-    if (paid.amount !== expected || paid.currency !== "THB") throw new OrderError("การชำระเงินนี้ไม่ตรงกับแพ็กที่เลือก", 403, "wrong_amount");
-    return { order: paymentOrder, payment: { method: paid.method, ref: paid.ref }, packageType: paymentOrder.package };
+    // A slip verified during the promo (฿39) stays valid for its 24 h paid-token life.
+    if (![expected, 3900, 5900].includes(paid.amount) || paid.currency !== "THB" || !/deeper|^promptpay/.test(paid.method || "") || /unlimited/.test(paid.method || "")) throw new OrderError("การชำระเงินนี้ไม่ตรงกับแพ็กที่เลือก", 403, "wrong_amount");
+    return { order: paymentOrder, payment: { method: paid.method, ref: paid.ref }, packageType };
   }
 
   const paymentId = String(body.charge || body.payment || "");
   if (!paymentId) throw new OrderError("ไม่พบการชำระเงินของรายการนี้", 402, "payment_missing");
   const payment = await getPaymentStatus(paymentId, paymentOrder);
-  if (!payment.paid) throw new OrderError(`ยังไม่พบการชำระเงิน ${expected / 100} บาท`, 402, "not_paid");
-  if (payment.amount !== expected) throw new OrderError("รายการจ่ายนี้ไม่ตรงกับแพ็กที่เลือก", 403, "wrong_amount");
-  if (payment.currency !== "THB") throw new OrderError("รายการจ่ายนี้ไม่ตรงกับแพ็กที่เลือก", 403, "wrong_currency");
-  if (payment.orderId && payment.orderId !== order.orderId) throw new OrderError("รายการจ่ายนี้ไม่ตรงกับคำถามของคุณ", 403, "order_mismatch");
-  return { order: paymentOrder, payment, packageType: paymentOrder.package };
+  const problem = paymentProblem(payment, order.orderId, "deeper");
+  if (problem === "not_paid") throw new OrderError("ยังไม่พบการชำระเงิน", 402, "not_paid");
+  if (problem) throw new OrderError("รายการจ่ายนี้ไม่ตรงกับแพ็กที่เลือก", 403, problem);
+  return { order: paymentOrder, payment, packageType };
 }
 
 export default async function handler(req, res) {
@@ -58,7 +71,7 @@ export default async function handler(req, res) {
     body = parseBody(req);
     try { lang = normLang(verifyOrder(body.order).lang); } catch {}
     const verified = await verifySelectedPayment(body);
-    const { order, packageType } = verified;
+    const { order, packageType, member } = verified;
     lang = normLang(order.lang);
     logOrder = order;
 
@@ -84,8 +97,10 @@ export default async function handler(req, res) {
       });
     }
 
-    const cards3 = drawThree(order.card1).map((c) => c.id);
+    const cards3 = drawThree(order.card1).map((c) => c.id); // card 1 (ผลรวม) = the order's card; 3 more: past / present / future
+    const memory = order.did ? await recall(order.did, order.question, order.context) : [];
     const result = await generateThree({
+      memory,
       question: order.question,
       context: order.context,
       card1: { id: order.card1, name: order.card1Name || cardById(order.card1, lang)?.name, text: order.card1Text },
@@ -113,6 +128,13 @@ export default async function handler(req, res) {
       const label = (typeof c.position === "string" && c.position) || t(lang, "positions." + key);
       return { position_key: key, position: label, label, id: c.id, name: c.name, file: c.file, image: c.image, text: String(c.text || "") };
     });
+    // Deeper = 4 cards: card 1 "ผลรวม" (overall) first, then past / present / future.
+    const c1 = cardById(order.card1, lang) || {};
+    const summaryLabel = t(lang, "positions.summary");
+    cards.unshift({ position_key: "summary", position: summaryLabel, label: summaryLabel, id: order.card1, name: c1.name || order.card1Name, file: c1.file, image: c1.image,
+      text: String(result.summary || order.card1Text || "") });
+    if (member) await countReading(member);
+    if (order.did) await remember(order.did, { question: order.question, context: order.context, kind: "deeper", cards: cards.map((c) => c.name), gist: result.final });
 
     logEvent("read_full", {
       ...orderColumns(order), device: deviceType(req.headers?.["user-agent"]), card1: order.card1, cards3: cards3.join(","), reader: readerMode(),

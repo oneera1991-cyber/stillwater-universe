@@ -470,8 +470,10 @@ export const CALL_B_INSTRUCTIONS = `[CALL_B] งานนี้: เปิดไ
 - closing (1–2 ประโยค ไม่ขึ้นบรรทัดใหม่): คำพูดปิดเบา ๆ ด้วยน้ำเสียงของพี่เวราเอง พูดกับคนตรงหน้า ไม่สรุป final ซ้ำ ไม่ให้คำแนะนำเพิ่ม ไม่พูดถึงไพ่ (ห้ามแบบ "ไพ่ไม่ได้ปิดประตู...", "ไพ่ชุดนี้...") ไม่ขายอะไรต่อ ห้ามขอบคุณจักรวาล และห้ามชวนให้กลับมาถามใหม่ (หน้าเว็บใส่สองส่วนนี้เอง) ห้ามพูดว่าพี่เวราจะเก็บ ถือ หรือรักษาคำถามนี้ไว้ ไม่ว่าในน้ำนิ่งหรือที่ไหน (เช่น "เก็บคำถามไว้ในน้ำนิ่ง") ทั้งใน closing และทุกส่วนของคำอ่าน
 - cards มี 3 รายการ (ใบ 2–4) ต้องเรียงตามลำดับที่ให้มา และ file ต้องตรงกับที่ระบบสุ่มให้ทุกใบ ห้ามใส่ใบฟรีลงใน cards
 - ฟิลด์ position ใน JSON ใส่ตามเดิม (ใช้ภายในระบบ ไม่แสดงบนหน้าเว็บ) แต่ห้ามใส่คำบอกตำแหน่งลงใน text
+- ชุด Deeper (4 ใบ): ใบที่ 1 คือ "ผลรวม" ภาพรวมของทั้งเรื่อง แล้วตามด้วยอดีต ปัจจุบัน แนวโน้มข้างหน้า ให้เขียน summary (2–3 ประโยค) เป็นคำของพี่เวราสำหรับใบที่ 1 ในฐานะภาพรวมของคำถามนี้ ผสานไพ่กับพื้นดวงปาจื่อของลูกค้า (ถ้ามี) เป็นภาษาคน ห้ามพูดซ้ำคำอ่านใบฟรีเดิม ห้ามขึ้นต้นด้วยชื่อไพ่
+- ถ้ามี "ความจำจากการอ่านครั้งก่อน" ให้คงความหมายให้สอดคล้องกับสิ่งที่พี่เวราเคยบอกไว้ และอ้างถึงอย่างแผ่วเบาเป็นธรรมชาติได้หนึ่งครั้ง (เช่น "เรื่องนี้ต่อจากที่เราเคยคุยกัน...") แต่ยังอ่านจากไพ่ชุดใหม่นี้เป็นหลัก ห้ามบอกว่าระบบจำข้อมูลไว้
 Output JSON (ตอบเฉพาะ JSON นี้ ไม่มีข้อความอื่น):
-{ "safety": false, "cards": [ {"position":"อดีต","file":"...","text":"..."}, {"position":"ปัจจุบัน","file":"...","text":"..."}, {"position":"แนวโน้มข้างหน้า","file":"...","text":"..."} ], "final": "...", "closing": "..." }`;
+{ "safety": false, "summary": "...", "cards": [ {"position":"อดีต","file":"...","text":"..."}, {"position":"ปัจจุบัน","file":"...","text":"..."}, {"position":"แนวโน้มข้างหน้า","file":"...","text":"..."} ], "final": "...", "closing": "..." }`;
 
 
 /*
@@ -527,8 +529,10 @@ export const CALL_B_INSTRUCTIONS_EN = `[CALL_B] Task: open cards 2–4 of a four
 - closing (1–2 sentences, no line breaks): a light close in Vera's own words, spoken to the person. Don't recap the final, don't add more advice, and don't talk about the cards ("the cards haven't closed the door...", "these cards..."). Avoid therapy-style stock lines like "Go gently", "Be gentle with yourself" or "Let it unfold in its own time"; say something plain and specific to this person's question instead. Don't sell anything. Don't thank the universe and don't invite them to come back (the page adds both). Never say that Vera is keeping, holding or storing their question, in still water or anywhere else (e.g. "I'll keep your question in still water"), in the closing or anywhere in the reading.
 - cards holds 3 entries (cards 2–4), in the order given, and every file must match the card the system drew. Don't put the free card in cards.
 - Keep the position field in the JSON as shown (used internally, not shown on the page), but never put a position label in the text.
+- Deeper pack (4 cards): card 1 is the "Overall" picture of the whole story, then Past, Present, Future. Write summary (2–3 sentences): Vera's words for card 1 as the overall picture of this question, blending the card with the customer's BaZi (if given) in plain language. Don't repeat the free card's earlier reading; never start with the card's name.
+- If "memory from an earlier reading" is given, stay consistent with what Vera said before and may gently refer to it once, naturally ("this picks up from what we talked about before..."), while still reading these new cards first. Never say anything was stored or remembered by a system.
 Output JSON (reply with only this JSON, nothing else):
-{ "safety": false, "cards": [ {"position":"Past","file":"...","text":"..."}, {"position":"Present","file":"...","text":"..."}, {"position":"Future","file":"...","text":"..."} ], "final": "...", "closing": "..." }`;
+{ "safety": false, "summary": "...", "cards": [ {"position":"Past","file":"...","text":"..."}, {"position":"Present","file":"...","text":"..."}, {"position":"Future","file":"...","text":"..."} ], "final": "...", "closing": "..." }`;
 
 /*
 ----------------------------------------
@@ -1037,6 +1041,7 @@ export async function generateThree({ question, context, card1, openThread, card
     return {
       ...base, safety: false, guarantee_flags, position_label_flags, keep_question_flags, card_name_flags,
       cards: drawn.map((c, i) => ({ ...pos(i), ...publicCard(c), text: data.cards[i].text.trim() })),
+      summary: nonEmpty(data.summary) ? String(data.summary).trim() : "",
       final: data.final.trim(),
       closing: data.closing.trim(),
       message: null, fallback: false, usage: finalizeUsage(usage)

@@ -82,7 +82,9 @@ async function mockSlip2Sure(url, init) {
   const id = String(process.env.PROMPTPAY_ID || "0000000000");
   const masked = scenario === "wrong_account" ? "xxx-xxx-9999" : "xxx-xxx-" + id.slice(-4);
   const when = new Date(Date.now() - (scenario === "old" ? 3 * 864e5 : 60e3) + 7 * 3600e3).toISOString().replace("Z", "+07:00");
-  return json(200, { info: { payload: "mock", transRef, transDateTime: when, amount: scenario === "wrong_amount" ? 5.9 : 59, paidLocalCurrency: "764",
+  // amount: "AMT:<baht>#" marker in the image (e.g. AMT:399# for Unlimited), else the current Deeper price
+  const amt = Number((bytes.toString("latin1").match(/AMT:(\d+)#/) || [])[1]) || (Date.now() <= Date.parse("2026-11-30T23:59:59.999+07:00") ? 39 : 59);
+  return json(200, { info: { payload: "mock", transRef, transDateTime: when, amount: scenario === "wrong_amount" ? 5.9 : amt, paidLocalCurrency: "764",
     sender: { displayName: "MR. TEST S" }, receiver: { displayName: "นาย ทดสอบ ต", proxy: { type: "MSISDN", value: masked }, account: { type: null, value: null } } },
     credit: { before: 10, usage: 1, after: 9 }, is_exist });
 }
@@ -101,8 +103,8 @@ async function mockEasySlip(url, init) {
   const fields = { matchAmount: form.get("matchAmount"), matchAccount: form.get("matchAccount"), checkDuplicate: form.get("checkDuplicate"), remark: form.get("remark") };
   easyslipCalls.push(fields);
   if (!image || typeof image.arrayBuffer !== "function") return err(400, "VALIDATION_ERROR", "At least one of payload, image, url, or base64 is required");
-  if (fields.matchAmount !== "59" || fields.matchAccount !== "true" || fields.checkDuplicate !== "true") {
-    return err(400, "VALIDATION_ERROR", "mock: expected matchAmount=59, matchAccount=true, checkDuplicate=true");
+  if (!/^\d+$/.test(String(fields.matchAmount)) || fields.matchAccount !== "true" || fields.checkDuplicate !== "true") {
+    return err(400, "VALIDATION_ERROR", "mock: expected matchAmount=<pack price>, matchAccount=true, checkDuplicate=true");
   }
   const bytes = Buffer.from(await image.arrayBuffer());
   if (bytes.length > 4194304) return err(400, "IMAGE_SIZE_TOO_LARGE", "Image size exceeds 4MB limit");
@@ -122,13 +124,14 @@ async function mockEasySlip(url, init) {
   if (scenario === "unreadable") return err(404, "SLIP_NOT_FOUND", "No QR code found in the image");
   if (scenario === "quota") return err(403, "QUOTA_EXCEEDED", "Your API quota has been exceeded");
   const transRef = "MOCK" + crypto.createHash("sha256").update(bytes).digest("hex").slice(0, 20).toUpperCase();
-  const amount = scenario === "wrong_amount" ? 5.9 : 59;
+  const want = Number(fields.matchAmount); // the pack's price the server asked for
+  const amount = scenario === "wrong_amount" ? 5.9 : want;
   const isDuplicate = seenTransRefs.has(transRef);
   seenTransRefs.add(transRef);
   if (MAEMANEE) { // Mae Manee-shaped slip (assumed shape until the real 1-baht calibration; matchedAccount null on purpose)
     const wrong = scenario === "wrong_account";
     return json(200, { success: true, message: "Bank slip verified successfully", data: {
-      remark: fields.remark, isDuplicate, matchedAccount: null, amountInOrder: 59, amountInSlip: amount, isAmountMatched: amount === 59,
+      remark: fields.remark, isDuplicate, matchedAccount: null, amountInOrder: want, amountInSlip: amount, isAmountMatched: amount === want,
       rawSlip: { payload: "mock", transRef, date: new Date(Date.now() - (scenario === "old" ? 3 * 864e5 : 60e3)).toISOString(), countryCode: "TH",
         amount: { amount, local: { amount, currency: "THB" } }, fee: 0,
         ref1: wrong ? "" : process.env.MAEMANEE_SHOP_ID, ref2: wrong ? "" : orderRef(fields.remark), ref3: "",
@@ -148,9 +151,9 @@ async function mockEasySlip(url, init) {
         bank: { nameTh: "กสิกรไทย", nameEn: "KASIKORNBANK", code: "004", shortCode: "KBANK" },
         nameTh: "บัญชีทดสอบ", nameEn: "MOCK ACCOUNT", type: "PERSONAL", bankNumber: "xxx-x-x0000-x"
       },
-      amountInOrder: 59,
+      amountInOrder: want,
       amountInSlip: amount,
-      isAmountMatched: amount === 59,
+      isAmountMatched: amount === want,
       rawSlip: {
         payload: "mock", transRef,
         date: new Date(Date.now() - (scenario === "old" ? 3 * 864e5 : 60e3)).toISOString(),
@@ -242,7 +245,8 @@ const server = http.createServer(async (req, res) => {
       return res.status(200).json({ ok: true, charge: c });
     }
     if (url.pathname.startsWith("/api/")) {
-      const rel = url.pathname.replace(/\/+$/, "");
+      let rel = url.pathname.replace(/\/+$/, "");
+      if (rel === "/api/pay-status") rel = "/api/payment/status"; // mirrors the vercel.json rewrite (keeps the function count at 12)
       if (rel.split("/").some((p) => p.startsWith("_"))) return res.status(404).json({ error: "not found" });
       const file = path.join(ROOT, rel + ".js");
       if (!file.startsWith(path.join(ROOT, "api"))) return res.status(404).end();

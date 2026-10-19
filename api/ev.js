@@ -24,11 +24,11 @@ export const CLIENT_EVENTS = [
   "page_view", "resume", "scene", "enter_tap", "question_submitted", "draw_failed", "rewrite_shown", "safety_shown",
   "free_card_shown", "invitation_shown", "offer_open", "back_tap", "pay_click", "qr_shown", "qr_failed", "qr_save", "qr_hold",
   "slip_pick", "slip_chosen", "slip_rejected_client", "slip_upload", "slip_result", "slip_retry",
-  "pay_payhip_open", "pay_payhip_ok", "pay_payhip_fail",
+  "pay_payhip_open", "pay_payhip_ok", "pay_payhip_fail", "pack_chosen", "member_activated", "member_failed",
   "full_open", "full_card_shown", "next_card_tap", "full_done", "full_failed", "full_retry",
   "rating", "share", "close", "lang_switch", "sound_toggle", "js_error", "leave", "return"
 ];
-const SCENES = ["window", "question", "draw", "first", "offering", "full", "safety"];
+const SCENES = ["window", "question", "packs", "draw", "first", "offering", "full", "safety"];
 const MAX_BODY = 60 * 1024; // beacons cap at 64 KB; the order token can be several KB
 const MAX_EVENTS = 40;
 

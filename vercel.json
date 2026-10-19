@@ -2,6 +2,10 @@
   "version": 2,
   "rewrites": [
     {
+      "source": "/api/pay-status",
+      "destination": "/api/payment/status"
+    },
+    {
       "source": "/terms",
       "destination": "/terms.html"
     },

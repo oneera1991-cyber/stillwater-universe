@@ -25,6 +25,7 @@ import { baziFromBirth, ageOn, MIN_AGE } from "../lib/bazi.js";
 import { detectSelfHarm } from "./_lib/vera.js";
 import { cleanSid, deviceType, logEvent, sourceColumns } from "./_lib/log.js";
 import { classifyTopic } from "./_lib/topic.js";
+import { cleanDid, recall, remember } from "./_lib/memory.js";
 import { sanitizeSource } from "../lib/source.js";
 import { OrderError, parseBody, readingId, signOrder } from "./_lib/order.js";
 import { clientIp, rateLimit } from "./_lib/rate-limit.js";
@@ -77,7 +78,9 @@ export default async function handler(req, res) {
 
     const drawn = drawOne(); // the ONLY free-card draw (crypto.randomInt)
     const t0 = Date.now();
-    const result = await generateFree({ question, context, card: drawn.id, lang, bazi });
+    const did = cleanDid(body.did); // returning-customer memory (device id from localStorage); never logged
+    const memory = did ? await recall(did, question, context) : [];
+    const result = await generateFree({ question, context, card: drawn.id, lang, bazi, memory });
     logBase.latency_ms = Date.now() - t0;
     if (result.usage) console.log("Stillwater /api/read usage:", JSON.stringify({ lang, fallback: result.fallback, attempts: result.attempts, usage: result.usage }));
 
@@ -103,8 +106,10 @@ export default async function handler(req, res) {
       card1Text: String(card.text),
       openThread: result.open_thread,
       topic,
-      birth
+      birth,
+      did
     });
+    if (did) await remember(did, { question, context, kind: "free", cards: [card.name], gist: card.text });
     const order = signed.token;
     logEvent("read_free", { ...logBase, order_id: signed.order.orderId, card1: drawn.id, safety: false, needs_rewrite: false, result: "ok" }); // fire-and-forget
 

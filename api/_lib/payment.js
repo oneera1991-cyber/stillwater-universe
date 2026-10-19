@@ -13,21 +13,41 @@ import * as promptpay from "./payment/promptpay-easyslip.js";
 import * as payhip from "./payment/payhip.js";
 import * as dual from "./payment/dual.js";
 
-export const PACKAGE_PRICES = Object.freeze({
-  starter: Object.freeze({ regularThb: 9, priceThb: 1, priceSatang: 100, product: "STILLWATER_STARTER" }),
-  deeper: Object.freeze({ regularThb: 59, priceThb: 39, priceSatang: 3900, product: "STILLWATER_DEEPER_3" })
-});
-export const PRICE_SATANG = PACKAGE_PRICES.deeper.priceSatang;
-export const PRICE_THB = PACKAGE_PRICES.deeper.priceThb;
+/* Packs (Palm, 2026-10-19):
+   starter   — free now (regular ฿9 shown struck through), no payment.
+   deeper    — 4-card reading. Regular ฿59; promo ฿39 until 2026-11-30 23:59:59 Asia/Bangkok, then ฿59 automatically.
+   unlimited — ฿399, unlimited Deeper readings for 30 days (membership, api/_lib/membership.js). */
+export const DEEPER_PROMO_END_MS = Date.parse("2026-11-30T23:59:59.999+07:00");
+export const UNLIMITED_DAYS = 30;
+const PRODUCTS = { starter: "STILLWATER_STARTER", deeper: "STILLWATER_DEEPER_4", unlimited: "STILLWATER_UNLIMITED_30D" };
+export const PACKS = ["starter", "deeper", "unlimited"];
+export function deeperPromoActive(now = Date.now()) { return now <= DEEPER_PROMO_END_MS; }
+export function packageInfo(value, now = Date.now()) {
+  const pack = normalizePackage(value);
+  const regularThb = pack === "starter" ? 9 : pack === "deeper" ? 59 : 399;
+  const priceThb = pack === "starter" ? 0 : pack === "deeper" ? (deeperPromoActive(now) ? 39 : 59) : 399;
+  return { pack, regularThb, priceThb, priceSatang: priceThb * 100, product: PRODUCTS[pack], promo: priceThb < regularThb, promoEndsAt: pack === "deeper" && deeperPromoActive(now) ? DEEPER_PROMO_END_MS : null };
+}
+/** Amounts (satang) a Payhip webhook may carry for a pack: deeper accepts 39 or 59 during the promo. */
+export function acceptedSatang(value, now = Date.now()) {
+  const p = packageInfo(value, now);
+  if (p.pack === "deeper" && deeperPromoActive(now)) return [3900, 5900];
+  return [p.priceSatang];
+}
+export function priceForPackage(value, now = Date.now()) { return packageInfo(value, now).priceSatang; }
+export function publicPrices(now = Date.now()) {
+  return Object.fromEntries(PACKS.map((k) => { const p = packageInfo(k, now); return [k, { regular: p.regularThb, price: p.priceThb, promo: p.promo, promoEndsAt: p.promoEndsAt }]; }));
+}
 export const CURRENCY = "THB";
-export const PRODUCT = PACKAGE_PRICES.deeper.product;
+// Legacy single-product exports (= Deeper at the current price).
+export const PACKAGE_PRICES = { get deeper() { return packageInfo("deeper"); }, get unlimited() { return packageInfo("unlimited"); }, get starter() { return packageInfo("starter"); } };
 export const DEFAULT_PROVIDER = "promptpay";
 
 export function normalizePackage(value) {
-  return String(value || "").trim().toLowerCase() === "starter" ? "starter" : "deeper";
+  const v = String(value || "").trim().toLowerCase();
+  return PACKS.includes(v) ? v : "deeper";
 }
-export function packageInfo(value) { return PACKAGE_PRICES[normalizePackage(value)]; }
-export function priceForPackage(value) { return packageInfo(value).priceSatang; }
+export function isPack(value) { return PACKS.includes(String(value || "").trim().toLowerCase()); }
 
 const ADAPTERS = { promptpay, easyslip: promptpay, omise, payhip, dual };
 
@@ -49,7 +69,7 @@ function adapter() {
 }
 const ctx = (order) => {
   const p = packageInfo(order?.package);
-  return { PRICE_SATANG: p.priceSatang, PRICE_THB: p.priceThb, CURRENCY, PRODUCT: p.product, package: normalizePackage(order?.package), PaymentError };
+  return { PRICE_SATANG: p.priceSatang, PRICE_THB: p.priceThb, CURRENCY, PRODUCT: p.product, package: p.pack, PaymentError };
 };
 
 export function paymentTestMode(env = process.env) {
@@ -105,13 +125,16 @@ export async function getPaymentStatus(paymentId, order = null) {
   if (typeof impl.getPaymentStatus !== "function") throw new PaymentError("ช่องทางนี้ไม่ใช้การตรวจสถานะ", 400, "not_supported");
   if (!isPaymentId(paymentId)) throw new PaymentError("ไม่พบรายการจ่าย", 400, "payment_missing");
   const s = await impl.getPaymentStatus(paymentId, ctx(order));
-  return { paid: Boolean(s.paid), status: String(s.status || "unknown"), amount: Number(s.amount), currency: String(s.currency || "").toUpperCase(), orderId: s.orderId || null };
+  return { paid: Boolean(s.paid), status: String(s.status || "unknown"), amount: Number(s.amount), currency: String(s.currency || "").toUpperCase(), orderId: s.orderId || null, pack: s.pack || null, ref: s.ref || null };
 }
 
+/** Problem with a provider status for this order + pack, or null. Poll (Payhip) payments may carry any
+    accepted amount for the pack (deeper: 39 or 59 during the promo); the pack must match. */
 export function paymentProblem(status, orderId, packageType = "deeper") {
-  const expected = priceForPackage(packageType);
+  const pack = normalizePackage(packageType);
   if (!status || !status.paid) return "not_paid";
-  if (status.amount !== expected) return "wrong_amount";
+  if (status.pack && status.pack !== pack) return "wrong_pack";
+  if (!acceptedSatang(pack).includes(status.amount)) return "wrong_amount";
   if (status.currency !== CURRENCY) return "wrong_currency";
   if (!status.orderId || status.orderId !== orderId) return "order_mismatch";
   return null;

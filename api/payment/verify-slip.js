@@ -81,8 +81,8 @@ export default async function handler(req, res) {
 
     order = verifyOrder(String(form.get("order") || ""));
     lang = order.lang;
-    const rawPackage = String(form.get("package") || "").trim().toLowerCase();
-    if (rawPackage !== "starter" && rawPackage !== "deeper") throw new OrderError("กรุณาเลือกแพ็กก่อนชำระเงิน", 400, "package_required");
+    const rawPackage = String(form.get("package") || "deeper").trim().toLowerCase(); // older clients → Deeper
+    if (rawPackage !== "deeper" && rawPackage !== "unlimited") throw new OrderError("กรุณาเลือกแพ็กก่อนชำระเงิน", 400, "package_required");
     const packageType = normalizePackage(rawPackage);
     const paymentOrder = { ...order, package: packageType };
 

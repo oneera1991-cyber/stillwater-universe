@@ -4,7 +4,7 @@ Response: { ok, paid, status, paymentId }
 `paid` here only drives the polling UI; /api/deeper re-verifies everything
 (amount, currency, orderId binding) server-side before revealing anything.
 */
-import { PRICE_SATANG, CURRENCY, PaymentError, getPaymentStatus, isPaymentId } from "../_lib/payment.js";
+import { PaymentError, getPaymentStatus, isPaymentId, paymentProblem } from "../_lib/payment.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -18,7 +18,8 @@ export default async function handler(req, res) {
     const s = await getPaymentStatus(paymentId);
     return res.status(200).json({
       ok: true,
-      paid: s.paid && s.amount === PRICE_SATANG && s.currency === CURRENCY,
+      paid: s.paid && !paymentProblem(s, s.orderId || paymentId, s.pack || "deeper"),
+      pack: s.pack || null,
       status: s.status,
       paymentId
     });

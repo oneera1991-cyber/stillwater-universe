@@ -14,6 +14,7 @@ Response: { ok: true, stage, stars, rating_key }   |   { ok: false, error, code 
 - Logging is fire-and-forget (api/_lib/log.js); a logging problem never fails the request.
 */
 import { OrderError, parseBody, verifyOrder, verifyPaidOrder } from "./_lib/order.js";
+import { activeMembership } from "./_lib/membership.js";
 import { PaymentError } from "./_lib/payment.js";
 import { clientIp, rateLimit } from "./_lib/rate-limit.js";
 import { cleanSid, deviceType, logEvent, orderColumns } from "./_lib/log.js";
@@ -42,7 +43,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const order = stage === "full"
+    const member = stage === "full" && typeof body.member === "string" && body.member ? await activeMembership(body.member) : null;
+    const order = stage === "full" && !member
       ? (await verifyPaidOrder({
           orderToken: body.order,
           paidToken: typeof body.paid === "string" && body.paid ? body.paid : null,

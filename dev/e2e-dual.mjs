@@ -7,10 +7,20 @@ Dual mode e2e (dev only): PAYMENT_PROVIDER=dual SLIP_PROVIDER=slip2sure (mock Sl
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 const { chromium } = await import(process.env.PLAYWRIGHT || "playwright");
+
+/* Packs v1: after the form the customer picks a pack (scene-packs). Old flows = Starter (free card → upsell). */
+async function clickAsk(page, pack = "starter") {
+  await page.click("#btnAsk");
+  const shown = await page.waitForSelector("#scene-packs.is-active", { timeout: 2500 }).then(() => true).catch(() => false);
+  if (!shown) return;
+  await page.waitForSelector(`#packBox [data-pack="${pack}"]`);
+  await page.click(`#packBox [data-pack="${pack}"]`);
+}
 const BASE = process.env.BASE || "http://localhost:3123";
 const SHOTS = process.env.SHOTS || "/workspace/vera-build-shots";
 const SIG = createHash("sha256").update(process.env.PAYHIP_API_KEY).digest("hex");
 const R = Date.now().toString(36);
+const DP = Date.now() <= Date.parse("2026-11-30T23:59:59.999+07:00") ? 39 : 59; // Deeper price (promo ฿39 → ฿59)
 const ok = (...a) => console.log("✓", ...a);
 const browser = await chromium.launch();
 const errors = [];
@@ -22,7 +32,7 @@ async function toPayment(lang = "th-TH") {
   await page.waitForFunction(() => [...document.querySelectorAll("#windowLines .ln")].every((n) => n.classList.contains("is-in")));
   await page.waitForTimeout(1100); await page.click("#btnEnter");
   await page.fill("#questionInput", lang.startsWith("th") ? "งานใหม่ที่กำลังจะเริ่มเดือนหน้า จะไปได้ดีไหม" : "Will my new job next month go well?"); await page.evaluate(() => { for (const [id, v] of [["birthDay", "15"], ["birthMonth", "5"], ["birthYear", "1990"]]) { const s = document.getElementById(id); if (!s.value) { s.value = v; s.dispatchEvent(new Event("change")); } } }); // birth date (BaZi)
-  await page.click("#btnAsk");
+  await clickAsk(page);
   await page.waitForSelector("#btnToOffer.is-in", { timeout: 30000 }); await page.waitForTimeout(1100);
   await page.click("#btnToOffer"); await page.waitForSelector("#scene-offering.is-active"); await page.waitForTimeout(900);
   await page.click("#btnPay");
@@ -54,11 +64,12 @@ page = await toPayment("en-US");
 assert.equal((await page.textContent("#btnPayhip")).trim(), "Or pay by card / PayPal");
 await page.screenshot({ path: SHOTS + "/dual-payment-en.png" });
 await page.waitForTimeout(1500);
-const r = await fetch(BASE + "/api/payhip-webhook", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: "DUAL" + R, currency: "THB", price: 5900, items: [{ product_key: "hS8ou" }], date: Math.floor(Date.now() / 1000), type: "paid", signature: SIG }) });
+const r = await fetch(BASE + "/api/payhip-webhook", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: "DUAL" + R, currency: "THB", price: DP * 100, items: [{ product_key: "hS8ou" }], date: Math.floor(Date.now() / 1000), type: "paid", signature: SIG }) });
 assert.equal(r.status, 200);
 await page.waitForSelector("#scene-full.is-active", { timeout: 20000 });
 await page.waitForSelector("#fullStory > *", { timeout: 30000 });
-ok("EN: 'Or pay by card / PayPal'; Payhip webhook first → unlocked (3 cards)");
+assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem("stillwater.vera.v1")).deeper.cards.length)), 4);
+ok("EN: 'Or pay by card / PayPal'; Payhip webhook (฿" + DP + ") first → unlocked (4 cards)");
 assert.deepEqual(errors, []);
 await browser.close();
 console.log("e2e-dual: all passed");

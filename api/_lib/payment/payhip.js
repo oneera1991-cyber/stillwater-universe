@@ -22,13 +22,35 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { redisFromEnv } from "../log.js";
 
 export const FLOW = "poll";
-export const DEFAULT_URL = "https://payhip.com/b/hS8ou";
+export const DEFAULT_URL = "https://payhip.com/b/hS8ou";            // "Stillwater Deeper Pack" (฿39 promo)
+export const DEFAULT_UNLIMITED_URL = "https://payhip.com/b/hHQ6L";  // "Stillwater Unlimites Pack" (฿399)
 const K = { open: "vera:payhip:open:", txn: "vera:payhip:txn:", claim: "vera:payhip:claim:", txnClaim: "vera:payhip:txnclaim:", queue: "vera:payhip:unclaimed" };
 const TTL = 60 * 60 * 48;
 const SKEW_MS = 2 * 60 * 1000;
 
-export const productUrl = (env = process.env) => String(env.PAYHIP_PRODUCT_URL || DEFAULT_URL).trim();
-export const productKey = (env = process.env) => productUrl(env).replace(/\/+$/, "").split("/").pop();
+/* Per-pack Payhip products (Palm, 2026-10-19):
+     deeper    → PAYHIP_DEEPER_URL / PAYHIP_DEEPER_KEY      (fallback: PAYHIP_PRODUCT_URL, then https://payhip.com/b/hS8ou)
+     unlimited → PAYHIP_UNLIMITED_URL / PAYHIP_UNLIMITED_KEY (default: https://payhip.com/b/hHQ6L)
+   KEY defaults to the last path segment of URL (payhip.com/b/<key>). */
+const keyOf = (url) => String(url || "").replace(/[?#].*$/, "").replace(/\/+$/, "").split("/").pop();
+export function productUrl(pack = "deeper", env = process.env) {
+  if (pack === "unlimited") return String(env.PAYHIP_UNLIMITED_URL || DEFAULT_UNLIMITED_URL).trim();
+  return String(env.PAYHIP_DEEPER_URL || env.PAYHIP_PRODUCT_URL || DEFAULT_URL).trim();
+}
+export function productKey(pack = "deeper", env = process.env) {
+  if (pack === "unlimited") return String(env.PAYHIP_UNLIMITED_KEY || "").trim() || (productUrl("unlimited", env) ? keyOf(productUrl("unlimited", env)) : null);
+  return String(env.PAYHIP_DEEPER_KEY || "").trim() || keyOf(productUrl("deeper", env));
+}
+/** Product key / permalink of a webhook item → "deeper" | "unlimited" | null. */
+export function packForItem(item, env = process.env) {
+  if (!item) return null;
+  const k = String(item.product_key || "").trim(), link = keyOf(item.product_permalink);
+  for (const pack of ["unlimited", "deeper"]) {
+    const want = productKey(pack, env);
+    if (want && (k === want || link === want)) return pack;
+  }
+  return null;
+}
 
 let redisImpl = null;
 export function setRedisForTesting(fn) { redisImpl = fn; }
@@ -53,19 +75,21 @@ export function verifySignature(payload, apiKey = process.env.PAYHIP_API_KEY) {
 }
 
 /** Problem with a verified paid payload for our product, or null. */
-export function payloadProblem(p, { PRICE_SATANG, CURRENCY }) {
-  if (p.type !== "paid") return "not_paid_event";
-  if (!p.id) return "no_id";
-  const key = productKey();
-  if (!Array.isArray(p.items) || !p.items.some((i) => i && (i.product_key === key || String(i.product_permalink || "").endsWith("/" + key)))) return "wrong_product";
-  if (String(p.currency || "").toUpperCase() !== CURRENCY) return "wrong_currency";
-  if (Number(p.price) < PRICE_SATANG) return "wrong_amount";
-  return null;
+/** { pack, problem } for a verified webhook. acceptedFor(pack) → allowed amounts in satang
+    (deeper: 39 or 59 during the promo, 59 after; unlimited: 399). */
+export function payloadCheck(p, { CURRENCY, acceptedFor }) {
+  if (p.type !== "paid") return { pack: null, problem: "not_paid_event" };
+  if (!p.id) return { pack: null, problem: "no_id" };
+  const pack = Array.isArray(p.items) ? p.items.map((i) => packForItem(i)).find(Boolean) || null : null;
+  if (!pack) return { pack, problem: "wrong_product" };
+  if (String(p.currency || "").toUpperCase() !== CURRENCY) return { pack, problem: "wrong_currency" };
+  if (!acceptedFor(pack).includes(Number(p.price))) return { pack, problem: "wrong_amount" };
+  return { pack, problem: null };
 }
 
 /** Store a verified paid webhook. Returns "stored" | "duplicate". */
-export async function recordPaid(p) {
-  const txn = { id: String(p.id), price: Number(p.price), currency: String(p.currency).toUpperCase(), date: Number(p.date) * 1000 || Date.now(), at: Date.now() };
+export async function recordPaid(p, pack = "deeper") {
+  const txn = { id: String(p.id), pack, price: Number(p.price), currency: String(p.currency).toUpperCase(), date: Number(p.date) * 1000 || Date.now(), at: Date.now() };
   const ok = await redis("SET", K.txn + txn.id, JSON.stringify(txn), "NX", "EX", TTL);
   if (ok !== "OK") return "duplicate";
   await redis("RPUSH", K.queue, txn.id);
@@ -75,9 +99,14 @@ export async function recordRefund(p) {
   if (p && p.id) await redis("SET", K.txn + "refunded:" + p.id, "1", "EX", TTL);
 }
 
-export async function createPayment(order, { PRICE_SATANG, CURRENCY }) {
-  await redis("SET", K.open + order.orderId, String(Date.now()), "NX", "EX", TTL);
-  return { paymentId: order.orderId, checkoutUrl: productUrl(), qr: null, qrPayload: null, amount: PRICE_SATANG, currency: CURRENCY, mode: "live" };
+export async function createPayment(order, { PRICE_SATANG, CURRENCY, package: pack = "deeper" }) {
+  const url = productUrl(pack);
+  if (!url) return { paymentId: null, checkoutUrl: null, qr: null, qrPayload: null, amount: PRICE_SATANG, currency: CURRENCY, mode: "live" };
+  // value = "<ms>|<pack>"; the latest opened pack for this order is the one we claim for.
+  const prev = await redis("GET", K.open + order.orderId);
+  const at = prev ? Number(String(prev).split("|")[0]) || Date.now() : Date.now();
+  await redis("SET", K.open + order.orderId, at + "|" + pack, "EX", TTL);
+  return { paymentId: order.orderId, checkoutUrl: url, qr: null, qrPayload: null, amount: PRICE_SATANG, currency: CURRENCY, mode: "live" };
 }
 
 async function claimed(orderId) {
@@ -89,13 +118,15 @@ async function claimed(orderId) {
 }
 
 async function tryClaim(orderId) {
-  const opened = Number(await redis("GET", K.open + orderId));
+  const [o, p] = String((await redis("GET", K.open + orderId)) || "").split("|");
+  const opened = Number(o), pack = p || "deeper";
   if (!opened) return null;
   const ids = (await redis("LRANGE", K.queue, 0, 49)) || [];
   for (const id of ids) {
     const raw = await redis("GET", K.txn + id);
     if (!raw) { await redis("LREM", K.queue, 1, id); continue; } // expired
     const t = JSON.parse(raw);
+    if ((t.pack || "deeper") !== pack) continue; // a Deeper payment never unlocks Unlimited (and vice versa)
     if (t.date < opened - SKEW_MS) continue; // paid before this order opened checkout
     if ((await redis("SET", K.txnClaim + id, orderId, "NX", "EX", TTL)) !== "OK") continue;
     await redis("SET", K.claim + orderId, id, "EX", TTL);
@@ -105,9 +136,11 @@ async function tryClaim(orderId) {
   return null;
 }
 
+/* amount = the claimed pack's price as charged on Payhip (webhook already checked it against the
+   pack's accepted amounts); pack lets callers check it is the pack they expect. */
 export async function getPaymentStatus(orderId) {
   const t = (await claimed(orderId)) || (await tryClaim(orderId));
   if (!t) return { paid: false, status: "pending", amount: 0, currency: "", orderId };
-  if (t.refunded) return { paid: false, status: "reversed", amount: t.price, currency: t.currency, orderId };
-  return { paid: true, status: "successful", amount: 5900, currency: t.currency, orderId, ref: t.id };
+  if (t.refunded) return { paid: false, status: "reversed", amount: t.price, currency: t.currency, orderId, pack: t.pack || "deeper" };
+  return { paid: true, status: "successful", amount: t.price, currency: t.currency, orderId, ref: t.id, pack: t.pack || "deeper" };
 }
