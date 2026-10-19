@@ -319,6 +319,8 @@ body[data-scene="door"] #bg-door,body[data-scene="window"] #bg-vera,body[data-sc
   -webkit-appearance:none;appearance:none;min-height:3.2rem;padding:.75rem 1.9rem .75rem .8rem;font:400 1rem var(--sans);color:var(--text);
   background:rgba(8,10,28,.55) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23cdd6f4' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right .7rem center;
   text-overflow:ellipsis;cursor:pointer}
+/* Day column is narrow (4.6rem): tighter padding + arrow so "Day" / "วัน" / "31" show in full */
+#scene-question select#birthDay{padding-left:.6rem;padding-right:1.45rem;background-position:right .5rem center;text-overflow:clip}
 #scene-question select.input:disabled{opacity:.45}
 #scene-question select.input.is-empty{color:var(--soft)}
 #scene-question select.input.is-bad{border-color:rgba(255,190,190,.7)}
