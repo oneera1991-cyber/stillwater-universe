@@ -684,8 +684,8 @@ body[data-scene="door"] #bg-door,body[data-scene="window"] #bg-vera,body[data-sc
 /* All user-facing copy lives in /i18n/strings.js (shared with the API). */
 import { t as tr, normLang, errorKey, LANGS } from '/i18n/strings.js';
 import { touchFromLanding, isSignal, TRACKING_PARAMS, SHARE_PATH } from '/lib/source.js';
-import { POSITION_ORDER, cardHeading, storyLines } from '/lib/story.js';
-import { renderPicker, packPrices, packCopy, deviceId, memberToken, memberActive, memberInfo, saveMember, clearMember, refreshMember, fmtDate, PICKER_CSS } from '/lib/package-picker.js';
+import { POSITION_ORDER, cardKey, storyLines } from '/lib/story.js';
+import { renderPicker, rerenderPicker, packPrices, packCopy, deviceId, memberToken, memberActive, memberInfo, saveMember, clearMember, refreshMember, fmtDate, PICKER_CSS } from '/lib/package-picker.js';
 import { createSound, LEVEL as AMBIENT_LEVEL } from '/lib/ambient.js';
 
 (function(){
@@ -750,6 +750,10 @@ function applyLang(){
   if(currentScene === 'safety') renderSafety(true);
   try{ renderPayee(); }catch(e){} // state may not exist yet on the first call
   try{ renderBirthSelects(); }catch(e){}
+  // Script-rendered pieces (not data-i18n): pack picker, offering price/pack line, Unlimited member card.
+  try{ rerenderPicker($('packBox'), uiLang); }catch(e){}
+  try{ renderOfferText(); }catch(e){}
+  try{ if(!$('memberCard').hidden) renderMemberCard(); }catch(e){}
   document.documentElement.classList.remove('lang-pending');
 }
 function setLang(lang){
@@ -1237,6 +1241,7 @@ async function submitQuestion(event){
 async function goPacks(){
   state.pack = null;
   await refreshMember(); // 30-day expiry check on the server
+  delete $('packBox')._swPick; // fresh picker (new question)
   renderPicker($('packBox'), uiLang, async (pack) => {
     state.pack = pack;
     buttonSound('submit');
@@ -1387,12 +1392,18 @@ function resetSlip(){
   $('btnRetrySlip').hidden = true;
 }
 
-function syncOffering(){
+/* Price + pack line on the payment screen; re-run on language switch. */
+function renderOfferText(){
   const pack = state.pack === 'unlimited' ? 'unlimited' : 'deeper';
   const p = packPrices()[pack], c = packCopy(uiLang);
   $('offerOld').textContent = p.price < p.regular ? '฿' + p.regular : '';
   $('offerNow').textContent = '฿' + p.price + (pack === 'unlimited' ? ' ' + c.days : '');
   $('offerPack').textContent = c[pack][0] + ' · ' + c[pack][1];
+}
+function syncOffering(){
+  const pack = state.pack === 'unlimited' ? 'unlimited' : 'deeper';
+  const p = packPrices()[pack];
+  renderOfferText();
   $('btnSaveQr').download = 'stillwater-promptpay-' + p.price + '.png';
   // Unlimited gets its own heading + subline; Deeper keeps the original ones (data-i18n so the TH/EN toggle follows).
   $('offerTitle').dataset.i18n = pack === 'unlimited' ? 'offering.titleUnlimited' : 'offering.title';
@@ -1565,8 +1576,20 @@ async function submitSlip(){
 }
 
 /* Unlimited: verified ฿399 payment → membership token (localStorage) + recovery code shown once. */
+/* Member card (strings from package-picker COPY, so the TH/EN toggle re-renders it). */
+function renderMemberCard(){
+  const card = $('memberCard'), info = memberInfo() || {}, c = packCopy(uiLang);
+  card.innerHTML = '';
+  const h = document.createElement('p'); h.className = 'say'; h.textContent = c.welcome;
+  const until = document.createElement('p'); until.textContent = c.readsUntil(fmtDate(info.expiresAt, uiLang));
+  const lab = document.createElement('p'); lab.textContent = c.codeLabel;
+  const code = document.createElement('code'); code.id = 'memberCodeShown'; code.textContent = info.code || '';
+  const go = document.createElement('button'); go.className = 'btn'; go.id = 'btnMemberRead'; go.type = 'button'; go.textContent = c.openFour;
+  go.addEventListener('click', () => { buttonSound(); state.pack = 'deeper'; state.stage = 'paid'; save(); openFull(); });
+  card.append(h, until, lab, code, go);
+}
 async function activateMember(proof){
-  const card = $('memberCard'), en = uiLang === 'en';
+  const card = $('memberCard');
   try{
     const res = await fetch('/api/membership', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ action:'activate', order: state.order, sid: tsid, ...proof }) });
     const d = await res.json().catch(() => ({}));
@@ -1580,15 +1603,7 @@ async function activateMember(proof){
   }
   ['payQr','payHint','payQrActions','slipBox','btnPayhip','payPayee'].forEach((id) => { $(id).hidden = true; });
   setPayStatus('');
-  const info = memberInfo();
-  card.innerHTML = '';
-  const h = document.createElement('p'); h.className = 'say'; h.textContent = en ? 'Welcome to Unlimited' : 'ยินดีต้อนรับสู่ Unlimited ค่ะ';
-  const until = document.createElement('p'); until.textContent = (en ? 'Unlimited Deeper readings until ' : 'อ่านแบบ Deeper ได้ไม่จำกัดถึง ') + fmtDate(info.expiresAt, uiLang);
-  const lab = document.createElement('p'); lab.textContent = en ? 'Your member code (keep it to use on another device):' : 'รหัสสมาชิกของคุณ (เก็บไว้ใช้บนเครื่องอื่น)';
-  const code = document.createElement('code'); code.id = 'memberCodeShown'; code.textContent = info.code || '';
-  const go = document.createElement('button'); go.className = 'btn'; go.id = 'btnMemberRead'; go.type = 'button'; go.textContent = en ? 'Open my four cards' : 'เปิดไพ่สี่ใบของคำถามนี้';
-  go.addEventListener('click', () => { buttonSound(); state.pack = 'deeper'; state.stage = 'paid'; save(); openFull(); });
-  card.append(h, until, lab, code, go);
+  renderMemberCard();
   card.hidden = false;
   card.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
 }
@@ -1733,7 +1748,8 @@ function buildChapter(card, i){
   ch.dataset.step = String(i + 1);   // paid card 1..4
   ch.dataset.card = String(i + 1);   // Deeper: card 1 ผลรวม (overall), 2 past, 3 present, 4 future
   if(i > 0){ const d = document.createElement('div'); d.className = 'glow-divider'; d.setAttribute('aria-hidden', 'true'); ch.appendChild(d); }
-  const say = document.createElement('h3'); say.className = 'say'; say.textContent = cardHeading(card, i, state.lang || uiLang);
+  // Vera's spoken heading is UI copy (strings full.headings.*), so it follows the TH/EN toggle; the reading text keeps its language.
+  const say = document.createElement('h3'); say.className = 'say'; setText(say, 'full.headings.' + cardKey(card, i));
   const flip = document.createElement('div'); flip.className = 'flip';
   const inner = document.createElement('div'); inner.className = 'flip-inner';
   const back = document.createElement('div'); back.className = 'face face-back card-back';
@@ -1743,7 +1759,7 @@ function buildChapter(card, i){
   const name = document.createElement('p'); name.className = 'name';
   const reading = document.createElement('div'); reading.className = 'reading';
   ch.append(say, flip, name, reading);
-  ch.setAttribute('aria-label', say.textContent);
+  ch.dataset.i18nAriaLabel = 'full.headings.' + cardKey(card, i); ch.setAttribute('aria-label', say.textContent);
   return { ch, flip, img, name, reading };
 }
 
@@ -1970,6 +1986,7 @@ function showSafety(message, lang){
 $('btnDoor').addEventListener('click', openDoor);
 $('btnEnter').addEventListener('click', enter);
 $('questionForm').addEventListener('submit', submitQuestion);
+$('questionInput').addEventListener('input', () => { const n = $('rewriteNote'); if(n.dataset.i18n === 'question.empty' && $('questionInput').value.trim()) n.hidden = true; });
 $('btnDrawBack').addEventListener('click', () => { tlog('back_tap', { scene: 'draw' }); goQuestion(); });
 $('btnToOffer').addEventListener('click', goOffering);
 $('btnPay').addEventListener('click', createPayment);
