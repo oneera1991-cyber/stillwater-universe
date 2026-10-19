@@ -684,11 +684,11 @@ body[data-scene="door"] #bg-door,body[data-scene="window"] #bg-vera,body[data-sc
 
 <script type="module">
 /* All user-facing copy lives in /i18n/strings.js (shared with the API). */
-import { t as tr, normLang, errorKey, LANGS } from '/i18n/strings.js';
-import { touchFromLanding, isSignal, TRACKING_PARAMS, SHARE_PATH } from '/lib/source.js';
-import { POSITION_ORDER, cardKey, storyLines } from '/lib/story.js';
-import { renderPicker, rerenderPicker, packPrices, packCopy, deviceId, memberToken, memberActive, memberInfo, saveMember, clearMember, refreshMember, fmtDate, PICKER_CSS } from '/lib/package-picker.js';
-import { createSound, LEVEL as AMBIENT_LEVEL } from '/lib/ambient.js';
+import { t as tr, normLang, errorKey, LANGS } from '/i18n/strings.js?v=20261019b';
+import { touchFromLanding, isSignal, TRACKING_PARAMS, SHARE_PATH } from '/lib/source.js?v=20261019b';
+import { POSITION_ORDER, cardKey, storyLines } from '/lib/story.js?v=20261019b';
+import { renderPicker, rerenderPicker, packPrices, packCopy, deviceId, memberToken, memberActive, memberInfo, saveMember, clearMember, refreshMember, fmtDate, PICKER_CSS } from '/lib/package-picker.js?v=20261019b';
+import { createSound, LEVEL as AMBIENT_LEVEL } from '/lib/ambient.js?v=20261019b';
 
 (function(){
 'use strict';
@@ -708,6 +708,15 @@ function initialLang(){
 }
 let uiLang = initialLang();
 const t = (key, vars) => tr(uiLang, key, vars);
+/* A strings list that must be an array (months, line lists, safety paragraphs). A stale cached
+   strings.js (seen in the wild: an old copy without question.months) returns the key string
+   instead → fall back rather than throw "t(...).map is not a function" and kill the page. */
+function tList(key, fallback){
+  const v = t(key);
+  if(Array.isArray(v) && v.length) return v.slice();
+  return typeof fallback === 'function' ? fallback() : (fallback || []);
+}
+const monthNames = () => Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleDateString(uiLang === 'th' ? 'th-TH' : 'en-GB', { month: 'long' }));
 
 /* Bind an element to a strings key (re-rendered on language switch). */
 function setText(el, key, vars){
@@ -1138,7 +1147,7 @@ function fillSelect(sel, items, placeholder){
 function renderBirthSelects(){
   const nowY = new Date().getFullYear();
   const days = []; for(let d = 1; d <= 31; d++) days.push([String(d), String(d)]);
-  const months = t('question.months').map((m, i) => [String(i + 1), m]);
+  const months = tList('question.months', monthNames).map((m, i) => [String(i + 1), m]);
   const years = []; for(let y = nowY - MIN_AGE; y >= 1920; y--) years.push([String(y), uiLang === 'th' ? String(y + 543) : String(y)]);
   fillSelect($('birthDay'), days, t('question.day'));
   fillSelect($('birthMonth'), months, t('question.month'));
@@ -1207,7 +1216,7 @@ $('birthTime').addEventListener('input', (ev) => {
   if(!$('timeErr').hidden && readTime() !== false) showTimeErr(null);
 });
 $('birthTime').addEventListener('blur', () => { const tm = readTime(); if(tm) $('birthTime').value = tm; showTimeErr(tm === false ? 'question.timeInvalid' : null); saveBirth(); });
-renderBirthSelects();
+try{ renderBirthSelects(); }catch(e){ console.error(e); }
 restoreBirth();
 
 async function submitQuestion(event){
@@ -1964,8 +1973,8 @@ function renderSafety(revealed){
   const box = $('safetyMsg');
   box.textContent = '';
   const fromServer = safetyShown && safetyShown.text && safetyShown.lang === uiLang;
-  const paras = fromServer ? String(safetyShown.text).split(/\n{2,}/).filter(Boolean) : t('safety.paragraphs').slice();
-  if(!paras.some((p) => p.includes('1323'))) paras.push(t('safety.paragraphs')[2]);
+  const paras = fromServer ? String(safetyShown.text).split(/\n{2,}/).filter(Boolean) : tList('safety.paragraphs', ['1323']);
+  if(!paras.some((p) => p.includes('1323'))) paras.push(tList('safety.paragraphs', [])[2] || '1323');
   paras.forEach((text) => {
     const p = document.createElement('p');
     p.className = 'ln' + (revealed ? ' is-in' : '');
@@ -2030,6 +2039,9 @@ try{
 
 window.addEventListener('load', () => { setTimeout(() => { const ext = (window.CSS && CSS.supports && CSS.supports('background-image', 'image-set(url(a.webp) type("image/webp"))')) ? '.webp' : '.jpg'; for(const n of ['vera','hands']){ const i = new Image(); i.src = '/intro/' + n + ext; } }, 300); });
 
+/* Saved pack → one we know. Old saves (before packs, 1e03b4c and earlier) have no pack: that was a
+   Deeper offer, so default to deeper (the server also treats a missing package as deeper). */
+function savedPack(v){ return ['starter','deeper','unlimited','starter-upsell'].includes(v) ? v : 'deeper'; }
 (function resume(){
   const params = new URLSearchParams(location.search);
   if(!params.get('payment')){
@@ -2037,7 +2049,7 @@ window.addEventListener('load', () => { setTimeout(() => { const ext = (window.C
     // resume an unfinished paid step in the same browser.
     const saved = load();
     if(saved && saved.order && saved.card && ['offering','paid','full'].includes(saved.stage)){
-      Object.assign(state, { pack: saved.pack || null, order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || null, paid: saved.paid || null, deeper: saved.deeper || null, stage: saved.stage, ratings: saved.ratings || {}, readingId: saved.readingId || null, fullStep: saved.fullStep || 0 });
+      Object.assign(state, { pack: savedPack(saved.pack), order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || null, paid: saved.paid || null, deeper: saved.deeper || null, stage: saved.stage, ratings: saved.ratings || {}, readingId: saved.readingId || null, fullStep: saved.fullStep || 0 });
       tlog('resume', { detail: 'stage=' + saved.stage, step: saved.fullStep || 0 });
       $('soundToggle').classList.add('is-on');
       fillFirstStatic();
@@ -2061,7 +2073,7 @@ window.addEventListener('load', () => { setTimeout(() => { const ext = (window.C
   history.replaceState(null, '', location.pathname);
   const saved = load();
   if(!saved || !saved.order || !saved.card) return; // nothing to resume: start fresh
-  Object.assign(state, { fullStep: saved.fullStep || 0, readingId: saved.readingId || null, ratings: saved.ratings || {}, order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || pid || null, deeper: saved.deeper || null });
+  Object.assign(state, { pack: savedPack(saved.pack), fullStep: saved.fullStep || 0, readingId: saved.readingId || null, ratings: saved.ratings || {}, order: saved.order, card: saved.card, lang: saved.lang || null, paymentId: saved.paymentId || pid || null, deeper: saved.deeper || null });
   if(pid && saved.paymentId && pid !== saved.paymentId) state.paymentId = pid; // server still verifies orderId binding
   $('soundToggle').classList.add('is-on');
   if(state.deeper){ openFull(); return; }
