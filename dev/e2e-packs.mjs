@@ -45,7 +45,7 @@ async function readAll() {
     if (st.next) await page.click("#btnNextCard");
     await page.waitForTimeout(150);
   }
-  throw new Error("reading never finished");
+  throw new Error("reading never finished: " + JSON.stringify(await page.evaluate(() => ({ scene: document.body.dataset.scene, err: document.getElementById("fullErrorText").textContent, chapters: document.querySelectorAll("#fullStory .chapter").length }))));
 }
 
 /* 1. picker */
@@ -62,6 +62,7 @@ await shot("01-picker"); ok("picker: Starter ~~฿9~~ ฟรี · Deeper ~~฿5
 await page.click('#packBox [data-pack="deeper"]');
 await page.waitForSelector("#scene-offering.is-active", { timeout: 30000 }); await page.waitForTimeout(900);
 assert.equal((await page.textContent("#offerNow")).trim(), "฿" + DP);
+assert.equal((await page.textContent("#offerTitle")).trim(), "บางคำถาม... ไพ่ใบเดียวอาจยังเล่าไม่หมด", "Deeper keeps the original heading");
 assert.equal(await page.$$eval("#scene-offering .locked figure", (n) => n.length), 4);
 await page.click("#btnPay"); await page.waitForSelector("#slipBox:not([hidden])"); await page.waitForSelector("#btnPayhip:not([hidden])");
 assert.equal(await page.getAttribute("#btnPayhip", "href"), "https://payhip.com/b/hS8ou", "Deeper Payhip fallback product");
@@ -94,6 +95,15 @@ await toPicker("งานที่บริษัทใหม่ เดือน
 await page.click('#packBox [data-pack="unlimited"]');
 await page.waitForSelector("#scene-offering.is-active", { timeout: 30000 }); await page.waitForTimeout(900);
 assert.match((await page.textContent("#offerNow")).trim(), /^฿399/);
+assert.equal((await page.textContent("#offerTitle")).trim(), "บางเรื่อง... ต้องใช้เวลาฟังกันนานกว่าหนึ่งครั้ง");
+assert.equal((await page.textContent("#offerCopy")).trim(), "30 วันนี้ พี่เวราจะอยู่ตรงนี้ทุกครั้งที่ใจอยากถามค่ะ");
+await page.evaluate(() => { document.getElementById("scene-offering").scrollTop = 0; }); await page.waitForTimeout(300);
+await shot("10-unlimited-heading");
+await page.click("#langToggle");
+assert.equal((await page.textContent("#offerTitle")).trim(), "Some things take more than one sitting to hear.");
+assert.equal((await page.textContent("#offerCopy")).trim(), "For these 30 days, Vera is here whenever your heart wants to ask.");
+await page.click("#langToggle");
+ok("Unlimited heading + subline (TH/EN) → packs-10-unlimited-heading.png");
 await page.click("#btnPay"); await page.waitForSelector("#slipBox:not([hidden])"); await page.waitForSelector("#btnPayhip:not([hidden])");
 assert.equal(await page.getAttribute("#btnPayhip", "href"), "https://payhip.com/b/UNLTEST", "Unlimited Payhip product");
 await shot("06-unlimited-payment");

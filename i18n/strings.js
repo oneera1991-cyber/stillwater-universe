@@ -127,6 +127,8 @@ export const STRINGS = {
     positions: { summary: "ผลรวม", past: "อดีต", present: "ปัจจุบัน", ahead: "แนวโน้มข้างหน้า" },
     offering: {
       title: "บางคำถาม... ไพ่ใบเดียวอาจยังเล่าไม่หมด",
+      titleUnlimited: "บางเรื่อง... ต้องใช้เวลาฟังกันนานกว่าหนึ่งครั้ง",
+      copyUnlimited: "30 วันนี้ พี่เวราจะอยู่ตรงนี้ทุกครั้งที่ใจอยากถามค่ะ",
       copy: "ให้พี่เปิดไพ่สี่ใบ ทั้งผลรวมของเรื่อง อดีต ปัจจุบัน และแนวโน้มข้างหน้า",
       ppf: "Overall · Past · Present · Future",
       price: "฿39",
@@ -321,6 +323,8 @@ export const STRINGS = {
     positions: { summary: "Overall", past: "Past", present: "Present", ahead: "Future" }, // [Palm] = vera.js POSITIONS_EN
     offering: {
       title: "Some questions need more than one card.", // [Palm]
+      titleUnlimited: "Some things take more than one sitting to hear.",
+      copyUnlimited: "For these 30 days, Vera is here whenever your heart wants to ask.",
       copy: "Let me open four cards: the whole picture, what has been, what is, and what may lie ahead.",
       ppf: "Overall · Past · Present · Future",
       price: "฿39",

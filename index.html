@@ -589,8 +589,8 @@ body[data-scene="door"] #bg-door,body[data-scene="window"] #bg-vera,body[data-sc
 <section class="scene" id="scene-offering" hidden>
   <div class="scene-inner">
     <div class="stage" aria-hidden="true"><div class="water-glow"></div><svg class="vera"><use href="#vera-figure"/></svg></div>
-    <h2 data-i18n="offering.title">บางคำถาม... ไพ่ใบเดียวอาจยังเล่าไม่หมด</h2>
-    <p class="copy" data-i18n="offering.copy">ให้พี่เปิดไพ่เพิ่มอีกสามใบ เพื่อดูเรื่องราวตั้งแต่อดีต ปัจจุบัน และแนวโน้มข้างหน้า</p>
+    <h2 id="offerTitle" data-i18n="offering.title">บางคำถาม... ไพ่ใบเดียวอาจยังเล่าไม่หมด</h2>
+    <p class="copy" id="offerCopy" data-i18n="offering.copy">ให้พี่เปิดไพ่เพิ่มอีกสามใบ เพื่อดูเรื่องราวตั้งแต่อดีต ปัจจุบัน และแนวโน้มข้างหน้า</p>
     <p class="ppf" data-i18n="offering.ppf">Past · Present · Future</p>
     <div class="locked" aria-hidden="true">
       <figure><div class="card-back"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(235,240,255,.9)" stroke-width="1.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><figcaption data-i18n="positions.summary">ผลรวม</figcaption></figure>
@@ -1394,6 +1394,10 @@ function syncOffering(){
   $('offerNow').textContent = '฿' + p.price + (pack === 'unlimited' ? ' ' + c.days : '');
   $('offerPack').textContent = c[pack][0] + ' · ' + c[pack][1];
   $('btnSaveQr').download = 'stillwater-promptpay-' + p.price + '.png';
+  // Unlimited gets its own heading + subline; Deeper keeps the original ones (data-i18n so the TH/EN toggle follows).
+  $('offerTitle').dataset.i18n = pack === 'unlimited' ? 'offering.titleUnlimited' : 'offering.title';
+  $('offerCopy').dataset.i18n = pack === 'unlimited' ? 'offering.copyUnlimited' : 'offering.copy';
+  setText($('offerTitle'), $('offerTitle').dataset.i18n); setText($('offerCopy'), $('offerCopy').dataset.i18n);
   $('btnBackFirst').hidden = state.pack !== 'starter-upsell';
 }
 function goOffering(){
