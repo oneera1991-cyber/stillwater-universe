@@ -19,10 +19,12 @@ import { PaymentError } from "./_lib/payment.js";
 import { clientIp, rateLimit } from "./_lib/rate-limit.js";
 import { cleanSid, deviceType, logEvent, orderColumns } from "./_lib/log.js";
 import { errorText, normLang, t } from "../i18n/strings.js";
+import swApi from "./_lib/sw-api.js"; // Stillwater platform (vercel.json: /api/sw → /api/rate?sw=1); Vera rating below is unchanged
 
 export const STAGES = ["free", "full"];
 
 export default async function handler(req, res) {
+  if (req.query?.sw === "1") return swApi(req, res);
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }

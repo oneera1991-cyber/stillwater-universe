@@ -246,7 +246,8 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname.startsWith("/api/")) {
       let rel = url.pathname.replace(/\/+$/, "");
-      if (rel === "/api/pay-status") rel = "/api/payment/status"; // mirrors the vercel.json rewrite (keeps the function count at 12)
+      if (rel === "/api/pay-status") rel = "/api/payment/status";
+      if (rel === "/api/sw") { req.body = await readJsonBody(req); return (await import(pathToFileURL(path.join(ROOT, "api/_lib/sw-api.js")).href)).default(req, res); } // mirrors the vercel.json rewrite (keeps the function count at 12)
       if (rel.split("/").some((p) => p.startsWith("_"))) return res.status(404).json({ error: "not found" });
       const file = path.join(ROOT, rel + ".js");
       if (!file.startsWith(path.join(ROOT, "api"))) return res.status(404).end();
@@ -257,6 +258,7 @@ const server = http.createServer(async (req, res) => {
     }
     let p = decodeURIComponent(url.pathname);
     if (p === "/") p = "/index.html";
+    if (p === "/platform" || p === "/platform/") p = "/platform/index.html";
     if (p === "/terms" || p === "/terms/") p = "/terms.html";       // mirrors the vercel.json rewrites
     if (p === "/privacy" || p === "/privacy/") p = "/privacy.html";
     const file = path.join(ROOT, p);

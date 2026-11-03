@@ -12,6 +12,14 @@
     {
       "source": "/privacy",
       "destination": "/privacy.html"
+    },
+    {
+      "source": "/api/sw",
+      "destination": "/api/rate?sw=1"
+    },
+    {
+      "source": "/platform",
+      "destination": "/platform/index.html"
     }
   ],
   "functions": {
@@ -19,6 +27,9 @@
       "includeFiles": "api/_lib/card-meanings*.json"
     },
     "api/deeper.js": {
+      "includeFiles": "api/_lib/card-meanings*.json"
+    },
+    "api/rate.js": {
       "includeFiles": "api/_lib/card-meanings*.json"
     }
   }

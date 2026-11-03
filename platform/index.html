@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Stillwater</title><meta name="theme-color" content="#0b0f1e">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap">
+<style>
+@font-face{font-family:'Noto Sans Thai';font-weight:100 900;font-display:swap;src:url(/fonts/noto-sans-thai-thai.woff2) format('woff2');unicode-range:U+0E01-0E5B,U+200C-200D,U+25CC}
+@font-face{font-family:'Noto Sans Thai';font-weight:100 900;font-display:swap;src:url(/fonts/noto-sans-thai-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+2000-206F}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0b0f1e;color:#e9e4f2;font:300 17px/1.85 'Noto Sans Thai',sans-serif;min-height:100%}
+#sky{position:fixed;inset:0;z-index:0}
+main{position:relative;z-index:1;max-width:460px;margin:0 auto;padding:12vh 28px 80px}
+.s{display:none;animation:in .6s ease}.s.on{display:block}@keyframes in{from{opacity:0;transform:translateY(8px)}}
+.logo{font:400 15px 'Cormorant Garamond',serif;letter-spacing:.4em;text-transform:uppercase;opacity:.7;text-align:center;margin-bottom:22vh}
+h1{font:300 30px/1.4 'Cormorant Garamond','Noto Sans Thai',serif;text-align:center;margin-bottom:18px}
+h2{font:400 13px 'Noto Sans Thai';letter-spacing:.2em;opacity:.6;margin:56px 0 14px}
+p{margin-bottom:14px}.c{text-align:center}.dim{opacity:.6;font-size:15px}
+button,.btn{display:block;width:100%;margin-top:36px;padding:16px;border-radius:40px;border:1px solid rgba(233,228,242,.45);background:transparent;color:inherit;font:inherit;font-weight:400;cursor:pointer;text-align:center;text-decoration:none}
+button.solid{background:#e9e4f2;color:#141a30}.link{border:0;margin-top:14px;font-size:15px;opacity:.7;padding:6px}
+input,select,textarea{width:100%;background:transparent;border:0;border-bottom:1px solid rgba(233,228,242,.35);color:inherit;font:inherit;font-size:20px;padding:10px 2px;outline:0;color-scheme:dark}
+select option{background:#141a30}textarea{font-size:17px;border:1px solid rgba(233,228,242,.25);border-radius:14px;padding:12px;min-height:90px}
+.step{font-size:13px;letter-spacing:.2em;opacity:.5;margin-bottom:30px}.q{font-size:22px;margin-bottom:28px;font-weight:300}
+.code{letter-spacing:.6em;text-align:center;font-size:28px}
+.err{color:#f4b6c2;font-size:15px;min-height:24px;margin-top:10px}.dev{font-size:13px;opacity:.75;border:1px dashed #8a83a8;border-radius:10px;padding:8px;margin-top:16px}
+.more{display:none}.more.on{display:block}.more b{font-weight:500;display:block;margin-top:12px}
+.card{width:150px;border-radius:10px;display:block;margin:10px auto 18px;box-shadow:0 10px 40px rgba(150,140,255,.15)}
+.wall{width:160px;border-radius:14px;display:block;margin:10px auto}.lock{opacity:.55;font-size:14px;text-align:center;margin-top:8px}
+.row{display:flex;gap:10px}.row>*{flex:1}
+</style></head><body>
+<canvas id="sky"></canvas>
+<main>
+<section class="s on" id="s-home"><div class="logo">Stillwater</div><h1>ฟังเสียงดวงดาว<br>ที่เป็นของคุณ</h1><p class="c dim">เรื่องเล็กๆ ของคุณ ในแต่ละวัน</p>
+<button class="solid" data-go="name">ดูดวงของฉัน</button><button class="link" data-go="login">เคยบันทึกไว้แล้ว เข้าสู่ระบบ</button></section>
+
+<section class="s" id="s-name"><div class="step">1 / 4</div><div class="q">อยากให้เรียกคุณว่าอะไรดีคะ</div><input id="f-name" maxlength="30" placeholder="ชื่อเล่น"><div class="err"></div><button data-next="date">ต่อไป</button></section>
+<section class="s" id="s-date"><div class="step">2 / 4</div><div class="q">คุณเกิดวันไหนคะ</div><input id="f-date" type="date" min="1920-01-01"><div class="err"></div><button data-next="time">ต่อไป</button></section>
+<section class="s" id="s-time"><div class="step">3 / 4</div><div class="q">เกิดเวลากี่โมงคะ</div><input id="f-time" type="time"><button class="link" id="no-time">ไม่ทราบเวลาเกิด</button><div class="err"></div><button data-next="place">ต่อไป</button></section>
+<section class="s" id="s-place"><div class="step">4 / 4</div><div class="q">เกิดที่จังหวัดหรือประเทศไหนคะ</div><select id="f-place"></select><div class="err"></div><button class="solid" data-next="first">ดูดวงของฉัน</button></section>
+
+<section class="s" id="s-first"><h1 id="first-h"></h1><div id="first-t"></div><button class="solid" data-go="email">บันทึกดวงของฉัน + รับวอลเปเปอร์ฟรี</button></section>
+<section class="s" id="s-email"><div class="q">ใส่อีเมลเพื่อบันทึกดวงของคุณ</div><p class="dim">เราจะส่งรหัส 6 หลักไปให้ ไม่ต้องจำรหัสผ่านค่ะ</p><input id="f-email" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com"><div class="err"></div><button class="solid" id="send">ส่งรหัสให้ฉัน</button></section>
+<section class="s" id="s-code"><div class="q">ใส่รหัสที่ส่งไปทางอีเมล</div><p class="dim" id="code-to"></p><input id="f-code" class="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code"><div class="dev" id="dev" hidden></div><div class="err"></div><button class="solid" id="verify">เข้าสู่หน้าของฉัน</button><button class="link" id="resend">ขอรหัสใหม่</button></section>
+
+<section class="s" id="s-main"><div class="logo" style="margin-bottom:6vh">Stillwater</div>
+<h2>วันนี้ของคุณ</h2><div id="daily"></div><button class="link" id="more-btn">ดูเพิ่ม</button><div class="more" id="more"></div>
+<h2>ตัวตนของคุณ</h2><div id="pattern"></div>
+<h2>คุณกับอีกคน</h2><p class="dim">ใส่วันเกิดของคนที่อยากรู้ใจ</p><input id="b-date" type="date"><div class="row"><input id="b-time" type="time"><select id="b-place"></select></div><div class="err" id="b-err"></div><button id="bonds-btn">ดูความสัมพันธ์</button><div id="bonds"></div>
+<h2>เปิดไพ่กับพี่เวรา</h2><div id="card"></div><button id="card-btn">เปิดดูข้อความวันนี้</button><a class="btn" href="/?src=platform">อยากถามพี่เวราเรื่องที่ค้างใจ</a>
+<h2>วอลเปเปอร์ของคุณ</h2><img class="wall" id="wall" alt=""><button id="wall-btn">ดาวน์โหลด</button>
+<h2>ถามใจ</h2><textarea id="g-q" maxlength="300" placeholder="อยากถามอะไรคะ"></textarea><div class="err" id="g-err"></div><button id="g-btn">ถาม</button><div id="g-a" style="margin-top:18px"></div>
+<p class="lock" id="tier"></p><button class="link" id="logout">ออกจากระบบ</button></section>
+</main>
+<script type="module" src="/platform/app.js?v=1"></script>
+</body></html>
