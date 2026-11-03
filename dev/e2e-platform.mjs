@@ -5,6 +5,7 @@ const BASE = process.env.BASE || "http://localhost:3199", OUT = process.env.SHOT
 const b = await chromium.launch({ executablePath: process.env.CHROME || undefined });
 const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, acceptDownloads: true });
 const p = await ctx.newPage(); const errors = [];
+if (process.env.BLOCK_EV) await p.route("**/api/ev", (r) => r.fulfill({ status: 204 })); // remote check: never add rows to the real event log
 p.on("console", (m) => m.type() === "error" && errors.push(m.text())); p.on("pageerror", (e) => errors.push(e.message));
 const shot = async (n, full = false) => { await p.waitForTimeout(700); return p.screenshot({ path: `${OUT}/platform-${n}.png`, fullPage: full }); };
 const on = (id) => p.waitForSelector(`#s-${id}.on`);

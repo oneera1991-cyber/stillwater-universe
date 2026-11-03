@@ -24,7 +24,10 @@ export const STAGES = ["free", "full"];
 
 export default async function handler(req, res) {
   // Stillwater platform (vercel.json: /api/sw → /api/rate?sw=1). Lazy import: Vera rating below never loads it.
-  if (req.query?.sw === "1") return (await import("./_lib/sw-api.js")).default(req, res);
+  if (req.query?.sw === "1") {
+    try { return (await import("./_lib/sw-api.js")).default(req, res); }
+    catch (e) { console.error("sw load failed:", e?.message); return res.status(500).json({ error: "ขอโทษนะคะ ลองใหม่อีกครั้งค่ะ", ...(process.env.VERCEL_ENV !== "production" ? { debug: String(e?.message).slice(0, 300) } : {}) }); }
+  }
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
