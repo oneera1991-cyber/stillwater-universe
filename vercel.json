@@ -30,7 +30,7 @@
       "includeFiles": "api/_lib/card-meanings*.json"
     },
     "api/rate.js": {
-      "includeFiles": "api/_lib/card-meanings*.json"
+      "includeFiles": "{api/_lib/card-meanings*.json,node_modules/astronomy-engine/astronomy.js,node_modules/astronomy-engine/package.json}"
     }
   }
 }
